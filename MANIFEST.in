@@ -1,0 +1,5 @@
+include README.rst
+include LICENSE.rst
+include MANIFEST.in
+include grammarinator/VERSION
+recursive-include grammarinator/resources *

@@ -1,0 +1,82 @@
+{
+  "a": {
+    "attributes": {
+      "href": ["https://github.com/renatahodovan/grammarinator", "https://github.com/renatahodovan/fuzzinator"]
+    },
+    "children": []
+  },
+  "abbr": {
+    "attributes": {
+      "onabort": ["console.log('Grammarinator rulz!');"],
+      "onblur": ["console.log('Grammarinator rulz!');"],
+      "oncancel": ["console.log('Grammarinator rulz!');"]
+    },
+    "children": ["a", "abbr", "article"]
+  },
+  "address": {
+    "attributes": {
+      "contenteditable": ["true", "false"],
+      "dir": ["ltr", "rtl"],
+      "draggable": ["true", "false"],
+      "lang": ["ab",  "aa",  "af",  "sq",  "am",  "ar",  "an",  "hy",  "as",  "ay",  "az",  "ba",  "eu",  "bn",  "dz",  "bh",  "bi",  "br", "bg",  "my",  "be",  "km",  "ca",  "zh",  "co",  "hr",  "cs",  "da",  "nl",  "en",  "eo",  "et",  "fo",  "fa",  "fi",  "fr", "fy",  "gl",  "gd",  "gv",  "ka",  "de",  "el",  "kl",  "gn",  "gu",  "ht",  "ha",  "he",  "hi",  "hu",  "is",  "io",  "id", "ia",  "ie",  "iu",  "ik",  "ga",  "it",  "ja",  "jv",  "kn",  "ks",  "kk",  "rw",  "ky",  "rn",  "ko",  "ku",  "lo",  "la", "lv",  "li",  "ln",  "lt",  "mk",  "mg",  "ms",  "ml",  "mt",  "mi",  "mr",  "mo",  "mn",  "na",  "ne",  "no",  "oc",  "or", "om",  "ps",  "pl",  "pt",  "pa",  "qu",  "rm",  "ro",  "ru",  "sz",  "sm",  "sg",  "sa",  "sr",  "sh",  "st",  "tn",  "sn", "ii",  "sd",  "si",  "ss",  "sk",  "sl",  "so",  "es",  "su",  "sw",  "sv",  "tl",  "tg",  "ta",  "tt",  "te",  "th",  "bo", "ti",  "to",  "ts",  "tr",  "tk",  "tw",  "ug",  "uk",  "ur",  "uz",  "vi",  "vo",  "wa",  "cy",  "wo",  "xh",  "yi",  "yo", "zu"],
+      "translate": ["true", "false"],
+      "onabort": ["console.log('Grammarinator rulz!');"],
+      "onblur": ["console.log('Grammarinator rulz!');"],
+      "oncancel": ["console.log('Grammarinator rulz!');"]
+    },
+    "children": ["a", "abbr", "address", "article"]
+  },
+  "article": {
+    "attributes": {
+      "onabort": ["console.log('Try out with Fuzzinator!');"],
+      "onblur": ["console.log('Try out with Fuzzinator!');"],
+      "oncancel": ["console.log('Try out with Fuzzinator!');"]
+    },
+    "children": ["a", "abbr", "article"]
+  },
+  "base": {
+    "attributes": {
+      "contenteditable": ["true", "false"],
+      "dir": ["ltr", "rtl"],
+      "draggable": ["true", "false"],
+      "lang": ["ab",  "aa",  "af",  "sq",  "am",  "ar",  "an",  "hy",  "as",  "ay",  "az",  "ba",  "eu",  "bn",  "dz",  "bh",  "bi",  "br", "bg",  "my",  "be",  "km",  "ca",  "zh",  "co",  "hr",  "cs",  "da",  "nl",  "en",  "eo",  "et",  "fo",  "fa",  "fi",  "fr", "fy",  "gl",  "gd",  "gv",  "ka",  "de",  "el",  "kl",  "gn",  "gu",  "ht",  "ha",  "he",  "hi",  "hu",  "is",  "io",  "id", "ia",  "ie",  "iu",  "ik",  "ga",  "it",  "ja",  "jv",  "kn",  "ks",  "kk",  "rw",  "ky",  "rn",  "ko",  "ku",  "lo",  "la", "lv",  "li",  "ln",  "lt",  "mk",  "mg",  "ms",  "ml",  "mt",  "mi",  "mr",  "mo",  "mn",  "na",  "ne",  "no",  "oc",  "or", "om",  "ps",  "pl",  "pt",  "pa",  "qu",  "rm",  "ro",  "ru",  "sz",  "sm",  "sg",  "sa",  "sr",  "sh",  "st",  "tn",  "sn", "ii",  "sd",  "si",  "ss",  "sk",  "sl",  "so",  "es",  "su",  "sw",  "sv",  "tl",  "tg",  "ta",  "tt",  "te",  "th",  "bo", "ti",  "to",  "ts",  "tr",  "tk",  "tw",  "ug",  "uk",  "ur",  "uz",  "vi",  "vo",  "wa",  "cy",  "wo",  "xh",  "yi",  "yo", "zu"],
+      "translate": ["true", "false"],
+      "onabort": ["console.log('Grammarinator rulz!');"],
+      "onblur": ["console.log('Grammarinator rulz!');"],
+      "oncancel": ["console.log('Grammarinator rulz!');"]
+    },
+    "children": []
+  },
+  "body": {
+    "attributes": {
+      "onafterprint": ["console.log('In Bug We Trust');"],
+      "onbeforeprint": ["console.log('In Bug We Trust');"],
+      "onbeforeunload": ["console.log('In Bug We Trust');"],
+      "translate": ["true", "false"]
+    },
+    "children": ["a", "abbr", "address", "article"]
+  },
+  "head": {
+    "attributes": {
+      "contenteditable": ["true", "false"],
+      "dir": ["ltr", "rtl"],
+      "draggable": ["true", "false"],
+      "lang": ["ab",  "aa",  "af",  "sq",  "am",  "ar",  "an",  "hy",  "as",  "ay",  "az",  "ba",  "eu",  "bn",  "dz",  "bh",  "bi",  "br", "bg",  "my",  "be",  "km",  "ca",  "zh",  "co",  "hr",  "cs",  "da",  "nl",  "en",  "eo",  "et",  "fo",  "fa",  "fi",  "fr", "fy",  "gl",  "gd",  "gv",  "ka",  "de",  "el",  "kl",  "gn",  "gu",  "ht",  "ha",  "he",  "hi",  "hu",  "is",  "io",  "id", "ia",  "ie",  "iu",  "ik",  "ga",  "it",  "ja",  "jv",  "kn",  "ks",  "kk",  "rw",  "ky",  "rn",  "ko",  "ku",  "lo",  "la", "lv",  "li",  "ln",  "lt",  "mk",  "mg",  "ms",  "ml",  "mt",  "mi",  "mr",  "mo",  "mn",  "na",  "ne",  "no",  "oc",  "or", "om",  "ps",  "pl",  "pt",  "pa",  "qu",  "rm",  "ro",  "ru",  "sz",  "sm",  "sg",  "sa",  "sr",  "sh",  "st",  "tn",  "sn", "ii",  "sd",  "si",  "ss",  "sk",  "sl",  "so",  "es",  "su",  "sw",  "sv",  "tl",  "tg",  "ta",  "tt",  "te",  "th",  "bo", "ti",  "to",  "ts",  "tr",  "tk",  "tw",  "ug",  "uk",  "ur",  "uz",  "vi",  "vo",  "wa",  "cy",  "wo",  "xh",  "yi",  "yo", "zu"],
+      "translate": ["true", "false"],
+      "onabort": ["console.log('Grammarinator rulz!');"],
+      "onblur": ["console.log('Grammarinator rulz!');"],
+      "oncancel": ["console.log('Grammarinator rulz!');"]
+    },
+    "children": ["base"]
+  },
+  "html": {
+    "attributes": {
+      "contenteditable": ["true", "false"],
+      "dir": ["ltr", "rtl"],
+      "draggable": ["true", "false"],
+      "lang": ["ab",  "aa",  "af",  "sq",  "am",  "ar",  "an",  "hy",  "as",  "ay",  "az",  "ba",  "eu",  "bn",  "dz",  "bh",  "bi",  "br", "bg",  "my",  "be",  "km",  "ca",  "zh",  "co",  "hr",  "cs",  "da",  "nl",  "en",  "eo",  "et",  "fo",  "fa",  "fi",  "fr", "fy",  "gl",  "gd",  "gv",  "ka",  "de",  "el",  "kl",  "gn",  "gu",  "ht",  "ha",  "he",  "hi",  "hu",  "is",  "io",  "id", "ia",  "ie",  "iu",  "ik",  "ga",  "it",  "ja",  "jv",  "kn",  "ks",  "kk",  "rw",  "ky",  "rn",  "ko",  "ku",  "lo",  "la", "lv",  "li",  "ln",  "lt",  "mk",  "mg",  "ms",  "ml",  "mt",  "mi",  "mr",  "mo",  "mn",  "na",  "ne",  "no",  "oc",  "or", "om",  "ps",  "pl",  "pt",  "pa",  "qu",  "rm",  "ro",  "ru",  "sz",  "sm",  "sg",  "sa",  "sr",  "sh",  "st",  "tn",  "sn", "ii",  "sd",  "si",  "ss",  "sk",  "sl",  "so",  "es",  "su",  "sw",  "sv",  "tl",  "tg",  "ta",  "tt",  "te",  "th",  "bo", "ti",  "to",  "ts",  "tr",  "tk",  "tw",  "ug",  "uk",  "ur",  "uz",  "vi",  "vo",  "wa",  "cy",  "wo",  "xh",  "yi",  "yo", "zu"],
+      "translate": ["true", "false"]
+    },
+    "children": ["head", "body"]
+  }
+}
