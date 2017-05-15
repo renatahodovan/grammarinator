@@ -3,6 +3,9 @@ Grammarinator
 =============
 *ANTLRv4 grammar-based test generator*
 
+.. image:: https://badge.fury.io/py/grammarinator.svg
+   :target: https://badge.fury.io/py/grammarinator
+
 *Grammarinator* is a random test generator / fuzzer that creates test cases
 according to an input ANTLR_ v4 grammar. The motivation behind this
 grammar-based approach is to leverage the large variety of publicly
@@ -27,7 +30,11 @@ Requirements
 Install
 =======
 
-Clone the project and run setuptools::
+The quick way::
+
+    pip install grammarinator
+
+Or clone the project and run setuptools::
 
     python setup.py install
 
