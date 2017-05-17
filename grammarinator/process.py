@@ -432,7 +432,7 @@ class FuzzerFactory(object):
         return imports
 
     def parse_single(self, grammar):
-        token_stream = CommonTokenStream(self.lexer(FileStream(grammar)))
+        token_stream = CommonTokenStream(self.lexer(FileStream(grammar, encoding='utf-8')))
         target_parser = self.parser(token_stream)
         root = target_parser.grammarSpec()
         # assert target_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
