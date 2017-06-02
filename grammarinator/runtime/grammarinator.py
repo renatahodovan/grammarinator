@@ -29,8 +29,10 @@ def printable_ranges(lower_bound, upper_bound):
         ranges.append((range_start, upper_bound))
     return ranges
 
+
 printable_unicode_ranges = printable_ranges(0x000000, 0x110000)
 printable_unicode_chars = list(chain(*printable_unicode_ranges))
+printable_ascii_ranges = printable_ranges(0x00, 0x80)
 
 
 def range_diff(r1, r2):
