@@ -160,39 +160,55 @@ class FuzzerGenerator(object):
 
         if node.TOKEN_REF():
             src = node.TOKEN_REF().symbol.text
-            assert src in self.token_start_ranges
+            assert src in self.token_start_ranges, '{src} not in token_start_ranges.'.format(src=src)
             return self.token_start_ranges[src]
 
     def generate(self):
         for root in self.grammar_roots:
-            self.generate_single(root)
+            if root:
+                self.generate_single(root)
 
     def generate_single(self, node):
 
         if isinstance(node, self.parser.GrammarSpecContext):
-            self.init_fuzzer(node.identifier().TOKEN_REF().symbol.text.replace('Parser', '').replace('Lexer', ''),
+            name_token = node.identifier().TOKEN_REF() or node.identifier().RULE_REF()
+            self.init_fuzzer(name_token.symbol.text.replace('Parser', '').replace('Lexer', ''),
                              node.grammarType().LEXER(), node.grammarType().PARSER())
 
+            if node.prequelConstruct() and node.prequelConstruct(0).optionsSpec():
+                option_spec = node.prequelConstruct(0).optionsSpec()
+                options = []
+                for option in option_spec.option():
+                    ident = option.identifier()
+                    options.append('{name}="{value}"'.format(name=(ident.RULE_REF() or ident.TOKEN_REF()).symbol.text,
+                                                             value=option.optionValue().getText()))
+
+                with self.indent():
+                    set_options = self.line('def set_options(self):')
+                    with self.indent():
+                        set_options += self.line('self.options = dict({options})\n'.format(options=', '.join(options)))
+
+                if self.lexer_body:
+                    self.lexer_body += set_options
+                if self.parser_body:
+                    self.parser_body += set_options
+
+            rules = node.rules().ruleSpec()
+            lexer_rules, parser_rules = [], []
+            for rule in rules:
+                if rule.parserRuleSpec():
+                    parser_rules.append(rule.parserRuleSpec())
+                elif rule.lexerRuleSpec():
+                    lexer_rules.append(rule.lexerRuleSpec())
+                else:
+                    assert False, 'Should not get here.'
+
             with self.indent():
-                for child in node.children:
-                    self.generate_single(child)
+                for rule in lexer_rules:
+                    self.generate_single(rule)
+                for rule in parser_rules:
+                    self.generate_single(rule)
             return ''
-
-        if isinstance(node, self.parser.OptionsSpecContext):
-            options = []
-            for option in node.option():
-                ident = option.identifier()
-                options.append('{name}="{value}"'.format(name=(ident.RULE_REF() or ident.TOKEN_REF()).symbol.text,
-                                                         value=option.optionValue().getText()))
-
-            set_options = self.line('def set_options(self):')
-            with self.indent():
-                set_options += self.line('self.options = dict({options})'.format(options=', '.join(options)))
-
-            if self.lexer_body:
-                self.lexer_body += set_options
-            if self.parser_body:
-                self.parser_body += set_options
 
         if isinstance(node, self.parser.ActionContext):
             if not self.actions:
@@ -260,6 +276,7 @@ class FuzzerGenerator(object):
                 self.lexer_body += rule_code
 
             if not parser_rule:
+                self.token_start_ranges[rule_name.symbol.text] = self.current_start_range
                 self.current_start_range = None
 
             return rule_code
@@ -376,7 +393,7 @@ class FuzzerGenerator(object):
             if node.STRING_LITERAL():
                 src = node.STRING_LITERAL().symbol.text[1:-1]
                 if self.current_start_range is not None:
-                    self.current_start_range.append(src[0])
+                    self.current_start_range.append((ord(src[0]), ord(src[0]) + 1))
                 return self.line('current += self.create_node(UnlexerRule(src=\'{src}\'))'.format(src=src))
 
         if isinstance(node, ParserRuleContext) and node.getChildCount():
