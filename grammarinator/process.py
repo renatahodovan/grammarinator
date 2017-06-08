@@ -385,22 +385,36 @@ class FuzzerGenerator(object):
 
 
 class FuzzerFactory(object):
-
-    def __init__(self, work_dir, antlr):
-        self.work_dir = work_dir
+    """
+    Class that generates fuzzers from grammars.
+    """
+    def __init__(self, work_dir=None, antlr=default_antlr_path):
+        """
+        :param work_dir: Directory to generate fuzzers into.
+        :param antlr: Path to the ANTLR jar.
+        """
+        self.work_dir = work_dir or getcwd()
 
         antlr_dir = join(self.work_dir, 'antlr')
         makedirs(antlr_dir, exist_ok=True)
         # Add the path of the built grammars to the Python path to be available at parsing.
-        sys.path.append(antlr_dir)
+        if antlr_dir not in sys.path:
+            sys.path.append(antlr_dir)
 
         self.lexer, self.parser, self.listener = build_grammars(antlr_dir, antlr=antlr)
 
-    def generate_fuzzer(self, grammars, actions, out, pep8):
+    def generate_fuzzer(self, grammars, *, actions=True, pep8=False):
+        """
+        Generates fuzzers from grammars.
+
+        :param grammars: List of grammar files to generate from.
+        :param actions: Boolean to enable or disable grammar actions.
+        :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
+        """
         lexer_root, parser_root, grammar_parser = None, None, None
 
         for grammar in grammars:
-            root, grammar_parser = self.parse(grammar)
+            root, grammar_parser = self._parse(grammar)
             # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
             if root.grammarType().LEXER() or not root.grammarType().PARSER():
                 lexer_root = root
@@ -410,19 +424,19 @@ class FuzzerFactory(object):
         fuzzer_generator = FuzzerGenerator(lexer_root, parser_root, grammar_parser, actions)
         fuzzer_generator.generate()
 
-        with open(join(out, fuzzer_generator.lexer_name + '.py'), 'w') as f:
+        with open(join(self.work_dir, fuzzer_generator.lexer_name + '.py'), 'w') as f:
             src = fuzzer_generator.lexer_header + '\n\n' + fuzzer_generator.lexer_body
             if pep8:
                 src = autopep8.fix_code(src)
             f.write(src)
 
-        with open(join(out, fuzzer_generator.parser_name + '.py'), 'w') as f:
+        with open(join(self.work_dir, fuzzer_generator.parser_name + '.py'), 'w') as f:
             src = fuzzer_generator.parser_header + '\n\n' + fuzzer_generator.parser_body
             if pep8:
                 src = autopep8.fix_code(src)
             f.write(src)
 
-    def collect_imports(self, root, base_dir):
+    def _collect_imports(self, root, base_dir):
         imports = set()
         for prequel in root.prequelConstruct():
             if prequel.delegateGrammars():
@@ -431,20 +445,20 @@ class FuzzerFactory(object):
                     imports.add(join(base_dir, (ident.RULE_REF() or ident.TOKEN_REF()).symbol.text + '.g4'))
         return imports
 
-    def parse_single(self, grammar):
+    def _parse_single(self, grammar):
         token_stream = CommonTokenStream(self.lexer(FileStream(grammar, encoding='utf-8')))
         target_parser = self.parser(token_stream)
         root = target_parser.grammarSpec()
         # assert target_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
         return root, target_parser
 
-    def parse(self, grammar):
+    def _parse(self, grammar):
         work_list = {grammar}
         root, target_parser = None, None
 
         while work_list:
             grammar = work_list.pop()
-            current_root, current_parser = self.parse_single(grammar)
+            current_root, current_parser = self._parse_single(grammar)
 
             # Save the 'outermost' grammar.
             if not root and not target_parser:
@@ -454,7 +468,7 @@ class FuzzerFactory(object):
                 for rule in current_root.rules().ruleSpec():
                     root.rules().addChild(rule)
 
-            work_list |= self.collect_imports(current_root, dirname(grammar))
+            work_list |= self._collect_imports(current_root, dirname(grammar))
 
         return root, target_parser
 
@@ -485,7 +499,7 @@ def execute():
     if args.antlr == default_antlr_path:
         antlerinator.install(lazy=True)
 
-    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, args.actions, args.out, args.pep8)
+    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, actions=args.actions, pep8=args.pep8)
 
 
 if __name__ == '__main__':

@@ -6,9 +6,11 @@
 # according to those terms.
 
 from . import runtime
+from .process import FuzzerFactory
 from .pkgdata import __version__
 
 __all__ = [
     '__version__',
+    'FuzzerFactory',
     'runtime'
 ]
