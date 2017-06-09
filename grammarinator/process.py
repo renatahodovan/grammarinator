@@ -333,12 +333,6 @@ class FuzzerGenerator(object):
             return self.line('current += self.{rule_name}()'.format(rule_name=node.RULE_REF().symbol.text))
 
         if isinstance(node, (self.parser.LexerAtomContext, self.parser.AtomContext)):
-            if node.characterRange():
-                start, end = self.character_range_interval(node)
-                if self.current_start_range is not None:
-                    self.current_start_range.append(range(start, end))
-                return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list(range({start}, {end}))))'.format(start=start, end=end))
-
             if node.DOT():
                 return self.line('current += UnlexerRule(src=self.any_char())')
 
@@ -355,16 +349,23 @@ class FuzzerGenerator(object):
                 self.lexer_header += '{charset_var} = list(chain(*multirange_diff(printable_unicode_ranges, [{charset}])))\n'.format(charset_var=charset_var, charset=','.join(['({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in sorted(options, key=lambda x: x[0])]))
                 return self.line('current += UnlexerRule(src=self.char_from_list({charset}))'.format(charset=charset_var))
 
-            if isinstance(node, self.parser.LexerAtomContext) and node.LEXER_CHAR_SET():
-                ranges = self.lexer_charset_interval(node.LEXER_CHAR_SET().symbol.text[1:-1])
+            if isinstance(node, self.parser.LexerAtomContext):
+                if node.characterRange():
+                    start, end = self.character_range_interval(node)
+                    if self.current_start_range is not None:
+                        self.current_start_range.append((start, end))
+                    return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list(range({start}, {end}))))'.format(start=start, end=end))
 
-                if self.current_start_range is not None:
-                    self.current_start_range.extend(ranges)
+                if node.LEXER_CHAR_SET():
+                    ranges = self.lexer_charset_interval(node.LEXER_CHAR_SET().symbol.text[1:-1])
 
-                charset_var = 'charset_{idx}'.format(idx=self.charset_idx)
-                self.charset_idx += 1
-                self.lexer_header += '{charset_var} = list(chain({charset}))\n'.format(charset_var=charset_var, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
-                return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_var})))'.format(charset_var=charset_var))
+                    if self.current_start_range is not None:
+                        self.current_start_range.extend(ranges)
+
+                    charset_var = 'charset_{idx}'.format(idx=self.charset_idx)
+                    self.charset_idx += 1
+                    self.lexer_header += '{charset_var} = list(chain({charset}))\n'.format(charset_var=charset_var, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
+                    return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_var})))'.format(charset_var=charset_var))
 
             return ''.join([self.generate_single(child) for child in node.children])
 
