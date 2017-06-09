@@ -79,6 +79,10 @@ class FuzzerGenerator(object):
 
         if lexer:
             self.lexer_body += src
+            with self.indent():
+                self.lexer_body += self.line('def EOF(self):')
+                with self.indent():
+                    self.lexer_body += self.line('pass\n')
         else:
             self.parser_body += src
 
