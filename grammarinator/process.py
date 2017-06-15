@@ -179,23 +179,62 @@ class FuzzerGenerator(object):
             self.init_fuzzer(name_token.symbol.text.replace('Parser', '').replace('Lexer', ''),
                              node.grammarType().LEXER(), node.grammarType().PARSER())
 
-            if node.prequelConstruct() and node.prequelConstruct(0).optionsSpec():
-                option_spec = node.prequelConstruct(0).optionsSpec()
-                options = []
-                for option in option_spec.option():
-                    ident = option.identifier()
-                    options.append('{name}="{value}"'.format(name=(ident.RULE_REF() or ident.TOKEN_REF()).symbol.text,
-                                                             value=option.optionValue().getText()))
+            if node.prequelConstruct():
+                for prequelConstruct in node.prequelConstruct():
+                    if prequelConstruct.optionsSpec():
+                        option_spec = prequelConstruct.optionsSpec()
+                        options = []
+                        for option in option_spec.option():
+                            ident = option.identifier()
+                            options.append('{name}="{value}"'.format(name=(ident.RULE_REF() or ident.TOKEN_REF()).symbol.text,
+                                                                     value=option.optionValue().getText()))
 
-                with self.indent():
-                    set_options = self.line('def set_options(self):')
-                    with self.indent():
-                        set_options += self.line('self.options = dict({options})\n'.format(options=', '.join(options)))
+                        with self.indent():
+                            set_options = self.line('def set_options(self):')
+                            with self.indent():
+                                set_options += self.line('self.options = dict({options})\n'.format(options=', '.join(options)))
 
-                if self.lexer_body:
-                    self.lexer_body += set_options
-                if self.parser_body:
-                    self.parser_body += set_options
+                        if self.lexer_body:
+                            self.lexer_body += set_options
+                        if self.parser_body:
+                            self.parser_body += set_options
+
+                    elif prequelConstruct.action():
+                        if not self.actions:
+                            return ''
+
+                        action = prequelConstruct.action()
+                        scope_name = action.actionScopeName()
+                        if scope_name:
+                            action_scope = scope_name.LEXER() or scope_name.PARSER()
+                            assert action_scope, '{scope} scope not supported.'.format(scope=(scope_name.identifier().RULE_REF() or scope_name.identifier().TOKEN_REF()).symbol.text)
+                            action_scope = action_scope.symbol.text
+                        else:
+                            action_scope = 'parser'
+
+                        action_ident = action.identifier()
+                        action_type = (action_ident.RULE_REF() or action_ident.TOKEN_REF()).symbol.text
+                        raw_action_src = ''.join([child.symbol.text for child in action.actionBlock().ACTION_CONTENT()])
+
+                        if action_type == 'header':
+                            action_src = raw_action_src
+                        else:
+                            with self.indent():
+                                action_src = ''.join([self.line(line) for line in raw_action_src.splitlines()])
+
+                        # We simply append both member and header code chunks to the generated source.
+                        # It's the user's responsibility to define them in order.
+                        if action_scope == 'parser':
+                            # Both 'member' and 'members' keywords are accepted.
+                            if action_type.startswith('member'):
+                                self.parser_body += action_src
+                            elif action_type == 'header':
+                                self.parser_header += action_src
+                        elif action_scope == 'lexer':
+                            if action_type.startswith('member'):
+                                self.lexer_body += action_src
+                        elif action_type == 'header':
+                            self.lexer_header += action_src
 
             rules = node.rules().ruleSpec()
             lexer_rules, parser_rules = [], []
@@ -212,42 +251,6 @@ class FuzzerGenerator(object):
                     self.generate_single(rule)
                 for rule in parser_rules:
                     self.generate_single(rule)
-            return ''
-
-        if isinstance(node, self.parser.ActionContext):
-            if not self.actions:
-                return ''
-
-            scope_name = node.actionScopeName()
-            if scope_name:
-                action_scope = scope_name.LEXER() or scope_name.PARSER()
-                assert action_scope, '{scope} scope not supported.'.format(scope=(scope_name.identifier().RULE_REF() or scope_name.identifier().TOKEN_REF()).symbol.text)
-                action_scope = action_scope.symbol.text
-            else:
-                action_scope = 'parser'
-
-            action_ident = node.identifier()
-            action_type = (action_ident.RULE_REF() or action_ident.TOKEN_REF()).symbol.text
-            raw_action_src = ''.join([child.symbol.text for child in node.actionBlock().ACTION_CONTENT()])
-
-            if action_type == 'header':
-                action_src = raw_action_src
-            else:
-                action_src = ''.join([self.line(line) for line in raw_action_src.splitlines()])
-
-            # We simply append both member and header code chunks to the generated source.
-            # It's the user's responsibility to define them in order.
-            if action_scope == 'parser':
-                # Both 'member' and 'members' keywords are accepted.
-                if action_type.startswith('member'):
-                    self.parser_body += action_src
-                elif action_type == 'header':
-                    self.parser_header += action_src
-            elif action_scope == 'lexer':
-                if action_type.startswith('member'):
-                    self.lexer_body += action_src
-            elif action_type == 'header':
-                    self.lexer_header += action_src
             return ''
 
         if isinstance(node, (self.parser.ParserRuleSpecContext, self.parser.LexerRuleSpecContext)):
