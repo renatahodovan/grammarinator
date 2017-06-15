@@ -84,6 +84,7 @@ class FuzzerGenerator(object):
                 with self.indent():
                     self.lexer_body += self.line('pass\n')
         else:
+            self.parser_body += self.line('import {lexer_name}'.format(lexer_name=self.lexer_name))
             self.parser_body += src
 
         return fuzzer_name
@@ -372,10 +373,11 @@ class FuzzerGenerator(object):
                     for set_element in node.notSet().blockSet().setElement():
                         options.extend(self.chars_from_set(set_element))
 
-                charset_var = 'charset_{idx}'.format(idx=self.charset_idx)
+                charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
                 self.charset_idx += 1
-                self.lexer_header += '{charset_var} = list(chain(*multirange_diff(printable_unicode_ranges, [{charset}])))\n'.format(charset_var=charset_var, charset=','.join(['({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in sorted(options, key=lambda x: x[0])]))
-                return self.line('current += UnlexerRule(src=self.char_from_list({charset}))'.format(charset=charset_var))
+                self.lexer_header += '{charset_name} = list(chain(*multirange_diff(printable_unicode_ranges, [{charset}])))\n'.format(charset_name=charset_name, charset=','.join(['({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in sorted(options, key=lambda x: x[0])]))
+                charset_ref = charset_name if isinstance(node, self.parser.LexerAtomContext) else '{lexer_name}.{charset_name}'.format(lexer_name=self.lexer_name, charset_name=charset_name)
+                return self.line('current += UnlexerRule(src=self.char_from_list({charset_ref}))'.format(charset_ref=charset_ref))
 
             if isinstance(node, self.parser.LexerAtomContext):
                 if node.characterRange():
@@ -390,10 +392,10 @@ class FuzzerGenerator(object):
                     if self.current_start_range is not None:
                         self.current_start_range.extend(ranges)
 
-                    charset_var = 'charset_{idx}'.format(idx=self.charset_idx)
+                    charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
                     self.charset_idx += 1
-                    self.lexer_header += '{charset_var} = list(chain({charset}))\n'.format(charset_var=charset_var, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
-                    return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_var})))'.format(charset_var=charset_var))
+                    self.lexer_header += '{charset_name} = list(chain({charset}))\n'.format(charset_name=charset_name, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
+                    return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_name})))'.format(charset_name=charset_name))
 
             return ''.join([self.generate_single(child) for child in node.children])
 

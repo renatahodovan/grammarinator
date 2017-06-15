@@ -23,6 +23,7 @@ def html_space_transformer(node):
 
 
 
+import HTMLUnlexer
 class HTMLUnparser(Grammarinator):
 
     def __init__(self, lexer):
