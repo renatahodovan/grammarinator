@@ -246,6 +246,10 @@ class FuzzerGenerator(object):
                 else:
                     assert False, 'Should not get here.'
 
+            for mode_spec in node.modeSpec():
+                for lexer_rule in mode_spec.lexerRuleSpec():
+                    lexer_rules.append(lexer_rule)
+
             with self.indent():
                 for rule in lexer_rules:
                     self.generate_single(rule)

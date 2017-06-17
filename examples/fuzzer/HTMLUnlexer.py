@@ -23,6 +23,9 @@ class HTMLUnlexer(Grammarinator):
         self.lexer = self
         self.set_options()
 
+    def EOF(self):
+        pass
+
     
     
     def style_sheet(self):
@@ -351,3 +354,4 @@ class HTMLUnlexer(Grammarinator):
 
     def set_options(self):
         self.options = dict(tokenVocab="HTMLLexer", dot="any_unicode_char")
+

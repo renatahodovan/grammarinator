@@ -32,6 +32,7 @@ class HTMLUnparser(Grammarinator):
 
     def set_options(self):
         self.options = dict(tokenVocab="HTMLLexer", dot="any_unicode_char")
+
     
     def endOfHtmlElement(self):
         pass
