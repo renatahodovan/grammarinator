@@ -11,8 +11,9 @@ import logging
 import re
 import sys
 
-from antlr4 import *
+from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 from argparse import ArgumentParser
+from collections import defaultdict
 from contextlib import contextmanager
 from os.path import dirname, exists, join
 from os import getcwd, makedirs
@@ -25,6 +26,74 @@ logger = logging.getLogger('grammarinator')
 logging.basicConfig(format='%(message)s')
 
 
+class Node(object):
+
+    def __init__(self, id):
+        self.id = id
+        self.out_neighbours = []
+
+
+class RuleNode(Node):
+    pass
+
+
+class AlternationNode(Node):
+    pass
+
+
+class AlternativeNode(Node):
+    pass
+
+
+class GrammarGraph(object):
+
+    def __init__(self):
+        self.vertices = dict()
+        self.alt_id = 0
+
+    def new_alt_id(self):
+        alt_name = 'alt_{idx}'.format(idx=self.alt_id)
+        self.alt_id += 1
+        return alt_name
+
+    def add_node(self, node):
+        self.vertices[node.id] = node
+
+    def add_edge(self, frm, to):
+        assert frm in self.vertices, '{frm} not in vertices.'.format(frm=frm)
+        assert to in self.vertices, '{to} not in vertices.'.format(to=to)
+        self.vertices[frm].out_neighbours.append(self.vertices[to])
+
+    def calc_min_depths(self):
+        min_depths = defaultdict(lambda: float('inf'))
+        changed = True
+
+        while changed:
+            changed = False
+            for ident in self.vertices:
+                # From alternatives the minimum depth is the shortest, otherwise - that's in case of sequences -
+                # the longest one must be considered.
+                selector = min if isinstance(self.vertices[ident], AlternationNode) else max
+                min_depth = selector([min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode)) for node in self.vertices[ident].out_neighbours], default=0)
+
+                if min_depth < min_depths[ident]:
+                    min_depths[ident] = min_depth
+                    changed = True
+
+        # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
+        for ident in min_depths:
+            if isinstance(self.vertices[ident], AlternationNode):
+                assert all(min_depths[node.id] < float('inf') for node in self.vertices[ident].out_neighbours), '{ident} has an alternative that isn\'t reachable.'.format(ident=ident)
+                min_depths[ident] = [min_depths[node.id] for node in self.vertices[ident].out_neighbours]
+
+        # The lifted Alternatives aren't needed anymore.
+        for ident in list(min_depths.keys()):
+            if isinstance(self.vertices[ident], AlternativeNode):
+                del min_depths[ident]
+
+        return min_depths
+
+
 class FuzzerGenerator(object):
 
     def __init__(self, lexer_root, parser_root, parser, actions):
@@ -33,6 +102,8 @@ class FuzzerGenerator(object):
         self.indent_level = 0
         self.actions = actions
         self.charset_idx = 0
+
+        self.graph = GrammarGraph()
 
         self.current_start_range = None
         self.token_start_ranges = dict()
@@ -80,7 +151,7 @@ class FuzzerGenerator(object):
         if lexer:
             self.lexer_body += src
             with self.indent():
-                self.lexer_body += self.line('def EOF(self):')
+                self.lexer_body += self.line('def EOF(self, *args, **kwargs):')
                 with self.indent():
                     self.lexer_body += self.line('pass\n')
         else:
@@ -109,7 +180,7 @@ class FuzzerGenerator(object):
         action_block = getattr(node, 'actionBlock', None)
         if action_block:
             if action_block() and action_block().ACTION_CONTENT() and node.QUESTION():
-                return ''.join([child.symbol.text for child in action_block().ACTION_CONTENT()])
+                return ''.join([str(child) for child in action_block().ACTION_CONTENT()])
             return '1'
 
         element = getattr(node, 'element', None) or getattr(node, 'lexerElement', None)
@@ -121,12 +192,14 @@ class FuzzerGenerator(object):
         child_ref = getattr(node, 'alternative', None) or getattr(node, 'lexerElements', None)
         return self.find_conditions(child_ref())
 
-    def weight_array(self, nodes):
-        return 'weights = [{content}]'.format(content=', '.join([self.find_conditions(node) for node in nodes]))
+    def weight_array(self, nodes, alternation_id):
+        return 'weights = self.depth_limited_weights([{weights}], self.min_depths[\'{alt_id}\'], max_depth)'.format(
+            weights=', '.join([self.find_conditions(node) for node in nodes]),
+            alt_id=alternation_id)
 
     def character_range_interval(self, node):
-        start = node.characterRange().STRING_LITERAL(0).symbol.text[1:-1]
-        end = node.characterRange().STRING_LITERAL(1).symbol.text[1:-1]
+        start = str(node.characterRange().STRING_LITERAL(0))[1:-1]
+        end = str(node.characterRange().STRING_LITERAL(1))[1:-1]
 
         return int(start.replace('\\u', '0x'), 16) if '\\u' in start else ord(start),\
                int(end.replace('\\u', '0x'), 16) if '\\u' in end else ord(end) + 1
@@ -156,124 +229,143 @@ class FuzzerGenerator(object):
             return [self.character_range_interval(node)]
 
         if node.LEXER_CHAR_SET():
-            return self.lexer_charset_interval(node.LEXER_CHAR_SET().symbol.text[1:-1])
+            return self.lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
 
         if node.STRING_LITERAL():
-            assert len(node.STRING_LITERAL().symbol.text) > 2, 'Negated string literal must not be empty.'
-            first_char = ord(node.STRING_LITERAL().symbol.text[1])
+            assert len(str(node.STRING_LITERAL())) > 2, 'Negated string literal must not be empty.'
+            first_char = ord(str(node.STRING_LITERAL())[1])
             return [(first_char, first_char + 1)]
 
         if node.TOKEN_REF():
-            src = node.TOKEN_REF().symbol.text
+            src = str(node.TOKEN_REF())
             assert src in self.token_start_ranges, '{src} not in token_start_ranges.'.format(src=src)
             return self.token_start_ranges[src]
 
     def generate(self):
+        all_lexer_ids, all_parser_ids = [], []
         for root in self.grammar_roots:
             if root:
-                self.generate_single(root)
+                lexer_ids, parser_ids = self.generate_grammar(root)
+                all_lexer_ids.extend(lexer_ids)
+                all_parser_ids.extend(parser_ids)
 
-    def generate_single(self, node):
+        self.generate_depths(all_lexer_ids, all_parser_ids)
 
-        if isinstance(node, self.parser.GrammarSpecContext):
-            name_token = node.identifier().TOKEN_REF() or node.identifier().RULE_REF()
-            self.init_fuzzer(name_token.symbol.text.replace('Parser', '').replace('Lexer', ''),
-                             node.grammarType().LEXER(), node.grammarType().PARSER())
+    def generate_grammar(self, node):
+        assert isinstance(node, self.parser.GrammarSpecContext)
+        name_token = node.identifier().TOKEN_REF() or node.identifier().RULE_REF()
+        self.init_fuzzer(str(name_token).replace('Parser', '').replace('Lexer', ''),
+                         node.grammarType().LEXER(), node.grammarType().PARSER())
 
-            if node.prequelConstruct():
-                for prequelConstruct in node.prequelConstruct():
-                    if prequelConstruct.optionsSpec():
-                        option_spec = prequelConstruct.optionsSpec()
-                        options = []
-                        for option in option_spec.option():
-                            ident = option.identifier()
-                            options.append('{name}="{value}"'.format(name=(ident.RULE_REF() or ident.TOKEN_REF()).symbol.text,
-                                                                     value=option.optionValue().getText()))
+        if node.prequelConstruct():
+            for prequelConstruct in node.prequelConstruct():
+                if prequelConstruct.optionsSpec():
+                    option_spec = prequelConstruct.optionsSpec()
+                    options = []
+                    for option in option_spec.option():
+                        ident = option.identifier()
+                        options.append('{name}="{value}"'.format(name=ident.RULE_REF() or ident.TOKEN_REF(),
+                                                                 value=option.optionValue().getText()))
 
+                    with self.indent():
+                        set_options = self.line('def set_options(self):')
                         with self.indent():
-                            set_options = self.line('def set_options(self):')
-                            with self.indent():
-                                set_options += self.line('self.options = dict({options})\n'.format(options=', '.join(options)))
+                            set_options += self.line('self.options = dict({options})\n'.format(options=', '.join(options)))
 
-                        if self.lexer_body:
-                            self.lexer_body += set_options
-                        if self.parser_body:
-                            self.parser_body += set_options
+                    if self.lexer_body:
+                        self.lexer_body += set_options
+                    if self.parser_body:
+                        self.parser_body += set_options
 
-                    elif prequelConstruct.action():
-                        if not self.actions:
-                            return ''
+                elif prequelConstruct.action() and self.actions:
+                    action = prequelConstruct.action()
+                    scope_name = action.actionScopeName()
+                    if scope_name:
+                        action_scope = scope_name.LEXER() or scope_name.PARSER()
+                        assert action_scope, '{scope} scope not supported.'.format(scope=scope_name.identifier().RULE_REF() or scope_name.identifier().TOKEN_REF())
+                        action_scope = str(action_scope)
+                    else:
+                        action_scope = 'parser'
 
-                        action = prequelConstruct.action()
-                        scope_name = action.actionScopeName()
-                        if scope_name:
-                            action_scope = scope_name.LEXER() or scope_name.PARSER()
-                            assert action_scope, '{scope} scope not supported.'.format(scope=(scope_name.identifier().RULE_REF() or scope_name.identifier().TOKEN_REF()).symbol.text)
-                            action_scope = action_scope.symbol.text
-                        else:
-                            action_scope = 'parser'
+                    action_ident = action.identifier()
+                    action_type = str(action_ident.RULE_REF() or action_ident.TOKEN_REF())
+                    raw_action_src = ''.join([str(child) for child in action.actionBlock().ACTION_CONTENT()])
 
-                        action_ident = action.identifier()
-                        action_type = (action_ident.RULE_REF() or action_ident.TOKEN_REF()).symbol.text
-                        raw_action_src = ''.join([child.symbol.text for child in action.actionBlock().ACTION_CONTENT()])
+                    if action_type == 'header':
+                        action_src = raw_action_src
+                    else:
+                        with self.indent():
+                            action_src = ''.join([self.line(line) for line in raw_action_src.splitlines()])
 
-                        if action_type == 'header':
-                            action_src = raw_action_src
-                        else:
-                            with self.indent():
-                                action_src = ''.join([self.line(line) for line in raw_action_src.splitlines()])
-
-                        # We simply append both member and header code chunks to the generated source.
-                        # It's the user's responsibility to define them in order.
-                        if action_scope == 'parser':
-                            # Both 'member' and 'members' keywords are accepted.
-                            if action_type.startswith('member'):
-                                self.parser_body += action_src
-                            elif action_type == 'header':
-                                self.parser_header += action_src
-                        elif action_scope == 'lexer':
-                            if action_type.startswith('member'):
-                                self.lexer_body += action_src
+                    # We simply append both member and header code chunks to the generated source.
+                    # It's the user's responsibility to define them in order.
+                    if action_scope == 'parser':
+                        # Both 'member' and 'members' keywords are accepted.
+                        if action_type.startswith('member'):
+                            self.parser_body += action_src
                         elif action_type == 'header':
-                            self.lexer_header += action_src
+                            self.parser_header += action_src
+                    elif action_scope == 'lexer':
+                        if action_type.startswith('member'):
+                            self.lexer_body += action_src
+                    elif action_type == 'header':
+                        self.lexer_header += action_src
 
-            rules = node.rules().ruleSpec()
-            lexer_rules, parser_rules = [], []
-            for rule in rules:
-                if rule.parserRuleSpec():
-                    parser_rules.append(rule.parserRuleSpec())
-                elif rule.lexerRuleSpec():
-                    lexer_rules.append(rule.lexerRuleSpec())
-                else:
-                    assert False, 'Should not get here.'
+        rules = node.rules().ruleSpec()
+        lexer_ids, parser_ids = [], []
+        lexer_rules, parser_rules = [], []
+        for rule in rules:
+            if rule.parserRuleSpec():
+                name = str(rule.parserRuleSpec().RULE_REF())
+                self.graph.add_node(RuleNode(id=name))
+                parser_rules.append(rule.parserRuleSpec())
+                parser_ids.append(name)
+            elif rule.lexerRuleSpec():
+                name = str(rule.lexerRuleSpec().TOKEN_REF())
+                self.graph.add_node(RuleNode(id=name))
+                lexer_rules.append(rule.lexerRuleSpec())
+                lexer_ids.append(name)
+            else:
+                assert False, 'Should not get here.'
 
-            for mode_spec in node.modeSpec():
-                for lexer_rule in mode_spec.lexerRuleSpec():
-                    lexer_rules.append(lexer_rule)
+        for mode_spec in node.modeSpec():
+            for lexer_rule in mode_spec.lexerRuleSpec():
+                name = str(lexer_rule.TOKEN_REF())
+                self.graph.add_node(RuleNode(id=name))
+                lexer_rules.append(lexer_rule)
+                lexer_ids.append(name)
 
-            with self.indent():
-                for rule in lexer_rules:
-                    self.generate_single(rule)
-                for rule in parser_rules:
-                    self.generate_single(rule)
-            return ''
+        with self.indent():
+            for rule in lexer_rules:
+                new_alt_ids = []
+                self.lexer_body += self.generate_single(rule, None, new_alt_ids)
+                lexer_ids.extend(new_alt_ids)
+
+            for rule in parser_rules:
+                new_alt_ids = []
+                self.parser_body += self.generate_single(rule, None, new_alt_ids)
+                parser_ids.extend(new_alt_ids)
+
+        return lexer_ids, parser_ids
+
+    def generate_single(self, node, parent_id, new_alt_ids):
 
         if isinstance(node, (self.parser.ParserRuleSpecContext, self.parser.LexerRuleSpecContext)):
             parser_rule = isinstance(node, self.parser.ParserRuleSpecContext)
             node_type = UnparserRule if parser_rule else UnlexerRule
-            rule_name = node.RULE_REF() if parser_rule else node.TOKEN_REF()
+            rule_name = str(node.RULE_REF() if parser_rule else node.TOKEN_REF())
 
             # Mark that the next lexerAtom has to be saved as start range.
             if not parser_rule:
                 self.current_start_range = []
 
-            rule_header = self.line('def {rule_name}(self):'.format(rule_name=rule_name))
+            rule_header = self.line('def {rule_name}(self, *, max_depth=float(\'inf\')):'.format(rule_name=rule_name))
             with self.indent():
                 local_ctx = self.line('local_ctx = dict()')
                 rule_code = self.line('current = self.create_node({node_type}(name=\'{rule_name}\'))'.format(node_type=node_type.__name__,
                                                                                                              rule_name=rule_name))
                 rule_block_name = 'ruleBlock' if parser_rule else 'lexerRuleBlock'
-                rule_code += str(self.generate_single(getattr(node, rule_block_name)()))
+                rule_code += str(self.generate_single(getattr(node, rule_block_name)(), rule_name, new_alt_ids))
                 rule_code += self.line('return current\n')
 
             # local_ctx only has to be initialized if we have variable assignment.
@@ -282,13 +374,8 @@ class FuzzerGenerator(object):
             else:
                 rule_code = rule_header + rule_code
 
-            if parser_rule:
-                self.parser_body += rule_code
-            else:
-                self.lexer_body += rule_code
-
             if not parser_rule:
-                self.token_start_ranges[rule_name.symbol.text] = self.current_start_range
+                self.token_start_ranges[rule_name] = self.current_start_range
                 self.current_start_range = None
 
             return rule_code
@@ -296,14 +383,23 @@ class FuzzerGenerator(object):
         if isinstance(node, (self.parser.RuleAltListContext, self.parser.AltListContext, self.parser.LexerAltListContext)):
             children = [child for child in node.children if isinstance(child, ParserRuleContext)]
             if len(children) == 1:
-                return str(self.generate_single(children[0]))
+                return str(self.generate_single(children[0], parent_id, new_alt_ids))
 
-            result = self.line(self.weight_array(children))
+            alt_name = self.graph.new_alt_id()
+            new_alt_ids.append(alt_name)
+            self.graph.add_node(AlternationNode(id=alt_name))
+            self.graph.add_edge(frm=parent_id, to=alt_name)
+
+            result = self.line(self.weight_array(children, alt_name))
             result += self.line('choice = self.choice(weights)'.format(max=len(children)))
             for i, child in enumerate(children):
+                alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
+                self.graph.add_node(AlternativeNode(id=alternative_name))
+                self.graph.add_edge(frm=alt_name, to=alternative_name)
+
                 result += self.line('{if_kw} choice == {idx}:'.format(if_kw='if' if i == 0 else 'elif', idx=i))
                 with self.indent():
-                    result += str(self.generate_single(child)) or self.line('pass')
+                    result += str(self.generate_single(child, alternative_name, new_alt_ids)) or self.line('pass')
             return result
 
         # Sequences.
@@ -317,7 +413,7 @@ class FuzzerGenerator(object):
                 children = node.lexerElements().lexerElement()
             else:
                 children = []
-            return ''.join([str(self.generate_single(child)) for child in children])
+            return ''.join([str(self.generate_single(child, parent_id, new_alt_ids)) for child in children])
 
         if isinstance(node, (self.parser.ElementContext, self.parser.LexerElementContext)):
             if self.actions and node.actionBlock():
@@ -325,7 +421,7 @@ class FuzzerGenerator(object):
                 if node.QUESTION():
                     return ''
 
-                action_src = ''.join([child.symbol.text for child in node.actionBlock().ACTION_CONTENT()])
+                action_src = ''.join([str(child) for child in node.actionBlock().ACTION_CONTENT()])
                 action_src = re.sub('\$(?P<var_name>\w+)', 'local_ctx[\'\g<var_name>\']', action_src)
 
                 result = ''
@@ -340,26 +436,27 @@ class FuzzerGenerator(object):
                 suffix = node.ebnf().blockSuffix().ebnfSuffix()
 
             if not suffix:
-                return self.generate_single(node.children[0])
+                return self.generate_single(node.children[0], parent_id, new_alt_ids)
 
-            suffix = suffix.children[0].symbol.text
+            suffix = str(suffix.children[0])
             quant_type = {'?': 'zero_or_one', '*': 'zero_or_more', '+': 'one_or_more'}[suffix]
-            result = self.line('for _ in self.{quant_type}():'.format(quant_type=quant_type))
+            result = self.line('for _ in self.{quant_type}(max_depth=max_depth):'.format(quant_type=quant_type))
 
             with self.indent():
-                result += str(self.generate_single(node.children[0]))
+                result += str(self.generate_single(node.children[0], parent_id, new_alt_ids))
             result += '\n'
             return result
 
         if isinstance(node, self.parser.LabeledElementContext):
             ident = node.identifier()
             name = ident.RULE_REF() or ident.TOKEN_REF()
-            result = self.generate_single(node.atom() or node.block())
+            result = self.generate_single(node.atom() or node.block(), parent_id, new_alt_ids)
             result += self.line('local_ctx[\'{name}\'] = current.last_child'.format(name=name))
             return result
 
         if isinstance(node, self.parser.RulerefContext):
-            return self.line('current += self.{rule_name}()'.format(rule_name=node.RULE_REF().symbol.text))
+            self.graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
+            return self.line('current += self.{rule_name}(max_depth=max_depth - 1)'.format(rule_name=node.RULE_REF()))
 
         if isinstance(node, (self.parser.LexerAtomContext, self.parser.AtomContext)):
             if node.DOT():
@@ -387,7 +484,7 @@ class FuzzerGenerator(object):
                     return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list(range({start}, {end}))))'.format(start=start, end=end))
 
                 if node.LEXER_CHAR_SET():
-                    ranges = self.lexer_charset_interval(node.LEXER_CHAR_SET().symbol.text[1:-1])
+                    ranges = self.lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
 
                     if self.current_start_range is not None:
                         self.current_start_range.extend(ranges)
@@ -397,22 +494,29 @@ class FuzzerGenerator(object):
                     self.lexer_header += '{charset_name} = list(chain({charset}))\n'.format(charset_name=charset_name, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
                     return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_name})))'.format(charset_name=charset_name))
 
-            return ''.join([self.generate_single(child) for child in node.children])
+            return ''.join([self.generate_single(child, parent_id, new_alt_ids) for child in node.children])
 
         if isinstance(node, self.parser.TerminalContext):
             if node.TOKEN_REF():
-                return self.line('current += self.lexer.{rule_name}()'.format(rule_name=node.TOKEN_REF().symbol.text))
+                self.graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
+                return self.line('current += self.lexer.{rule_name}(max_depth=max_depth - 1)'.format(rule_name=node.TOKEN_REF()))
 
             if node.STRING_LITERAL():
-                src = node.STRING_LITERAL().symbol.text[1:-1]
+                src = str(node.STRING_LITERAL())[1:-1]
                 if self.current_start_range is not None:
                     self.current_start_range.append((ord(src[0]), ord(src[0]) + 1))
                 return self.line('current += self.create_node(UnlexerRule(src=\'{src}\'))'.format(src=src))
 
         if isinstance(node, ParserRuleContext) and node.getChildCount():
-            return ''.join([self.generate_single(child) for child in node.children])
+            return ''.join([self.generate_single(child, parent_id, new_alt_ids) for child in node.children])
 
         return ''
+
+    def generate_depths(self, lexer_ids, parser_ids):
+        min_depths = self.graph.calc_min_depths()
+        with self.indent():
+            self.lexer_body += self.line('min_depths = {min_depths}\n'.format(min_depths=dict((id, min_depths[id]) for id in lexer_ids)))
+            self.parser_body += self.line('min_depths = {min_depths}\n'.format(min_depths=dict((id, min_depths[id]) for id in parser_ids)))
 
 
 class FuzzerFactory(object):
@@ -473,7 +577,7 @@ class FuzzerFactory(object):
             if prequel.delegateGrammars():
                 for delegate_grammar in prequel.delegateGrammars().delegateGrammar():
                     ident = delegate_grammar.identifier(0)
-                    imports.add(join(base_dir, (ident.RULE_REF() or ident.TOKEN_REF()).symbol.text + '.g4'))
+                    imports.add(join(base_dir, str(ident.RULE_REF() or ident.TOKEN_REF()) + '.g4'))
         return imports
 
     def _parse_single(self, grammar):

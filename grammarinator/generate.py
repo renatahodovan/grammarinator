@@ -6,6 +6,7 @@
 # according to those terms.
 
 import importlib
+import logging
 import pkgutil
 import sys
 
@@ -15,10 +16,17 @@ from os import cpu_count, getcwd, makedirs
 from os.path import basename, dirname, exists, join, splitext
 
 __version__ = pkgutil.get_data(__package__, 'VERSION').decode('ascii').strip()
+logging.basicConfig(format='%(message)s')
+logger = logging.getLogger('grammarinator')
 
 
-def generate(lexer_cls, parser_cls, rule, transformers, out):
-    root = getattr(parser_cls(lexer_cls()), rule)()
+def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out):
+    parser = parser_cls(lexer_cls())
+    if parser.min_depths[rule] > max_depth:
+        logger.warning('{rule} cannot be generated within the given depth (min needed: {cnt}).'.format(rule=rule, cnt=parser.min_depths[rule]))
+        return
+
+    root = getattr(parser, rule)(max_depth=max_depth)
     for transformer in transformers:
         root = transformer(root)
 
@@ -44,20 +52,26 @@ def execute():
                         help='name of the rule to start generation from.')
     parser.add_argument('-t', '--transformers', metavar='LIST', nargs='+', default=[],
                         help='list of transformators (in package.module.function format) to postprocess the generated tree.')
+    parser.add_argument('-d', '--max-depth', default=float('inf'), type=int, metavar='NUM',
+                        help='maximum recursion depth during generation (default: %(default)f).')
     parser.add_argument('-j', '--jobs', default=cpu_count(), type=int, metavar='NUM',
                         help='test generation parallelization level (default: number of cpu cores (%(default)d)).')
     parser.add_argument('-o', '--out', metavar='FILE', default=join(getcwd(), 'test_%d'),
                         help='output file format (default: %(default)s).')
+    parser.add_argument('--log-level', default=logging.INFO, metavar='LEVEL',
+                        help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
                         help='number of tests to generate.')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
 
+    logger.setLevel(args.log_level)
+
     out_dir = dirname(args.out)
     if not exists(out_dir):
         makedirs(out_dir, exist_ok=True)
 
-    if not '%d' in args.out:
+    if '%d' not in args.out:
         base, ext = splitext(args.out)
         args.out = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
 
@@ -71,10 +85,10 @@ def execute():
 
     if args.jobs > 1:
         with Pool(args.jobs) as pool:
-            pool.starmap(generate, [(lexer_cls, parser_cls, args.rule, transformers, args.out % i) for i in range(args.n)])
+            pool.starmap(generate, [(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i) for i in range(args.n)])
     else:
         for i in range(args.n):
-            generate(lexer_cls, parser_cls, args.rule, transformers, args.out % i)
+            generate(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i)
 
 
 if __name__ == '__main__':

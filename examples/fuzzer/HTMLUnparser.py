@@ -37,219 +37,221 @@ class HTMLUnparser(Grammarinator):
     
     def endOfHtmlElement(self):
         pass
-    def htmlDocument(self):
+    def htmlDocument(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlDocument'))
-        for _ in self.zero_or_more():
-            weights = [1, 1]
+        for _ in self.zero_or_more(max_depth=max_depth):
+            weights = self.depth_limited_weights([1, 1], self.min_depths['alt_6'], max_depth)
             choice = self.choice(weights)
             if choice == 0:
-                current += self.scriptlet()
+                current += self.scriptlet(max_depth=max_depth - 1)
             elif choice == 1:
-                current += self.lexer.SEA_WS()
+                current += self.lexer.SEA_WS(max_depth=max_depth - 1)
 
-        for _ in self.zero_or_one():
-            current += self.xml()
+        for _ in self.zero_or_one(max_depth=max_depth):
+            current += self.xml(max_depth=max_depth - 1)
 
-        for _ in self.zero_or_more():
-            weights = [1, 1]
+        for _ in self.zero_or_more(max_depth=max_depth):
+            weights = self.depth_limited_weights([1, 1], self.min_depths['alt_7'], max_depth)
             choice = self.choice(weights)
             if choice == 0:
-                current += self.scriptlet()
+                current += self.scriptlet(max_depth=max_depth - 1)
             elif choice == 1:
-                current += self.lexer.SEA_WS()
+                current += self.lexer.SEA_WS(max_depth=max_depth - 1)
 
-        for _ in self.zero_or_one():
-            current += self.dtd()
+        for _ in self.zero_or_one(max_depth=max_depth):
+            current += self.dtd(max_depth=max_depth - 1)
 
-        for _ in self.zero_or_more():
-            weights = [1, 1]
+        for _ in self.zero_or_more(max_depth=max_depth):
+            weights = self.depth_limited_weights([1, 1], self.min_depths['alt_8'], max_depth)
             choice = self.choice(weights)
             if choice == 0:
-                current += self.scriptlet()
+                current += self.scriptlet(max_depth=max_depth - 1)
             elif choice == 1:
-                current += self.lexer.SEA_WS()
+                current += self.lexer.SEA_WS(max_depth=max_depth - 1)
 
-        for _ in self.zero_or_more():
-            current += self.htmlElements()
+        for _ in self.zero_or_more(max_depth=max_depth):
+            current += self.htmlElements(max_depth=max_depth - 1)
 
         return current
 
-    def htmlElements(self):
+    def htmlElements(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlElements'))
-        for _ in self.zero_or_more():
-            current += self.htmlMisc()
+        for _ in self.zero_or_more(max_depth=max_depth):
+            current += self.htmlMisc(max_depth=max_depth - 1)
 
-        current += self.htmlElement()
-        for _ in self.zero_or_more():
-            current += self.htmlMisc()
+        current += self.htmlElement(max_depth=max_depth - 1)
+        for _ in self.zero_or_more(max_depth=max_depth):
+            current += self.htmlMisc(max_depth=max_depth - 1)
 
         return current
 
-    def htmlElement(self):
+    def htmlElement(self, *, max_depth=float('inf')):
         local_ctx = dict()
         current = self.create_node(UnparserRule(name='htmlElement'))
-        weights = [1, 1, 1, 1, 1, 1]
+        weights = self.depth_limited_weights([1, 1, 1, 1, 1, 1], self.min_depths['alt_9'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.lexer.TAG_OPEN()
-            current += self.htmlTagName()
+            current += self.lexer.TAG_OPEN(max_depth=max_depth - 1)
+            current += self.htmlTagName(max_depth=max_depth - 1)
             local_ctx['open_tag'] = current.last_child
-            for _ in self.zero_or_more():
-                current += self.htmlAttribute()
+            for _ in self.zero_or_more(max_depth=max_depth):
+                current += self.htmlAttribute(max_depth=max_depth - 1)
 
-            current += self.lexer.TAG_CLOSE()
-            current += self.htmlContent()
-            current += self.lexer.TAG_OPEN()
-            current += self.lexer.TAG_SLASH()
-            current += self.htmlTagName()
+            current += self.lexer.TAG_CLOSE(max_depth=max_depth - 1)
+            current += self.htmlContent(max_depth=max_depth - 1)
+            current += self.lexer.TAG_OPEN(max_depth=max_depth - 1)
+            current += self.lexer.TAG_SLASH(max_depth=max_depth - 1)
+            current += self.htmlTagName(max_depth=max_depth - 1)
             current.last_child = local_ctx['open_tag'].deepcopy()
-            current += self.lexer.TAG_CLOSE()
+            current += self.lexer.TAG_CLOSE(max_depth=max_depth - 1)
             self.endOfHtmlElement()
         elif choice == 1:
-            current += self.lexer.TAG_OPEN()
-            current += self.htmlTagName()
+            current += self.lexer.TAG_OPEN(max_depth=max_depth - 1)
+            current += self.htmlTagName(max_depth=max_depth - 1)
             local_ctx['open_tag'] = current.last_child
-            for _ in self.zero_or_more():
-                current += self.htmlAttribute()
+            for _ in self.zero_or_more(max_depth=max_depth):
+                current += self.htmlAttribute(max_depth=max_depth - 1)
 
-            current += self.lexer.TAG_SLASH_CLOSE()
+            current += self.lexer.TAG_SLASH_CLOSE(max_depth=max_depth - 1)
             self.endOfHtmlElement()
         elif choice == 2:
-            current += self.lexer.TAG_OPEN()
-            current += self.htmlTagName()
+            current += self.lexer.TAG_OPEN(max_depth=max_depth - 1)
+            current += self.htmlTagName(max_depth=max_depth - 1)
             local_ctx['open_tag'] = current.last_child
-            for _ in self.zero_or_more():
-                current += self.htmlAttribute()
+            for _ in self.zero_or_more(max_depth=max_depth):
+                current += self.htmlAttribute(max_depth=max_depth - 1)
 
-            current += self.lexer.TAG_CLOSE()
+            current += self.lexer.TAG_CLOSE(max_depth=max_depth - 1)
             self.endOfHtmlElement()
         elif choice == 3:
-            current += self.scriptlet()
+            current += self.scriptlet(max_depth=max_depth - 1)
         elif choice == 4:
-            current += self.script()
+            current += self.script(max_depth=max_depth - 1)
         elif choice == 5:
-            current += self.style()
+            current += self.style(max_depth=max_depth - 1)
         return current
 
-    def htmlContent(self):
+    def htmlContent(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlContent'))
-        for _ in self.zero_or_one():
-            current += self.htmlChardata()
+        for _ in self.zero_or_one(max_depth=max_depth):
+            current += self.htmlChardata(max_depth=max_depth - 1)
 
-        for _ in self.zero_or_more():
-            weights = [1, 1, 1]
+        for _ in self.zero_or_more(max_depth=max_depth):
+            weights = self.depth_limited_weights([1, 1, 1], self.min_depths['alt_10'], max_depth)
             choice = self.choice(weights)
             if choice == 0:
-                current += self.htmlElement()
+                current += self.htmlElement(max_depth=max_depth - 1)
             elif choice == 1:
-                current += self.xhtmlCDATA()
+                current += self.xhtmlCDATA(max_depth=max_depth - 1)
             elif choice == 2:
-                current += self.htmlComment()
-            for _ in self.zero_or_one():
-                current += self.htmlChardata()
+                current += self.htmlComment(max_depth=max_depth - 1)
+            for _ in self.zero_or_one(max_depth=max_depth):
+                current += self.htmlChardata(max_depth=max_depth - 1)
 
 
         return current
 
-    def htmlAttribute(self):
+    def htmlAttribute(self, *, max_depth=float('inf')):
         local_ctx = dict()
         current = self.create_node(UnparserRule(name='htmlAttribute'))
-        weights = [1, 1]
+        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_11'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.htmlAttributeName()
+            current += self.htmlAttributeName(max_depth=max_depth - 1)
             local_ctx['attr_name'] = current.last_child
-            current += self.lexer.TAG_EQUALS()
-            current += self.htmlAttributeValue()
+            current += self.lexer.TAG_EQUALS(max_depth=max_depth - 1)
+            current += self.htmlAttributeValue(max_depth=max_depth - 1)
         elif choice == 1:
-            current += self.htmlAttributeName()
+            current += self.htmlAttributeName(max_depth=max_depth - 1)
             local_ctx['attr_name'] = current.last_child
         return current
 
-    def htmlAttributeName(self):
+    def htmlAttributeName(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlAttributeName'))
-        current += self.lexer.TAG_NAME()
+        current += self.lexer.TAG_NAME(max_depth=max_depth - 1)
         return current
 
-    def htmlAttributeValue(self):
+    def htmlAttributeValue(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlAttributeValue'))
-        current += self.lexer.ATTVALUE_VALUE()
+        current += self.lexer.ATTVALUE_VALUE(max_depth=max_depth - 1)
         return current
 
-    def htmlTagName(self):
+    def htmlTagName(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlTagName'))
-        current += self.lexer.TAG_NAME()
+        current += self.lexer.TAG_NAME(max_depth=max_depth - 1)
         return current
 
-    def htmlChardata(self):
+    def htmlChardata(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlChardata'))
-        weights = [1, 1]
+        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_12'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.lexer.HTML_TEXT()
+            current += self.lexer.HTML_TEXT(max_depth=max_depth - 1)
         elif choice == 1:
-            current += self.lexer.SEA_WS()
+            current += self.lexer.SEA_WS(max_depth=max_depth - 1)
         return current
 
-    def htmlMisc(self):
+    def htmlMisc(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlMisc'))
-        weights = [1, 1]
+        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_13'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.htmlComment()
+            current += self.htmlComment(max_depth=max_depth - 1)
         elif choice == 1:
-            current += self.lexer.SEA_WS()
+            current += self.lexer.SEA_WS(max_depth=max_depth - 1)
         return current
 
-    def htmlComment(self):
+    def htmlComment(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='htmlComment'))
-        weights = [1, 1]
+        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_14'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.lexer.HTML_COMMENT()
+            current += self.lexer.HTML_COMMENT(max_depth=max_depth - 1)
         elif choice == 1:
-            current += self.lexer.HTML_CONDITIONAL_COMMENT()
+            current += self.lexer.HTML_CONDITIONAL_COMMENT(max_depth=max_depth - 1)
         return current
 
-    def xhtmlCDATA(self):
+    def xhtmlCDATA(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='xhtmlCDATA'))
-        current += self.lexer.CDATA()
+        current += self.lexer.CDATA(max_depth=max_depth - 1)
         return current
 
-    def dtd(self):
+    def dtd(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='dtd'))
-        current += self.lexer.DTD()
+        current += self.lexer.DTD(max_depth=max_depth - 1)
         return current
 
-    def xml(self):
+    def xml(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='xml'))
-        current += self.lexer.XML_DECLARATION()
+        current += self.lexer.XML_DECLARATION(max_depth=max_depth - 1)
         return current
 
-    def scriptlet(self):
+    def scriptlet(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='scriptlet'))
-        current += self.lexer.SCRIPTLET()
+        current += self.lexer.SCRIPTLET(max_depth=max_depth - 1)
         return current
 
-    def script(self):
+    def script(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='script'))
-        current += self.lexer.SCRIPT_OPEN()
-        weights = [1, 1]
+        current += self.lexer.SCRIPT_OPEN(max_depth=max_depth - 1)
+        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_15'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.lexer.SCRIPT_BODY()
+            current += self.lexer.SCRIPT_BODY(max_depth=max_depth - 1)
         elif choice == 1:
-            current += self.lexer.SCRIPT_SHORT_BODY()
+            current += self.lexer.SCRIPT_SHORT_BODY(max_depth=max_depth - 1)
         return current
 
-    def style(self):
+    def style(self, *, max_depth=float('inf')):
         current = self.create_node(UnparserRule(name='style'))
-        current += self.lexer.STYLE_OPEN()
-        weights = [1, 1]
+        current += self.lexer.STYLE_OPEN(max_depth=max_depth - 1)
+        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_16'], max_depth)
         choice = self.choice(weights)
         if choice == 0:
-            current += self.lexer.STYLE_BODY()
+            current += self.lexer.STYLE_BODY(max_depth=max_depth - 1)
         elif choice == 1:
-            current += self.lexer.STYLE_SHORT_BODY()
+            current += self.lexer.STYLE_SHORT_BODY(max_depth=max_depth - 1)
         return current
+
+    min_depths = {'alt_16': [1, 1], 'alt_9': [4, 4, 4, 2, 2, 2], 'htmlContent': 2, 'script': 1, 'htmlElement': 2, 'alt_6': [2, 1], 'htmlAttribute': 3, 'alt_11': [4, 3], 'htmlAttributeName': 2, 'style': 1, 'alt_13': [2, 1], 'dtd': 1, 'alt_8': [2, 1], 'htmlComment': 1, 'scriptlet': 1, 'htmlAttributeValue': 3, 'htmlMisc': 1, 'htmlChardata': 1, 'alt_12': [1, 1], 'alt_15': [1, 1], 'alt_10': [3, 2, 2], 'htmlTagName': 2, 'alt_14': [1, 1], 'htmlElements': 3, 'xhtmlCDATA': 1, 'htmlDocument': 4, 'alt_7': [2, 1], 'xml': 1}
 

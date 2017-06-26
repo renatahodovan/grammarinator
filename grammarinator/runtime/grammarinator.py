@@ -69,7 +69,7 @@ class Grammarinator(object):
         self.node_cnt += 1
         return node
 
-    def random_decision(self):
+    def random_decision(self, *, max_depth=float('inf')):
         return bool(random.getrandbits(1))
 
     def choice(self, choices):
@@ -81,19 +81,26 @@ class Grammarinator(object):
             upto += w
         assert False, 'Shouldn\'t get here.'
 
-    def zero_or_one(self):
-        if self.random_decision():
+    def depth_limited_weights(self, weights, min_depths, max_depth):
+        for i, w in enumerate(weights):
+            # Disable options that cannot be finished within the given max_depth.
+            if min_depths[i] > max_depth:
+                weights[i] = 0
+        return weights
+
+    def zero_or_one(self, *, max_depth=float('inf')):
+        if self.random_decision(max_depth=max_depth):
             yield
         raise StopIteration
 
-    def zero_or_more(self):
-        while self.random_decision():
+    def zero_or_more(self, *, max_depth=float('inf')):
+        while self.random_decision(max_depth=max_depth):
             yield
         raise StopIteration
 
-    def one_or_more(self):
+    def one_or_more(self, *, max_depth=float('inf')):
         yield
-        yield from self.zero_or_more()
+        yield from self.zero_or_more(max_depth=max_depth)
 
     def char_from_list(self, options):
         return chr(random.choice(options))
@@ -118,7 +125,7 @@ class Grammarinator(object):
         return result
 
     # TODO: move to specific fuzzers
-    def choose_multiple(self, options, *, interval=None, repeat=True, glue=' '):
+    def choose_multiple(self, options, *, max_depth=float('inf'), interval=None, repeat=True, glue=' '):
         if not interval and not repeat:
             interval = range(1, len(options))
 
@@ -127,14 +134,14 @@ class Grammarinator(object):
             choice = random.choice(options)
             if not repeat:
                 options.remove(choice)
-            result.append(choice() if callable(choice) else UnlexerRule(src=choice))
+            result.append(choice(max_depth=max_depth) if callable(choice) else UnlexerRule(src=choice))
         return self.obj_join(result, UnlexerRule(src=glue))
 
-    def repeat(self, rule, *, interval=None, glue=' '):
+    def repeat(self, rule, *, max_depth=float('inf'), interval=None, glue=' '):
         if not interval:
-            interval = self.one_or_more()
+            interval = self.one_or_more(max_depth=max_depth)
 
         result = []
         for _ in interval:
-            result.append(rule() if callable(rule) else rule)
+            result.append(rule(max_depth=max_depth) if callable(rule) else rule)
         return self.obj_join(result, UnlexerRule(src=glue))
