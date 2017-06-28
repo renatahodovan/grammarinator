@@ -15,9 +15,10 @@ from multiprocessing import Pool
 from os import cpu_count, getcwd, makedirs
 from os.path import basename, dirname, exists, join, splitext
 
-__version__ = pkgutil.get_data(__package__, 'VERSION').decode('ascii').strip()
-logging.basicConfig(format='%(message)s')
+from .pkgdata import __version__
+
 logger = logging.getLogger('grammarinator')
+logging.basicConfig(format='%(message)s')
 
 
 def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out):
@@ -62,7 +63,7 @@ def execute():
                         help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
                         help='number of tests to generate.')
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s {version}'.format(version=__version__))
+    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
 
     logger.setLevel(args.log_level)

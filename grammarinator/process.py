@@ -618,8 +618,8 @@ def execute():
                         help='do not process inline actions (default: %(default)s).')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
-    parser.add_argument('-l', '--log-level', metavar='LEVEL', default=logging.INFO,
-                        help='logging level')
+    parser.add_argument('--log-level', metavar='LEVEL', default=logging.INFO,
+                        help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
                         help='temporary working directory (default: .).')
     parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
