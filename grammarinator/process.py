@@ -96,11 +96,11 @@ class GrammarGraph(object):
 
 class FuzzerGenerator(object):
 
-    def __init__(self, lexer_root, parser_root, parser, actions):
-        self.grammar_roots = [lexer_root, parser_root]
+    def __init__(self, parser, actions):
         self.parser = parser
-        self.indent_level = 0
         self.actions = actions
+
+        self.indent_level = 0
         self.charset_idx = 0
 
         self.graph = GrammarGraph()
@@ -123,6 +123,11 @@ class FuzzerGenerator(object):
 
     def line(self, src):
         return (' ' * self.indent_level) + src + '\n'
+
+    def new_charset_name(self):
+        charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
+        self.charset_idx += 1
+        return charset_name
 
     def create_header(self, grammar_name, grammar_type):
         lexer = grammar_type == 'lexer'
@@ -161,13 +166,12 @@ class FuzzerGenerator(object):
         return fuzzer_name
 
     def init_fuzzer(self, grammar_name, lexer_fuzzer, parser_fuzzer):
+        if not (lexer_fuzzer or parser_fuzzer):
+            lexer_fuzzer, parser_fuzzer = True, True
+
         if lexer_fuzzer:
             self.lexer_name = self.create_header(grammar_name, 'lexer')
         if parser_fuzzer:
-            self.parser_name = self.create_header(grammar_name, 'parser')
-
-        if not (lexer_fuzzer or parser_fuzzer):
-            self.lexer_name = self.create_header(grammar_name, 'lexer')
             self.parser_name = self.create_header(grammar_name, 'parser')
 
     def find_conditions(self, node):
@@ -191,11 +195,6 @@ class FuzzerGenerator(object):
 
         child_ref = getattr(node, 'alternative', None) or getattr(node, 'lexerElements', None)
         return self.find_conditions(child_ref())
-
-    def weight_array(self, nodes, alternation_id):
-        return 'weights = self.depth_limited_weights([{weights}], self.min_depths[\'{alt_id}\'], max_depth)'.format(
-            weights=', '.join([self.find_conditions(node) for node in nodes]),
-            alt_id=alternation_id)
 
     def character_range_interval(self, node):
         start = str(node.characterRange().STRING_LITERAL(0))[1:-1]
@@ -241,15 +240,20 @@ class FuzzerGenerator(object):
             assert src in self.token_start_ranges, '{src} not in token_start_ranges.'.format(src=src)
             return self.token_start_ranges[src]
 
-    def generate(self):
+    def generate(self, lexer_root, parser_root):
         all_lexer_ids, all_parser_ids = [], []
-        for root in self.grammar_roots:
+        for root in [lexer_root, parser_root]:
             if root:
                 lexer_ids, parser_ids = self.generate_grammar(root)
                 all_lexer_ids.extend(lexer_ids)
                 all_parser_ids.extend(parser_ids)
 
         self.generate_depths(all_lexer_ids, all_parser_ids)
+
+        return [
+            (self.lexer_name, self.lexer_header + '\n\n' + self.lexer_body),
+            (self.parser_name, self.parser_header + '\n\n' + self.parser_body),
+        ]
 
     def generate_grammar(self, node):
         assert isinstance(node, self.parser.GrammarSpecContext)
@@ -308,8 +312,8 @@ class FuzzerGenerator(object):
                     elif action_scope == 'lexer':
                         if action_type.startswith('member'):
                             self.lexer_body += action_src
-                    elif action_type == 'header':
-                        self.lexer_header += action_src
+                        elif action_type == 'header':
+                            self.lexer_header += action_src
 
         rules = node.rules().ruleSpec()
         lexer_ids, parser_ids = [], []
@@ -337,14 +341,9 @@ class FuzzerGenerator(object):
 
         with self.indent():
             for rule in lexer_rules:
-                new_alt_ids = []
-                self.lexer_body += self.generate_single(rule, None, new_alt_ids)
-                lexer_ids.extend(new_alt_ids)
-
+                self.lexer_body += self.generate_single(rule, None, lexer_ids)
             for rule in parser_rules:
-                new_alt_ids = []
-                self.parser_body += self.generate_single(rule, None, new_alt_ids)
-                parser_ids.extend(new_alt_ids)
+                self.parser_body += self.generate_single(rule, None, parser_ids)
 
         return lexer_ids, parser_ids
 
@@ -364,15 +363,12 @@ class FuzzerGenerator(object):
                 local_ctx = self.line('local_ctx = dict()')
                 rule_code = self.line('current = self.create_node({node_type}(name=\'{rule_name}\'))'.format(node_type=node_type.__name__,
                                                                                                              rule_name=rule_name))
-                rule_block_name = 'ruleBlock' if parser_rule else 'lexerRuleBlock'
-                rule_code += str(self.generate_single(getattr(node, rule_block_name)(), rule_name, new_alt_ids))
+                rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
+                rule_code += self.generate_single(rule_block, rule_name, new_alt_ids)
                 rule_code += self.line('return current\n')
 
             # local_ctx only has to be initialized if we have variable assignment.
-            if 'local_ctx' in rule_code:
-                rule_code = rule_header + local_ctx + rule_code
-            else:
-                rule_code = rule_header + rule_code
+            rule_code = rule_header + (local_ctx if 'local_ctx' in rule_code else '') + rule_code
 
             if not parser_rule:
                 self.token_start_ranges[rule_name] = self.current_start_range
@@ -383,14 +379,16 @@ class FuzzerGenerator(object):
         if isinstance(node, (self.parser.RuleAltListContext, self.parser.AltListContext, self.parser.LexerAltListContext)):
             children = [child for child in node.children if isinstance(child, ParserRuleContext)]
             if len(children) == 1:
-                return str(self.generate_single(children[0], parent_id, new_alt_ids))
+                return self.generate_single(children[0], parent_id, new_alt_ids)
 
             alt_name = self.graph.new_alt_id()
             new_alt_ids.append(alt_name)
             self.graph.add_node(AlternationNode(id=alt_name))
             self.graph.add_edge(frm=parent_id, to=alt_name)
 
-            result = self.line(self.weight_array(children, alt_name))
+            result = self.line('weights = self.depth_limited_weights([{weights}], self.min_depths[\'{alt_name}\'], max_depth)'.format(
+                                weights=', '.join([self.find_conditions(child) for child in children]),
+                                alt_name=alt_name))
             result += self.line('choice = self.choice(weights)'.format(max=len(children)))
             for i, child in enumerate(children):
                 alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
@@ -399,7 +397,7 @@ class FuzzerGenerator(object):
 
                 result += self.line('{if_kw} choice == {idx}:'.format(if_kw='if' if i == 0 else 'elif', idx=i))
                 with self.indent():
-                    result += str(self.generate_single(child, alternative_name, new_alt_ids)) or self.line('pass')
+                    result += self.generate_single(child, alternative_name, new_alt_ids) or self.line('pass')
             return result
 
         # Sequences.
@@ -413,7 +411,7 @@ class FuzzerGenerator(object):
                 children = node.lexerElements().lexerElement()
             else:
                 children = []
-            return ''.join([str(self.generate_single(child, parent_id, new_alt_ids)) for child in children])
+            return ''.join([self.generate_single(child, parent_id, new_alt_ids) for child in children])
 
         if isinstance(node, (self.parser.ElementContext, self.parser.LexerElementContext)):
             if self.actions and node.actionBlock():
@@ -424,10 +422,7 @@ class FuzzerGenerator(object):
                 action_src = ''.join([str(child) for child in node.actionBlock().ACTION_CONTENT()])
                 action_src = re.sub('\$(?P<var_name>\w+)', 'local_ctx[\'\g<var_name>\']', action_src)
 
-                result = ''
-                for line in action_src.splitlines():
-                    result += self.line(line)
-                return result
+                return ''.join([self.line(line) for line in action_src.splitlines()])
 
             suffix = None
             if node.ebnfSuffix():
@@ -443,7 +438,7 @@ class FuzzerGenerator(object):
             result = self.line('for _ in self.{quant_type}(max_depth=max_depth):'.format(quant_type=quant_type))
 
             with self.indent():
-                result += str(self.generate_single(node.children[0], parent_id, new_alt_ids))
+                result += self.generate_single(node.children[0], parent_id, new_alt_ids)
             result += '\n'
             return result
 
@@ -470,8 +465,7 @@ class FuzzerGenerator(object):
                     for set_element in node.notSet().blockSet().setElement():
                         options.extend(self.chars_from_set(set_element))
 
-                charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
-                self.charset_idx += 1
+                charset_name = self.new_charset_name()
                 self.lexer_header += '{charset_name} = list(chain(*multirange_diff(printable_unicode_ranges, [{charset}])))\n'.format(charset_name=charset_name, charset=','.join(['({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in sorted(options, key=lambda x: x[0])]))
                 charset_ref = charset_name if isinstance(node, self.parser.LexerAtomContext) else '{lexer_name}.{charset_name}'.format(lexer_name=self.lexer_name, charset_name=charset_name)
                 return self.line('current += UnlexerRule(src=self.char_from_list({charset_ref}))'.format(charset_ref=charset_ref))
@@ -489,8 +483,7 @@ class FuzzerGenerator(object):
                     if self.current_start_range is not None:
                         self.current_start_range.extend(ranges)
 
-                    charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
-                    self.charset_idx += 1
+                    charset_name = self.new_charset_name()
                     self.lexer_header += '{charset_name} = list(chain({charset}))\n'.format(charset_name=charset_name, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
                     return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_name})))'.format(charset_name=charset_name))
 
@@ -546,30 +539,22 @@ class FuzzerFactory(object):
         :param actions: Boolean to enable or disable grammar actions.
         :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
         """
-        lexer_root, parser_root, grammar_parser = None, None, None
+        lexer_root, parser_root = None, None
 
         for grammar in grammars:
-            root, grammar_parser = self._parse(grammar)
+            root = self._parse(grammar)
             # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
             if root.grammarType().LEXER() or not root.grammarType().PARSER():
                 lexer_root = root
             else:
                 parser_root = root
 
-        fuzzer_generator = FuzzerGenerator(lexer_root, parser_root, grammar_parser, actions)
-        fuzzer_generator.generate()
-
-        with open(join(self.work_dir, fuzzer_generator.lexer_name + '.py'), 'w') as f:
-            src = fuzzer_generator.lexer_header + '\n\n' + fuzzer_generator.lexer_body
-            if pep8:
-                src = autopep8.fix_code(src)
-            f.write(src)
-
-        with open(join(self.work_dir, fuzzer_generator.parser_name + '.py'), 'w') as f:
-            src = fuzzer_generator.parser_header + '\n\n' + fuzzer_generator.parser_body
-            if pep8:
-                src = autopep8.fix_code(src)
-            f.write(src)
+        fuzzer_generator = FuzzerGenerator(self.parser, actions)
+        for name, src in fuzzer_generator.generate(lexer_root, parser_root):
+            with open(join(self.work_dir, name + '.py'), 'w') as f:
+                if pep8:
+                    src = autopep8.fix_code(src)
+                f.write(src)
 
     def _collect_imports(self, root, base_dir):
         imports = set()
@@ -580,24 +565,20 @@ class FuzzerFactory(object):
                     imports.add(join(base_dir, str(ident.RULE_REF() or ident.TOKEN_REF()) + '.g4'))
         return imports
 
-    def _parse_single(self, grammar):
-        token_stream = CommonTokenStream(self.lexer(FileStream(grammar, encoding='utf-8')))
-        target_parser = self.parser(token_stream)
-        root = target_parser.grammarSpec()
-        # assert target_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
-        return root, target_parser
-
     def _parse(self, grammar):
         work_list = {grammar}
-        root, target_parser = None, None
+        root = None
 
         while work_list:
             grammar = work_list.pop()
-            current_root, current_parser = self._parse_single(grammar)
+
+            target_parser = self.parser(CommonTokenStream(self.lexer(FileStream(grammar, encoding='utf-8'))))
+            current_root = target_parser.grammarSpec()
+            # assert target_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
 
             # Save the 'outermost' grammar.
-            if not root and not target_parser:
-                root, target_parser = current_root, current_parser
+            if not root:
+                root = current_root
             else:
                 # Unite the rules of the imported grammar with the host grammar's rules.
                 for rule in current_root.rules().ruleSpec():
@@ -605,7 +586,7 @@ class FuzzerFactory(object):
 
             work_list |= self._collect_imports(current_root, dirname(grammar))
 
-        return root, target_parser
+        return root
 
 
 def execute():
