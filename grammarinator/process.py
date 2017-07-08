@@ -318,6 +318,7 @@ class FuzzerGenerator(object):
         rules = node.rules().ruleSpec()
         lexer_ids, parser_ids = [], []
         lexer_rules, parser_rules = [], []
+        self.graph.add_node(RuleNode(id='EOF'))
         for rule in rules:
             if rule.parserRuleSpec():
                 name = str(rule.parserRuleSpec().RULE_REF())
