@@ -45,16 +45,26 @@ class AlternativeNode(Node):
     pass
 
 
+class QuantifierNode(Node):
+    pass
+
+
 class GrammarGraph(object):
 
     def __init__(self):
         self.vertices = dict()
         self.alt_id = 0
+        self.quant_id = 0
 
     def new_alt_id(self):
         alt_name = 'alt_{idx}'.format(idx=self.alt_id)
         self.alt_id += 1
         return alt_name
+
+    def new_quant_id(self):
+        quant_name = 'quant_{idx}'.format(idx=self.quant_id)
+        self.quant_id += 1
+        return quant_name
 
     def add_node(self, node):
         self.vertices[node.id] = node
@@ -73,8 +83,11 @@ class GrammarGraph(object):
             for ident in self.vertices:
                 # From alternatives the minimum depth is the shortest, otherwise - that's in case of sequences -
                 # the longest one must be considered.
-                selector = min if isinstance(self.vertices[ident], AlternationNode) else max
-                min_depth = selector([min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode)) for node in self.vertices[ident].out_neighbours], default=0)
+                if isinstance(self.vertices[ident], QuantifierNode):
+                    min_depth = 0
+                else:
+                    selector = min if isinstance(self.vertices[ident], AlternationNode) else max
+                    min_depth = selector([min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode)) for node in self.vertices[ident].out_neighbours], default=0)
 
                 if min_depth < min_depths[ident]:
                     min_depths[ident] = min_depth
@@ -435,6 +448,13 @@ class FuzzerGenerator(object):
                 return self.generate_single(node.children[0], parent_id, new_alt_ids)
 
             suffix = str(suffix.children[0])
+
+            if suffix in ['?', '*']:
+                quant_name = self.graph.new_quant_id()
+                self.graph.add_node(QuantifierNode(id=quant_name))
+                self.graph.add_edge(frm=parent_id, to=quant_name)
+                parent_id = quant_name
+
             quant_type = {'?': 'zero_or_one', '*': 'zero_or_more', '+': 'one_or_more'}[suffix]
             result = self.line('for _ in self.{quant_type}(max_depth=max_depth):'.format(quant_type=quant_type))
 

@@ -89,11 +89,17 @@ class Grammarinator(object):
         return weights
 
     def zero_or_one(self, *, max_depth=float('inf')):
+        if max_depth == 0:
+            raise StopIteration
+
         if self.random_decision(max_depth=max_depth):
             yield
         raise StopIteration
 
     def zero_or_more(self, *, max_depth=float('inf')):
+        if max_depth == 0:
+            raise StopIteration
+
         while self.random_decision(max_depth=max_depth):
             yield
         raise StopIteration
