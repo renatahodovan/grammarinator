@@ -207,6 +207,11 @@ class FuzzerGenerator(object):
             return self.find_conditions(element(0))
 
         child_ref = getattr(node, 'alternative', None) or getattr(node, 'lexerElements', None)
+
+        # An alternative can be explicitly empty, in this case it won't have any of the attributes above.
+        if not child_ref:
+            return '1'
+
         return self.find_conditions(child_ref())
 
     def character_range_interval(self, node):
