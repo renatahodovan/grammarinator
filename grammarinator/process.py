@@ -226,9 +226,8 @@ class FuzzerGenerator(object):
             # Convert character sequences like \n, \t, etc. into a single character.
             element = bytes(element, 'utf-8').decode('unicode_escape')
             if len(element) > 1:
-                if element.strip('-').count('-') == 1:
-                    start, end = element.split('-', 1)
-                    ranges.append((ord(start), ord(end) + 1))
+                if element[1] == '-' and len(element) == 3:
+                    ranges.append((ord(element[0]), ord(element[2]) + 1))
                 else:
                     for char in element:
                         ranges.append((ord(char), ord(char) + 1))
