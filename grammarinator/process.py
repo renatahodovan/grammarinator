@@ -81,13 +81,9 @@ class GrammarGraph(object):
         while changed:
             changed = False
             for ident in self.vertices:
-                # From alternatives the minimum depth is the shortest, otherwise - that's in case of sequences -
-                # the longest one must be considered.
-                if isinstance(self.vertices[ident], QuantifierNode):
-                    min_depth = 0
-                else:
-                    selector = min if isinstance(self.vertices[ident], AlternationNode) else max
-                    min_depth = selector([min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode)) for node in self.vertices[ident].out_neighbours], default=0)
+                selector = min if isinstance(self.vertices[ident], AlternationNode) else max
+                min_depth = selector([min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode))
+                                      for node in self.vertices[ident].out_neighbours if not isinstance(node, QuantifierNode)], default=0)
 
                 if min_depth < min_depths[ident]:
                     min_depths[ident] = min_depth
@@ -457,14 +453,17 @@ class FuzzerGenerator(object):
                 quant_name = self.graph.new_quant_id()
                 self.graph.add_node(QuantifierNode(id=quant_name))
                 self.graph.add_edge(frm=parent_id, to=quant_name)
+                new_alt_ids.append(quant_name)
                 parent_id = quant_name
 
             quant_type = {'?': 'zero_or_one', '*': 'zero_or_more', '+': 'one_or_more'}[suffix]
-            result = self.line('for _ in self.{quant_type}(max_depth=max_depth):'.format(quant_type=quant_type))
-
+            result = self.line('if max_depth >= {min_depth}:'.format(min_depth='0' if suffix == '+' else 'self.min_depths[\'{name}\']'.format(name=parent_id)))
             with self.indent():
-                result += self.generate_single(node.children[0], parent_id, new_alt_ids)
-            result += '\n'
+                result += self.line('for _ in self.{quant_type}(max_depth=max_depth):'.format(quant_type=quant_type))
+
+                with self.indent():
+                    result += self.generate_single(node.children[0], parent_id, new_alt_ids)
+                result += '\n'
             return result
 
         if isinstance(node, self.parser.LabeledElementContext):
