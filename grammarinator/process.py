@@ -563,19 +563,20 @@ class FuzzerFactory(object):
 
         self.lexer, self.parser, self.listener = build_grammars(antlr_dir, antlr=antlr)
 
-    def generate_fuzzer(self, grammars, *, encoding='utf-8', actions=True, pep8=False):
+    def generate_fuzzer(self, grammars, *, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
         Generates fuzzers from grammars.
 
         :param grammars: List of grammar files to generate from.
         :param encoding: Grammar file encoding.
+        :param lib_dir: Alternative directory to look for imports.
         :param actions: Boolean to enable or disable grammar actions.
         :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
         """
         lexer_root, parser_root = None, None
 
         for grammar in grammars:
-            root = self._parse(grammar, encoding)
+            root = self._parse(grammar, encoding, lib_dir)
             # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
             if root.grammarType().LEXER() or not root.grammarType().PARSER():
                 lexer_root = root
@@ -589,16 +590,20 @@ class FuzzerFactory(object):
                     src = autopep8.fix_code(src)
                 f.write(src)
 
-    def _collect_imports(self, root, base_dir):
+    def _collect_imports(self, root, base_dir, lib_dir):
         imports = set()
         for prequel in root.prequelConstruct():
             if prequel.delegateGrammars():
                 for delegate_grammar in prequel.delegateGrammars().delegateGrammar():
                     ident = delegate_grammar.identifier(0)
-                    imports.add(join(base_dir, str(ident.RULE_REF() or ident.TOKEN_REF()) + '.g4'))
+                    grammar_fn = str(ident.RULE_REF() or ident.TOKEN_REF()) + '.g4'
+                    if lib_dir is not None and exists(join(lib_dir, grammar_fn)):
+                        imports.add(join(lib_dir, grammar_fn))
+                    else:
+                        imports.add(join(base_dir, grammar_fn))
         return imports
 
-    def _parse(self, grammar, encoding):
+    def _parse(self, grammar, encoding, lib_dir):
         work_list = {grammar}
         root = None
 
@@ -617,7 +622,7 @@ class FuzzerFactory(object):
                 for rule in current_root.rules().ruleSpec():
                     root.rules().addChild(rule)
 
-            work_list |= self._collect_imports(current_root, dirname(grammar))
+            work_list |= self._collect_imports(current_root, dirname(grammar), lib_dir)
 
         return root
 
@@ -632,6 +637,8 @@ def execute():
                         help='do not process inline actions (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='specify grammar file encoding (default: %(default)s).')
+    parser.add_argument('--lib', metavar='DIR',
+                        help='alternative location of import grammars.')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
     parser.add_argument('--log-level', metavar='LEVEL', default=logging.INFO,
@@ -650,7 +657,7 @@ def execute():
     if args.antlr == default_antlr_path:
         antlerinator.install(lazy=True)
 
-    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, encoding=args.encoding, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
 
 if __name__ == '__main__':
