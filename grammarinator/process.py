@@ -563,18 +563,19 @@ class FuzzerFactory(object):
 
         self.lexer, self.parser, self.listener = build_grammars(antlr_dir, antlr=antlr)
 
-    def generate_fuzzer(self, grammars, *, actions=True, pep8=False):
+    def generate_fuzzer(self, grammars, *, encoding='utf-8', actions=True, pep8=False):
         """
         Generates fuzzers from grammars.
 
         :param grammars: List of grammar files to generate from.
+        :param encoding: Grammar file encoding.
         :param actions: Boolean to enable or disable grammar actions.
         :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
         """
         lexer_root, parser_root = None, None
 
         for grammar in grammars:
-            root = self._parse(grammar)
+            root = self._parse(grammar, encoding)
             # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
             if root.grammarType().LEXER() or not root.grammarType().PARSER():
                 lexer_root = root
@@ -597,14 +598,14 @@ class FuzzerFactory(object):
                     imports.add(join(base_dir, str(ident.RULE_REF() or ident.TOKEN_REF()) + '.g4'))
         return imports
 
-    def _parse(self, grammar):
+    def _parse(self, grammar, encoding):
         work_list = {grammar}
         root = None
 
         while work_list:
             grammar = work_list.pop()
 
-            target_parser = self.parser(CommonTokenStream(self.lexer(FileStream(grammar, encoding='utf-8'))))
+            target_parser = self.parser(CommonTokenStream(self.lexer(FileStream(grammar, encoding=encoding))))
             current_root = target_parser.grammarSpec()
             # assert target_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
 
@@ -629,6 +630,8 @@ def execute():
                         help='path of the ANTLR jar file (default: %(default)s).')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions (default: %(default)s).')
+    parser.add_argument('--encoding', metavar='ENC', default='utf-8',
+                        help='specify grammar file encoding (default: %(default)s).')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
     parser.add_argument('--log-level', metavar='LEVEL', default=logging.INFO,
@@ -647,7 +650,7 @@ def execute():
     if args.antlr == default_antlr_path:
         antlerinator.install(lazy=True)
 
-    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, encoding=args.encoding, actions=args.actions, pep8=args.pep8)
 
 
 if __name__ == '__main__':
