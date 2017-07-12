@@ -531,9 +531,17 @@ class FuzzerGenerator(object):
 
     def generate_depths(self, lexer_ids, parser_ids):
         min_depths = self.graph.calc_min_depths()
+
         with self.indent():
-            self.lexer_body += self.line('min_depths = {min_depths}\n'.format(min_depths=dict((id, min_depths[id]) for id in lexer_ids)))
-            self.parser_body += self.line('min_depths = {min_depths}\n'.format(min_depths=dict((id, min_depths[id]) for id in parser_ids)))
+            self.lexer_body += self.line('min_depths = {')
+            with self.indent():
+                self.lexer_body += ''.join([self.line('{id!r}: {depth!r},'.format(id=id, depth=min_depths[id])) for id in sorted(lexer_ids)])
+            self.lexer_body += self.line('}\n')
+
+            self.parser_body += self.line('min_depths = {')
+            with self.indent():
+                self.parser_body += ''.join([self.line('{id!r}: {depth!r},'.format(id=id, depth=min_depths[id])) for id in sorted(parser_ids)])
+            self.parser_body += self.line('}\n')
 
 
 class FuzzerFactory(object):
