@@ -16,7 +16,7 @@ class HTMLCustomUnlexer(HTMLUnlexer):
         super(HTMLCustomUnlexer, self).__init__()
 
     # You probably want to rewrite this with a distinct CSS fuzzer.
-    def style_sheet(self):
+    def style_sheet(self, *args, **kwargs):
         return UnlexerRule(src='* {' \
                                 '  background: green;' \
                                 '}')
