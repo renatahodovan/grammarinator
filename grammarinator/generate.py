@@ -77,6 +77,7 @@ def execute():
         args.out = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
 
     sys.path.append(dirname(args.unparser))
+    sys.path.append(dirname(args.unlexer))
     unlexer = splitext(basename(args.unlexer))[0]
     unparser = splitext(basename(args.unparser))[0]
 
@@ -84,7 +85,7 @@ def execute():
     parser_cls = import_entity('.'.join([unparser, unparser]))
     transformers = [import_entity(transformer) for transformer in args.transformers]
 
-    if args.jobs > 1:
+    if args.n > 1 and args.jobs > 1:
         with Pool(args.jobs) as pool:
             pool.starmap(generate, [(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i) for i in range(args.n)])
     else:
