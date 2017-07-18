@@ -7,7 +7,6 @@
 
 import importlib
 import logging
-import pkgutil
 import sys
 
 from argparse import ArgumentParser
