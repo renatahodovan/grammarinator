@@ -7,6 +7,8 @@ Grammarinator
    :target: https://badge.fury.io/py/grammarinator
 .. image:: https://travis-ci.org/renatahodovan/grammarinator.svg?branch=master
    :target: https://travis-ci.org/renatahodovan/grammarinator
+.. image:: https://coveralls.io/repos/github/renatahodovan/grammarinator/badge.svg
+   :target: https://coveralls.io/github/renatahodovan/grammarinator
 
 *Grammarinator* is a random test generator / fuzzer that creates test cases
 according to an input ANTLR_ v4 grammar. The motivation behind this

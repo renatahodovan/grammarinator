@@ -1,4 +1,6 @@
 language: python
+sudo: false
+
 matrix:
   include:
     - python: 3.4
@@ -7,7 +9,11 @@ matrix:
       env: TOXENV=py35
     - python: 3.6
       env: TOXENV=py36
-sudo: false
+
+    - python: 3.4
+      env: TOXENV=cov
+      before_script: pip install -U coveralls
+      after_success: coveralls
 
 install: pip install -U tox
 script: tox
