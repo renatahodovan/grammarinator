@@ -36,14 +36,14 @@ def collect_params():
 
 
 def run_subprocess(grammar, commandline, tmpdir):
-    grammar_name = grammar
+    grammar_name = os.path.basename(grammar)
     for suffix in ['.g4', 'Lexer', 'Parser']:
         if grammar_name.endswith(suffix):
             grammar_name = grammar_name[:-len(suffix)]
 
     env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.environ.get('PYTHONPATH', ''), tmpdir]))
 
-    proc = subprocess.Popen(shlex.split(commandline.format(grammar=grammar_name, tmpdir=tmpdir)),
+    proc = subprocess.Popen(shlex.split(commandline.format(grammar=grammar_name, tmpdir=tmpdir), posix=sys.platform != 'win32'),
                             cwd=grammars_dir, env=env)
     proc.communicate()
     assert proc.returncode == 0
@@ -64,6 +64,7 @@ def run_generate(grammar, commandline, tmpdir):
 
 
 def run_antlr(grammar, commandline, tmpdir):
+    antlerinator.install(lazy=True)
     run_subprocess(grammar,
                    'java -jar {antlr} -Dlanguage=Python3 {commandline}'
                         .format(antlr=antlerinator.antlr_jar_path, commandline=commandline),

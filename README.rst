@@ -7,6 +7,8 @@ Grammarinator
    :target: https://badge.fury.io/py/grammarinator
 .. image:: https://travis-ci.org/renatahodovan/grammarinator.svg?branch=master
    :target: https://travis-ci.org/renatahodovan/grammarinator
+.. image:: https://ci.appveyor.com/api/projects/status/0f1vm5x9j9j31hpo/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/renatahodovan/grammarinator/branch/master
 .. image:: https://coveralls.io/repos/github/renatahodovan/grammarinator/badge.svg
    :target: https://coveralls.io/github/renatahodovan/grammarinator
 

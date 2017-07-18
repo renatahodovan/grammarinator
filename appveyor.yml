@@ -1,0 +1,14 @@
+environment:
+  TOXENV: "py"
+  TOX_TESTENV_PASSENV: "USERPROFILE" # should be passed down to test command automatically but obviously isn't
+  matrix:
+    - PYTHON: "C:\\Python34"
+    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python36"
+    - PYTHON: "C:\\Python34-x64"
+    - PYTHON: "C:\\Python35-x64"
+    - PYTHON: "C:\\Python36-x64"
+
+install: "%PYTHON%\\python.exe -m pip install tox"
+build: off
+test_script: "%PYTHON%\\python.exe -m tox -v"

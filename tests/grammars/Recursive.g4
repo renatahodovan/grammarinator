@@ -20,11 +20,11 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: -p {grammar}Unparser -l {grammar}Unlexer -r start -j 1 -n 5 -d 5 -o "{tmpdir}/{grammar}S%d.txt"
-// TEST-GENERATE: -p {grammar}Unparser -l {grammar}Unlexer -r start -j 2 -n 5 -d 5 -o "{tmpdir}/{grammar}M%d.txt"
+// TEST-GENERATE: -p {grammar}Unparser -l {grammar}Unlexer -r start -j 1 -n 5 -d 5 -o {tmpdir}/{grammar}S%d.txt
+// TEST-GENERATE: -p {grammar}Unparser -l {grammar}Unlexer -r start -j 2 -n 5 -d 5 -o {tmpdir}/{grammar}M%d.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
-// TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start "{tmpdir}/{grammar}S%d.txt"
-// TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start "{tmpdir}/{grammar}M%d.txt"
+// TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}S%d.txt
+// TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}M%d.txt
 
 grammar Recursive;
 
