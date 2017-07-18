@@ -359,6 +359,10 @@ class FuzzerGenerator(object):
             for rule in parser_rules:
                 self.parser_body += self.generate_single(rule, None, parser_ids)
 
+        if parser_rules:
+            with self.indent():
+                self.parser_body += self.line('default_rule = {name}\n'.format(name=parser_rules[0].RULE_REF()))
+
         return lexer_ids, parser_ids
 
     def generate_single(self, node, parent_id, new_alt_ids):

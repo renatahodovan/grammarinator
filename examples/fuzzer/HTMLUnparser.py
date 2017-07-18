@@ -267,6 +267,8 @@ class HTMLUnparser(Grammarinator):
             current += self.lexer.STYLE_SHORT_BODY(max_depth=max_depth - 1)
         return current
 
+    default_rule = htmlDocument
+
     min_depths = {
         'alt_10': [3, 2, 2],
         'alt_11': [4, 3],

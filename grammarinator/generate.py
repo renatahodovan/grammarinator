@@ -48,8 +48,8 @@ def execute():
                         help='grammarinator-generated unparser.')
     parser.add_argument('-l', '--unlexer', required=True, metavar='FILE',
                         help='grammarinator-generated unlexer.')
-    parser.add_argument('-r', '--rule', required=True, metavar='NAME',
-                        help='name of the rule to start generation from.')
+    parser.add_argument('-r', '--rule', metavar='NAME',
+                        help='name of the rule to start generation from (default: first parser rule).')
     parser.add_argument('-t', '--transformers', metavar='LIST', nargs='+', default=[],
                         help='list of transformators (in package.module.function format) to postprocess the generated tree.')
     parser.add_argument('-d', '--max-depth', default=float('inf'), type=int, metavar='NUM',
@@ -83,6 +83,9 @@ def execute():
     lexer_cls = import_entity('.'.join([unlexer, unlexer]))
     parser_cls = import_entity('.'.join([unparser, unparser]))
     transformers = [import_entity(transformer) for transformer in args.transformers]
+
+    if args.rule is None:
+        args.rule = parser_cls.default_rule.__name__
 
     if args.n > 1 and args.jobs > 1:
         with Pool(args.jobs) as pool:
