@@ -53,13 +53,25 @@ def multirange_diff(r1_list, r2_list):
     return r1_list
 
 
+def depthcontrol(fn):
+    def controlled_fn(obj, *args, **kwargs):
+        obj.lexer.max_depth -= 1
+        try:
+            result = fn(obj, *args, **kwargs)
+        finally:
+            obj.lexer.max_depth += 1
+        return result
+
+    return controlled_fn
+
+
 class Grammarinator(object):
 
     def __init__(self, *, max_cnt=8000):
-        self.root = None
-        self.node_cnt = 0
         self.max_cnt = max_cnt
+        self.node_cnt = 0
         self.options = dict()
+        self.root = None
 
     def set_options(self):
         pass
@@ -69,7 +81,7 @@ class Grammarinator(object):
         self.node_cnt += 1
         return node
 
-    def random_decision(self, *, max_depth=float('inf')):
+    def random_decision(self):
         return bool(random.getrandbits(1))
 
     def choice(self, choices):
@@ -82,26 +94,19 @@ class Grammarinator(object):
             upto += w
         assert False, 'Shouldn\'t get here.'
 
-    def depth_limited_weights(self, weights, min_depths, max_depth):
-        for i, w in enumerate(weights):
-            # Disable options that cannot be finished within the given max_depth.
-            if min_depths[i] > max_depth:
-                weights[i] = 0
-        return weights
-
-    def zero_or_one(self, *, max_depth=float('inf')):
-        if self.random_decision(max_depth=max_depth):
+    def zero_or_one(self):
+        if self.random_decision():
             yield
         raise StopIteration
 
-    def zero_or_more(self, *, max_depth=float('inf')):
-        while self.random_decision(max_depth=max_depth):
+    def zero_or_more(self):
+        while self.random_decision():
             yield
         raise StopIteration
 
-    def one_or_more(self, *, max_depth=float('inf')):
+    def one_or_more(self):
         yield
-        yield from self.zero_or_more(max_depth=max_depth)
+        yield from self.zero_or_more()
 
     def char_from_list(self, options):
         return chr(random.choice(options))
@@ -126,7 +131,7 @@ class Grammarinator(object):
         return result
 
     # TODO: move to specific fuzzers
-    def choose_multiple(self, options, *, max_depth=float('inf'), interval=None, repeat=True, glue=' '):
+    def choose_multiple(self, options, *, interval=None, repeat=True, glue=' '):
         if not interval and not repeat:
             interval = range(1, len(options))
 
@@ -135,14 +140,14 @@ class Grammarinator(object):
             choice = random.choice(options)
             if not repeat:
                 options.remove(choice)
-            result.append(choice(max_depth=max_depth) if callable(choice) else UnlexerRule(src=choice))
+            result.append(choice() if callable(choice) else UnlexerRule(src=choice))
         return self.obj_join(result, UnlexerRule(src=glue))
 
-    def repeat(self, rule, *, max_depth=float('inf'), interval=None, glue=' '):
+    def repeat(self, rule, *, interval=None, glue=' '):
         if not interval:
-            interval = self.one_or_more(max_depth=max_depth)
+            interval = self.one_or_more()
 
         result = []
         for _ in interval:
-            result.append(rule(max_depth=max_depth) if callable(rule) else rule)
+            result.append(rule() if callable(rule) else rule)
         return self.obj_join(result, UnlexerRule(src=glue))

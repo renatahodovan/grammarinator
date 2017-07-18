@@ -12,11 +12,11 @@ from grammarinator.runtime import *
 
 class HTMLCustomUnlexer(HTMLUnlexer):
 
-    def __init__(self):
-        super(HTMLCustomUnlexer, self).__init__()
+    def __init__(self, *, max_depth=float('inf')):
+        super(HTMLCustomUnlexer, self).__init__(max_depth=max_depth)
 
     # You probably want to rewrite this with a distinct CSS fuzzer.
-    def style_sheet(self, *args, **kwargs):
+    def style_sheet(self):
         return UnlexerRule(src='* {' \
                                 '  background: green;' \
                                 '}')

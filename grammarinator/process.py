@@ -155,11 +155,13 @@ class FuzzerGenerator(object):
 
         src = self.line('class {fuzzer_name}(Grammarinator):\n'.format(fuzzer_name=fuzzer_name))
         with self.indent():
-            src += self.line('def __init__(self{args}):'.format(args='' if lexer else ', lexer'))
+            src += self.line('def __init__(self, {args}):'.format(args='*, max_depth=float(\'inf\')' if lexer else 'lexer'))
 
             with self.indent():
                 src += self.line('super({fuzzer_name}, self).__init__()'.format(fuzzer_name=fuzzer_name))
                 src += self.line('self.lexer = {lexer_ref}'.format(lexer_ref='self' if lexer else 'lexer'))
+                if lexer:
+                    src += self.line('self.max_depth = max_depth')
                 src += self.line('self.set_options()\n')
 
         if lexer:
@@ -254,14 +256,11 @@ class FuzzerGenerator(object):
             return self.token_start_ranges[src]
 
     def generate(self, lexer_root, parser_root):
-        all_lexer_ids, all_parser_ids = [], []
         for root in [lexer_root, parser_root]:
             if root:
-                lexer_ids, parser_ids = self.generate_grammar(root)
-                all_lexer_ids.extend(lexer_ids)
-                all_parser_ids.extend(parser_ids)
+                self.generate_grammar(root)
 
-        self.generate_depths(all_lexer_ids, all_parser_ids)
+        self.generate_depths()
 
         return [
             (self.lexer_name, self.lexer_header + '\n\n' + self.lexer_body),
@@ -329,44 +328,34 @@ class FuzzerGenerator(object):
                             self.lexer_header += action_src
 
         rules = node.rules().ruleSpec()
-        lexer_ids, parser_ids = [], []
         lexer_rules, parser_rules = [], []
         self.graph.add_node(RuleNode(id='EOF'))
         for rule in rules:
             if rule.parserRuleSpec():
-                name = str(rule.parserRuleSpec().RULE_REF())
-                self.graph.add_node(RuleNode(id=name))
+                self.graph.add_node(RuleNode(id=str(rule.parserRuleSpec().RULE_REF())))
                 parser_rules.append(rule.parserRuleSpec())
-                parser_ids.append(name)
             elif rule.lexerRuleSpec():
-                name = str(rule.lexerRuleSpec().TOKEN_REF())
-                self.graph.add_node(RuleNode(id=name))
+                self.graph.add_node(RuleNode(id=str(rule.lexerRuleSpec().TOKEN_REF())))
                 lexer_rules.append(rule.lexerRuleSpec())
-                lexer_ids.append(name)
             else:
                 assert False, 'Should not get here.'
 
         for mode_spec in node.modeSpec():
             for lexer_rule in mode_spec.lexerRuleSpec():
-                name = str(lexer_rule.TOKEN_REF())
-                self.graph.add_node(RuleNode(id=name))
+                self.graph.add_node(RuleNode(id=str(lexer_rule.TOKEN_REF())))
                 lexer_rules.append(lexer_rule)
-                lexer_ids.append(name)
 
         with self.indent():
             for rule in lexer_rules:
-                self.lexer_body += self.generate_single(rule, None, lexer_ids)
+                self.lexer_body += self.generate_single(rule, None)
             for rule in parser_rules:
-                self.parser_body += self.generate_single(rule, None, parser_ids)
+                self.parser_body += self.generate_single(rule, None)
 
         if parser_rules:
             with self.indent():
                 self.parser_body += self.line('default_rule = {name}\n'.format(name=parser_rules[0].RULE_REF()))
 
-        return lexer_ids, parser_ids
-
-    def generate_single(self, node, parent_id, new_alt_ids):
-
+    def generate_single(self, node, parent_id):
         if isinstance(node, (self.parser.ParserRuleSpecContext, self.parser.LexerRuleSpecContext)):
             parser_rule = isinstance(node, self.parser.ParserRuleSpecContext)
             node_type = UnparserRule if parser_rule else UnlexerRule
@@ -376,14 +365,16 @@ class FuzzerGenerator(object):
             if not parser_rule:
                 self.current_start_range = []
 
-            rule_header = self.line('def {rule_name}(self, *, max_depth=float(\'inf\')):'.format(rule_name=rule_name))
+            rule_header = self.line('@depthcontrol')
+            rule_header += self.line('def {rule_name}(self):'.format(rule_name=rule_name))
             with self.indent():
                 local_ctx = self.line('local_ctx = dict()')
                 rule_code = self.line('current = self.create_node({node_type}(name=\'{rule_name}\'))'.format(node_type=node_type.__name__,
                                                                                                              rule_name=rule_name))
                 rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
-                rule_code += self.generate_single(rule_block, rule_name, new_alt_ids)
-                rule_code += self.line('return current\n')
+                rule_code += self.generate_single(rule_block, rule_name)
+                rule_code += self.line('return current')
+            rule_code += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=rule_name))
 
             # local_ctx only has to be initialized if we have variable assignment.
             rule_code = rule_header + (local_ctx if 'local_ctx' in rule_code else '') + rule_code
@@ -397,17 +388,15 @@ class FuzzerGenerator(object):
         if isinstance(node, (self.parser.RuleAltListContext, self.parser.AltListContext, self.parser.LexerAltListContext)):
             children = [child for child in node.children if isinstance(child, ParserRuleContext)]
             if len(children) == 1:
-                return self.generate_single(children[0], parent_id, new_alt_ids)
+                return self.generate_single(children[0], parent_id)
 
             alt_name = self.graph.new_alt_id()
-            new_alt_ids.append(alt_name)
             self.graph.add_node(AlternationNode(id=alt_name))
             self.graph.add_edge(frm=parent_id, to=alt_name)
 
-            result = self.line('weights = self.depth_limited_weights([{weights}], self.min_depths[\'{alt_name}\'], max_depth)'.format(
-                                weights=', '.join([self.find_conditions(child) for child in children]),
-                                alt_name=alt_name))
-            result += self.line('choice = self.choice(weights)'.format(max=len(children)))
+            result = self.line('choice = self.choice([0 if {{{alt_name}}}[i] > self.lexer.max_depth else w for i, w in enumerate([{weights}])])'
+                               .format(weights=', '.join([self.find_conditions(child) for child in children]),
+                                       alt_name=alt_name))
             for i, child in enumerate(children):
                 alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
                 self.graph.add_node(AlternativeNode(id=alternative_name))
@@ -415,7 +404,7 @@ class FuzzerGenerator(object):
 
                 result += self.line('{if_kw} choice == {idx}:'.format(if_kw='if' if i == 0 else 'elif', idx=i))
                 with self.indent():
-                    result += self.generate_single(child, alternative_name, new_alt_ids) or self.line('pass')
+                    result += self.generate_single(child, alternative_name) or self.line('pass')
             return result
 
         # Sequences.
@@ -429,7 +418,7 @@ class FuzzerGenerator(object):
                 children = node.lexerElements().lexerElement()
             else:
                 children = []
-            return ''.join([self.generate_single(child, parent_id, new_alt_ids) for child in children])
+            return ''.join([self.generate_single(child, parent_id) for child in children])
 
         if isinstance(node, (self.parser.ElementContext, self.parser.LexerElementContext)):
             if self.actions and node.actionBlock():
@@ -449,7 +438,7 @@ class FuzzerGenerator(object):
                 suffix = node.ebnf().blockSuffix().ebnfSuffix()
 
             if not suffix:
-                return self.generate_single(node.children[0], parent_id, new_alt_ids)
+                return self.generate_single(node.children[0], parent_id)
 
             suffix = str(suffix.children[0])
 
@@ -457,29 +446,28 @@ class FuzzerGenerator(object):
                 quant_name = self.graph.new_quant_id()
                 self.graph.add_node(QuantifierNode(id=quant_name))
                 self.graph.add_edge(frm=parent_id, to=quant_name)
-                new_alt_ids.append(quant_name)
                 parent_id = quant_name
 
             quant_type = {'?': 'zero_or_one', '*': 'zero_or_more', '+': 'one_or_more'}[suffix]
-            result = self.line('if max_depth >= {min_depth}:'.format(min_depth='0' if suffix == '+' else 'self.min_depths[\'{name}\']'.format(name=parent_id)))
+            result = self.line('if self.lexer.max_depth >= {min_depth}:'.format(min_depth='0' if suffix == '+' else '{{{name}}}'.format(name=parent_id)))
             with self.indent():
-                result += self.line('for _ in self.{quant_type}(max_depth=max_depth):'.format(quant_type=quant_type))
+                result += self.line('for _ in self.{quant_type}():'.format(quant_type=quant_type))
 
                 with self.indent():
-                    result += self.generate_single(node.children[0], parent_id, new_alt_ids)
+                    result += self.generate_single(node.children[0], parent_id)
                 result += '\n'
             return result
 
         if isinstance(node, self.parser.LabeledElementContext):
             ident = node.identifier()
             name = ident.RULE_REF() or ident.TOKEN_REF()
-            result = self.generate_single(node.atom() or node.block(), parent_id, new_alt_ids)
+            result = self.generate_single(node.atom() or node.block(), parent_id)
             result += self.line('local_ctx[\'{name}\'] = current.last_child'.format(name=name))
             return result
 
         if isinstance(node, self.parser.RulerefContext):
             self.graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
-            return self.line('current += self.{rule_name}(max_depth=max_depth - 1)'.format(rule_name=node.RULE_REF()))
+            return self.line('current += self.{rule_name}()'.format(rule_name=node.RULE_REF()))
 
         if isinstance(node, (self.parser.LexerAtomContext, self.parser.AtomContext)):
             if node.DOT():
@@ -515,12 +503,12 @@ class FuzzerGenerator(object):
                     self.lexer_header += '{charset_name} = list(chain({charset}))\n'.format(charset_name=charset_name, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
                     return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_name})))'.format(charset_name=charset_name))
 
-            return ''.join([self.generate_single(child, parent_id, new_alt_ids) for child in node.children])
+            return ''.join([self.generate_single(child, parent_id) for child in node.children])
 
         if isinstance(node, self.parser.TerminalContext):
             if node.TOKEN_REF():
                 self.graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
-                return self.line('current += self.lexer.{rule_name}(max_depth=max_depth - 1)'.format(rule_name=node.TOKEN_REF()))
+                return self.line('current += self.lexer.{rule_name}()'.format(rule_name=node.TOKEN_REF()))
 
             if node.STRING_LITERAL():
                 src = str(node.STRING_LITERAL())[1:-1]
@@ -529,23 +517,14 @@ class FuzzerGenerator(object):
                 return self.line('current += self.create_node(UnlexerRule(src=\'{src}\'))'.format(src=src))
 
         if isinstance(node, ParserRuleContext) and node.getChildCount():
-            return ''.join([self.generate_single(child, parent_id, new_alt_ids) for child in node.children])
+            return ''.join([self.generate_single(child, parent_id) for child in node.children])
 
         return ''
 
-    def generate_depths(self, lexer_ids, parser_ids):
+    def generate_depths(self):
         min_depths = self.graph.calc_min_depths()
-
-        with self.indent():
-            self.lexer_body += self.line('min_depths = {')
-            with self.indent():
-                self.lexer_body += ''.join([self.line('{id!r}: {depth!r},'.format(id=id, depth=min_depths[id])) for id in sorted(lexer_ids)])
-            self.lexer_body += self.line('}\n')
-
-            self.parser_body += self.line('min_depths = {')
-            with self.indent():
-                self.parser_body += ''.join([self.line('{id!r}: {depth!r},'.format(id=id, depth=min_depths[id])) for id in sorted(parser_ids)])
-            self.parser_body += self.line('}\n')
+        self.lexer_body = self.lexer_body.format(**min_depths)
+        self.parser_body = self.parser_body.format(**min_depths)
 
 
 class FuzzerFactory(object):

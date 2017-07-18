@@ -14,8 +14,8 @@ from CustomUnlexer import CustomUnlexer
 
 class CustomSubclassUnlexer(CustomUnlexer):
 
-    def __init__(self):
-        super(CustomSubclassUnlexer, self).__init__()
+    def __init__(self, *, max_depth=float('inf')):
+        super(CustomSubclassUnlexer, self).__init__(max_depth=max_depth)
 
     def _custom_lexer_content(self):
         return UnlexerRule(src='custom content')

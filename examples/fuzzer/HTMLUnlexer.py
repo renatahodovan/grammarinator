@@ -18,9 +18,10 @@ charset_10 = list(chain(*multirange_diff(printable_unicode_ranges, [(39, 40),(60
 
 class HTMLUnlexer(Grammarinator):
 
-    def __init__(self):
+    def __init__(self, *, max_depth=float('inf')):
         super(HTMLUnlexer, self).__init__()
         self.lexer = self
+        self.max_depth = max_depth
         self.set_options()
 
     def EOF(self, *args, **kwargs):
@@ -30,178 +31,214 @@ class HTMLUnlexer(Grammarinator):
     def style_sheet(self, *args, **kwargs):
         return UnlexerRule(src='')
     
-    def HTML_COMMENT(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def HTML_COMMENT(self):
         current = self.create_node(UnlexerRule(name='HTML_COMMENT'))
         current += self.create_node(UnlexerRule(src='<!--'))
-        if max_depth >= self.min_depths['quant_0']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='-->'))
         return current
+    HTML_COMMENT.min_depth = 0
 
-    def HTML_CONDITIONAL_COMMENT(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def HTML_CONDITIONAL_COMMENT(self):
         current = self.create_node(UnlexerRule(name='HTML_CONDITIONAL_COMMENT'))
         current += self.create_node(UnlexerRule(src='<!['))
-        if max_depth >= self.min_depths['quant_1']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src=']>'))
         return current
+    HTML_CONDITIONAL_COMMENT.min_depth = 0
 
-    def XML_DECLARATION(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def XML_DECLARATION(self):
         current = self.create_node(UnlexerRule(name='XML_DECLARATION'))
         current += self.create_node(UnlexerRule(src='<?xml'))
-        if max_depth >= self.min_depths['quant_2']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='>'))
         return current
+    XML_DECLARATION.min_depth = 0
 
-    def CDATA(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def CDATA(self):
         current = self.create_node(UnlexerRule(name='CDATA'))
         current += self.create_node(UnlexerRule(src='<![CDATA['))
-        if max_depth >= self.min_depths['quant_3']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src=']]>'))
         return current
+    CDATA.min_depth = 0
 
-    def DTD(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def DTD(self):
         current = self.create_node(UnlexerRule(name='DTD'))
         current += self.create_node(UnlexerRule(src='<!'))
-        if max_depth >= self.min_depths['quant_4']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='>'))
         return current
+    DTD.min_depth = 0
 
-    def SCRIPTLET(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def SCRIPTLET(self):
         current = self.create_node(UnlexerRule(name='SCRIPTLET'))
-        weights = self.depth_limited_weights([1, 1], self.min_depths['alt_0'], max_depth)
-        choice = self.choice(weights)
+        choice = self.choice([0 if [0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
             current += self.create_node(UnlexerRule(src='<?'))
-            if max_depth >= self.min_depths['quant_5']:
-                for _ in self.zero_or_more(max_depth=max_depth):
+            if self.lexer.max_depth >= 0:
+                for _ in self.zero_or_more():
                     current += UnlexerRule(src=self.any_char())
 
             current += self.create_node(UnlexerRule(src='?>'))
         elif choice == 1:
             current += self.create_node(UnlexerRule(src='<%'))
-            if max_depth >= self.min_depths['quant_6']:
-                for _ in self.zero_or_more(max_depth=max_depth):
+            if self.lexer.max_depth >= 0:
+                for _ in self.zero_or_more():
                     current += UnlexerRule(src=self.any_char())
 
             current += self.create_node(UnlexerRule(src='%>'))
         return current
+    SCRIPTLET.min_depth = 0
 
-    def SEA_WS(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def SEA_WS(self):
         current = self.create_node(UnlexerRule(name='SEA_WS'))
-        if max_depth >= 0:
-            for _ in self.one_or_more(max_depth=max_depth):
-                weights = self.depth_limited_weights([1, 1, 1], self.min_depths['alt_1'], max_depth)
-                choice = self.choice(weights)
+        if self.lexer.max_depth >= 0:
+            for _ in self.one_or_more():
+                choice = self.choice([0 if [0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1])])
                 if choice == 0:
                     current += self.create_node(UnlexerRule(src=' '))
                 elif choice == 1:
                     current += self.create_node(UnlexerRule(src='\t'))
                 elif choice == 2:
-                    if max_depth >= self.min_depths['quant_7']:
-                        for _ in self.zero_or_one(max_depth=max_depth):
+                    if self.lexer.max_depth >= 0:
+                        for _ in self.zero_or_one():
                             current += self.create_node(UnlexerRule(src='\r'))
 
                     current += self.create_node(UnlexerRule(src='\n'))
 
         return current
+    SEA_WS.min_depth = 0
 
-    def SCRIPT_OPEN(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def SCRIPT_OPEN(self):
         current = self.create_node(UnlexerRule(name='SCRIPT_OPEN'))
         current += self.create_node(UnlexerRule(src='<script'))
-        if max_depth >= self.min_depths['quant_8']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='>'))
         return current
+    SCRIPT_OPEN.min_depth = 0
 
-    def STYLE_OPEN(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def STYLE_OPEN(self):
         current = self.create_node(UnlexerRule(name='STYLE_OPEN'))
         current += self.create_node(UnlexerRule(src='<style'))
-        if max_depth >= self.min_depths['quant_9']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='>'))
         return current
+    STYLE_OPEN.min_depth = 0
 
-    def TAG_OPEN(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_OPEN(self):
         current = self.create_node(UnlexerRule(name='TAG_OPEN'))
         current += self.create_node(UnlexerRule(src='<'))
         return current
+    TAG_OPEN.min_depth = 0
 
-    def HTML_TEXT(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def HTML_TEXT(self):
         current = self.create_node(UnlexerRule(name='HTML_TEXT'))
-        if max_depth >= 0:
-            for _ in self.one_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.one_or_more():
                 current += UnlexerRule(src=self.char_from_list(charset_0))
 
         return current
+    HTML_TEXT.min_depth = 0
 
-    def TAG_CLOSE(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_CLOSE(self):
         current = self.create_node(UnlexerRule(name='TAG_CLOSE'))
         current += self.create_node(UnlexerRule(src='>'))
         return current
+    TAG_CLOSE.min_depth = 0
 
-    def TAG_SLASH_CLOSE(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_SLASH_CLOSE(self):
         current = self.create_node(UnlexerRule(name='TAG_SLASH_CLOSE'))
         current += self.create_node(UnlexerRule(src='/>'))
         return current
+    TAG_SLASH_CLOSE.min_depth = 0
 
-    def TAG_SLASH(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_SLASH(self):
         current = self.create_node(UnlexerRule(name='TAG_SLASH'))
         current += self.create_node(UnlexerRule(src='/'))
         return current
+    TAG_SLASH.min_depth = 0
 
-    def TAG_EQUALS(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_EQUALS(self):
         current = self.create_node(UnlexerRule(name='TAG_EQUALS'))
         current += self.create_node(UnlexerRule(src='='))
         return current
+    TAG_EQUALS.min_depth = 0
 
-    def TAG_NAME(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_NAME(self):
         current = self.create_node(UnlexerRule(name='TAG_NAME'))
-        current += self.lexer.TAG_NameStartChar(max_depth=max_depth - 1)
-        if max_depth >= self.min_depths['quant_10']:
-            for _ in self.zero_or_more(max_depth=max_depth):
-                current += self.lexer.TAG_NameChar(max_depth=max_depth - 1)
+        current += self.lexer.TAG_NameStartChar()
+        if self.lexer.max_depth >= 1:
+            for _ in self.zero_or_more():
+                current += self.lexer.TAG_NameChar()
 
         return current
+    TAG_NAME.min_depth = 1
 
-    def TAG_WHITESPACE(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_WHITESPACE(self):
         current = self.create_node(UnlexerRule(name='TAG_WHITESPACE'))
         current += self.create_node(UnlexerRule(src=self.char_from_list(charset_1)))
         return current
+    TAG_WHITESPACE.min_depth = 0
 
-    def HEXDIGIT(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def HEXDIGIT(self):
         current = self.create_node(UnlexerRule(name='HEXDIGIT'))
         current += self.create_node(UnlexerRule(src=self.char_from_list(charset_2)))
         return current
+    HEXDIGIT.min_depth = 0
 
-    def DIGIT(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def DIGIT(self):
         current = self.create_node(UnlexerRule(name='DIGIT'))
         current += self.create_node(UnlexerRule(src=self.char_from_list(charset_3)))
         return current
+    DIGIT.min_depth = 0
 
-    def TAG_NameChar(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_NameChar(self):
         current = self.create_node(UnlexerRule(name='TAG_NameChar'))
-        weights = self.depth_limited_weights([1, 1, 1, 1, 1, 1, 1, 1], self.min_depths['alt_2'], max_depth)
-        choice = self.choice(weights)
+        choice = self.choice([0 if [1, 0, 0, 0, 1, 0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1, 1, 1])])
         if choice == 0:
-            current += self.lexer.TAG_NameStartChar(max_depth=max_depth - 1)
+            current += self.lexer.TAG_NameStartChar()
         elif choice == 1:
             current += self.create_node(UnlexerRule(src='-'))
         elif choice == 2:
@@ -209,7 +246,7 @@ class HTMLUnlexer(Grammarinator):
         elif choice == 3:
             current += self.create_node(UnlexerRule(src='.'))
         elif choice == 4:
-            current += self.lexer.DIGIT(max_depth=max_depth - 1)
+            current += self.lexer.DIGIT()
         elif choice == 5:
             current += self.create_node(UnlexerRule(src='\u00B7'))
         elif choice == 6:
@@ -217,11 +254,12 @@ class HTMLUnlexer(Grammarinator):
         elif choice == 7:
             current += self.create_node(UnlexerRule(src=self.char_from_list(range(8255, 8256))))
         return current
+    TAG_NameChar.min_depth = 0
 
-    def TAG_NameStartChar(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def TAG_NameStartChar(self):
         current = self.create_node(UnlexerRule(name='TAG_NameStartChar'))
-        weights = self.depth_limited_weights([1, 1, 1, 1, 1, 1], self.min_depths['alt_3'], max_depth)
-        choice = self.choice(weights)
+        choice = self.choice([0 if [0, 0, 0, 0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1])])
         if choice == 0:
             current += self.create_node(UnlexerRule(src=self.char_from_list(charset_4)))
         elif choice == 1:
@@ -235,66 +273,78 @@ class HTMLUnlexer(Grammarinator):
         elif choice == 5:
             current += self.create_node(UnlexerRule(src=self.char_from_list(range(65008, 65533))))
         return current
+    TAG_NameStartChar.min_depth = 0
 
-    def SCRIPT_BODY(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def SCRIPT_BODY(self):
         current = self.create_node(UnlexerRule(name='SCRIPT_BODY'))
-        if max_depth >= self.min_depths['quant_11']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='</script>'))
         return current
+    SCRIPT_BODY.min_depth = 0
 
-    def SCRIPT_SHORT_BODY(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def SCRIPT_SHORT_BODY(self):
         current = self.create_node(UnlexerRule(name='SCRIPT_SHORT_BODY'))
-        if max_depth >= self.min_depths['quant_12']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
         current += self.create_node(UnlexerRule(src='</>'))
         return current
+    SCRIPT_SHORT_BODY.min_depth = 0
 
-    def STYLE_BODY(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def STYLE_BODY(self):
         current = self.create_node(UnlexerRule(name='STYLE_BODY'))
         current += self.style_sheet()
         current += self.create_node(UnlexerRule(src='</style>'))
         return current
+    STYLE_BODY.min_depth = 0
 
-    def STYLE_SHORT_BODY(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def STYLE_SHORT_BODY(self):
         current = self.create_node(UnlexerRule(name='STYLE_SHORT_BODY'))
         current += self.style_sheet()
         current += self.create_node(UnlexerRule(src='</>'))
         return current
+    STYLE_SHORT_BODY.min_depth = 0
 
-    def ATTVALUE_VALUE(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def ATTVALUE_VALUE(self):
         current = self.create_node(UnlexerRule(name='ATTVALUE_VALUE'))
-        if max_depth >= self.min_depths['quant_13']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += self.create_node(UnlexerRule(src=self.char_from_list(charset_5)))
 
-        current += self.lexer.ATTRIBUTE(max_depth=max_depth - 1)
+        current += self.lexer.ATTRIBUTE()
         return current
+    ATTVALUE_VALUE.min_depth = 2
 
-    def ATTRIBUTE(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def ATTRIBUTE(self):
         current = self.create_node(UnlexerRule(name='ATTRIBUTE'))
-        weights = self.depth_limited_weights([1, 1, 1, 1, 1], self.min_depths['alt_4'], max_depth)
-        choice = self.choice(weights)
+        choice = self.choice([0 if [1, 1, 2, 1, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1])])
         if choice == 0:
-            current += self.lexer.DOUBLE_QUOTE_STRING(max_depth=max_depth - 1)
+            current += self.lexer.DOUBLE_QUOTE_STRING()
         elif choice == 1:
-            current += self.lexer.SINGLE_QUOTE_STRING(max_depth=max_depth - 1)
+            current += self.lexer.SINGLE_QUOTE_STRING()
         elif choice == 2:
-            current += self.lexer.ATTCHARS(max_depth=max_depth - 1)
+            current += self.lexer.ATTCHARS()
         elif choice == 3:
-            current += self.lexer.HEXCHARS(max_depth=max_depth - 1)
+            current += self.lexer.HEXCHARS()
         elif choice == 4:
-            current += self.lexer.DECCHARS(max_depth=max_depth - 1)
+            current += self.lexer.DECCHARS()
         return current
+    ATTRIBUTE.min_depth = 1
 
-    def ATTCHAR(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def ATTCHAR(self):
         current = self.create_node(UnlexerRule(name='ATTCHAR'))
-        weights = self.depth_limited_weights([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], self.min_depths['alt_5'], max_depth)
-        choice = self.choice(weights)
+        choice = self.choice([0 if [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])])
         if choice == 0:
             current += self.create_node(UnlexerRule(src='-'))
         elif choice == 1:
@@ -320,120 +370,71 @@ class HTMLUnlexer(Grammarinator):
         elif choice == 11:
             current += self.create_node(UnlexerRule(src=self.char_from_list(charset_6)))
         return current
+    ATTCHAR.min_depth = 0
 
-    def ATTCHARS(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def ATTCHARS(self):
         current = self.create_node(UnlexerRule(name='ATTCHARS'))
-        if max_depth >= 0:
-            for _ in self.one_or_more(max_depth=max_depth):
-                current += self.lexer.ATTCHAR(max_depth=max_depth - 1)
+        if self.lexer.max_depth >= 0:
+            for _ in self.one_or_more():
+                current += self.lexer.ATTCHAR()
 
-        if max_depth >= self.min_depths['quant_14']:
-            for _ in self.zero_or_one(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_one():
                 current += self.create_node(UnlexerRule(src=' '))
 
         return current
+    ATTCHARS.min_depth = 1
 
-    def HEXCHARS(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def HEXCHARS(self):
         current = self.create_node(UnlexerRule(name='HEXCHARS'))
         current += self.create_node(UnlexerRule(src='#'))
-        if max_depth >= 0:
-            for _ in self.one_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.one_or_more():
                 current += self.create_node(UnlexerRule(src=self.char_from_list(charset_7)))
 
         return current
+    HEXCHARS.min_depth = 0
 
-    def DECCHARS(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def DECCHARS(self):
         current = self.create_node(UnlexerRule(name='DECCHARS'))
-        if max_depth >= 0:
-            for _ in self.one_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.one_or_more():
                 current += self.create_node(UnlexerRule(src=self.char_from_list(charset_8)))
 
-        if max_depth >= self.min_depths['quant_15']:
-            for _ in self.zero_or_one(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_one():
                 current += self.create_node(UnlexerRule(src='%'))
 
         return current
+    DECCHARS.min_depth = 0
 
-    def DOUBLE_QUOTE_STRING(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def DOUBLE_QUOTE_STRING(self):
         current = self.create_node(UnlexerRule(name='DOUBLE_QUOTE_STRING'))
         current += self.create_node(UnlexerRule(src='"'))
-        if max_depth >= self.min_depths['quant_16']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.char_from_list(charset_9))
 
         current += self.create_node(UnlexerRule(src='"'))
         return current
+    DOUBLE_QUOTE_STRING.min_depth = 0
 
-    def SINGLE_QUOTE_STRING(self, *, max_depth=float('inf')):
+    @depthcontrol
+    def SINGLE_QUOTE_STRING(self):
         current = self.create_node(UnlexerRule(name='SINGLE_QUOTE_STRING'))
         current += self.create_node(UnlexerRule(src='\''))
-        if max_depth >= self.min_depths['quant_17']:
-            for _ in self.zero_or_more(max_depth=max_depth):
+        if self.lexer.max_depth >= 0:
+            for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.char_from_list(charset_10))
 
         current += self.create_node(UnlexerRule(src='\''))
         return current
+    SINGLE_QUOTE_STRING.min_depth = 0
 
     def set_options(self):
         self.options = dict(tokenVocab="HTMLLexer", dot="any_unicode_char")
-
-    min_depths = {
-        'ATTCHAR': 0,
-        'ATTCHARS': 1,
-        'ATTRIBUTE': 1,
-        'ATTVALUE_VALUE': 2,
-        'CDATA': 0,
-        'DECCHARS': 0,
-        'DIGIT': 0,
-        'DOUBLE_QUOTE_STRING': 0,
-        'DTD': 0,
-        'HEXCHARS': 0,
-        'HEXDIGIT': 0,
-        'HTML_COMMENT': 0,
-        'HTML_CONDITIONAL_COMMENT': 0,
-        'HTML_TEXT': 0,
-        'SCRIPTLET': 0,
-        'SCRIPT_BODY': 0,
-        'SCRIPT_OPEN': 0,
-        'SCRIPT_SHORT_BODY': 0,
-        'SEA_WS': 0,
-        'SINGLE_QUOTE_STRING': 0,
-        'STYLE_BODY': 0,
-        'STYLE_OPEN': 0,
-        'STYLE_SHORT_BODY': 0,
-        'TAG_CLOSE': 0,
-        'TAG_EQUALS': 0,
-        'TAG_NAME': 1,
-        'TAG_NameChar': 0,
-        'TAG_NameStartChar': 0,
-        'TAG_OPEN': 0,
-        'TAG_SLASH': 0,
-        'TAG_SLASH_CLOSE': 0,
-        'TAG_WHITESPACE': 0,
-        'XML_DECLARATION': 0,
-        'alt_0': [0, 0],
-        'alt_1': [0, 0, 0],
-        'alt_2': [1, 0, 0, 0, 1, 0, 0, 0],
-        'alt_3': [0, 0, 0, 0, 0, 0],
-        'alt_4': [1, 1, 2, 1, 1],
-        'alt_5': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        'quant_0': 0,
-        'quant_1': 0,
-        'quant_10': 1,
-        'quant_11': 0,
-        'quant_12': 0,
-        'quant_13': 0,
-        'quant_14': 0,
-        'quant_15': 0,
-        'quant_16': 0,
-        'quant_17': 0,
-        'quant_2': 0,
-        'quant_3': 0,
-        'quant_4': 0,
-        'quant_5': 0,
-        'quant_6': 0,
-        'quant_7': 0,
-        'quant_8': 0,
-        'quant_9': 0,
-    }
 

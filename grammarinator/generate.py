@@ -21,12 +21,16 @@ logging.basicConfig(format='%(message)s')
 
 
 def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out):
-    parser = parser_cls(lexer_cls())
-    if parser.min_depths[rule] > max_depth:
-        logger.warning('{rule} cannot be generated within the given depth (min needed: {cnt}).'.format(rule=rule, cnt=parser.min_depths[rule]))
+    parser = parser_cls(lexer_cls(max_depth=max_depth))
+    start_rule = getattr(parser, rule)
+
+    if not hasattr(start_rule, 'min_depth'):
+        logger.warning('The \'min_depth\' property of {rule} is not set. Fallback to 0.'.format(rule=rule))
+    elif start_rule.min_depth > max_depth:
+        logger.error('{rule} cannot be generated within the given depth (min needed: {cnt}).'.format(rule=rule, cnt=start_rule.min_depth))
         return
 
-    root = getattr(parser, rule)(max_depth=max_depth)
+    root = start_rule()
     for transformer in transformers:
         root = transformer(root)
 

@@ -5,12 +5,13 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .grammarinator import Grammarinator, multirange_diff, printable_ascii_ranges, printable_unicode_ranges
+from .grammarinator import depthcontrol, Grammarinator, multirange_diff, printable_ascii_ranges, printable_unicode_ranges
 from .transformer import *
 from .tree import BaseRule, UnlexerRule, UnparserRule
 
 __all__ = [
     'BaseRule',
+    'depthcontrol',
     'Grammarinator',
     'multirange_diff',
     'simple_space_transformer',
