@@ -47,7 +47,10 @@ def import_entity(name):
 
 
 def execute():
-    parser = ArgumentParser(description='Grammarinator: Generate')
+    parser = ArgumentParser(description='Grammarinator: Generate', epilog="""
+        The tool acts as a default execution harness for unlexers and unparsers
+        created by Grammarinator:Processor.
+        """)
     parser.add_argument('-p', '--unparser', required=True, metavar='FILE',
                         help='grammarinator-generated unparser.')
     parser.add_argument('-l', '--unlexer', required=True, metavar='FILE',
@@ -55,17 +58,17 @@ def execute():
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start generation from (default: first parser rule).')
     parser.add_argument('-t', '--transformers', metavar='LIST', nargs='+', default=[],
-                        help='list of transformators (in package.module.function format) to postprocess the generated tree.')
+                        help='list of transformers (in package.module.function format) to postprocess the generated tree.')
     parser.add_argument('-d', '--max-depth', default=float('inf'), type=int, metavar='NUM',
                         help='maximum recursion depth during generation (default: %(default)f).')
     parser.add_argument('-j', '--jobs', default=cpu_count(), type=int, metavar='NUM',
                         help='test generation parallelization level (default: number of cpu cores (%(default)d)).')
     parser.add_argument('-o', '--out', metavar='FILE', default=join(getcwd(), 'test_%d'),
                         help='output file format (default: %(default)s).')
-    parser.add_argument('--log-level', default=logging.INFO, metavar='LEVEL',
+    parser.add_argument('--log-level', default='INFO', metavar='LEVEL',
                         help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
-                        help='number of tests to generate.')
+                        help='number of tests to generate (default: %(default)s).')
     parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
 

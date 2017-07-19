@@ -611,23 +611,28 @@ class FuzzerFactory(object):
 
 
 def execute():
-    parser = ArgumentParser(description='Grammarinator: Processor')
+    parser = ArgumentParser(description='Grammarinator: Processor', epilog="""
+        The tool processes a grammar in ANTLR v4 format (*.g4, either separated
+        to lexer and parser grammar files, or a single combined grammar) and
+        creates a fuzzer (a pair of unlexer and unparser) that can generate
+        randomized content conforming to the format described by the grammar.
+        """)
     parser.add_argument('grammars', nargs='+', metavar='FILE',
                         help='ANTLR grammar files describing the expected format to generate.')
     parser.add_argument('--antlr', metavar='FILE', default=default_antlr_path,
                         help='path of the ANTLR jar file (default: %(default)s).')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
-                        help='do not process inline actions (default: %(default)s).')
+                        help='do not process inline actions.')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='specify grammar file encoding (default: %(default)s).')
     parser.add_argument('--lib', metavar='DIR',
                         help='alternative location of import grammars.')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
-    parser.add_argument('--log-level', metavar='LEVEL', default=logging.INFO,
+    parser.add_argument('--log-level', metavar='LEVEL', default='INFO',
                         help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
-                        help='temporary working directory (default: .).')
+                        help='temporary working directory (default: %(default)s).')
     parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
 
