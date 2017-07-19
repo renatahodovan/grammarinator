@@ -624,7 +624,7 @@ def execute():
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
-                        help='specify grammar file encoding (default: %(default)s).')
+                        help='grammar file encoding (default: %(default)s).')
     parser.add_argument('--lib', metavar='DIR',
                         help='alternative location of import grammars.')
     parser.add_argument('--pep8', default=False, action='store_true',

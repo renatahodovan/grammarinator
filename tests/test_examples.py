@@ -11,7 +11,7 @@ import pytest
 from run_grammars import collect_grammar_commands, run_grammar
 
 
-grammars_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'grammars')
+grammars_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'examples', 'grammars')
 
 
 @pytest.mark.parametrize('grammar, commands', collect_grammar_commands(grammars_dir))

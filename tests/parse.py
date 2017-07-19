@@ -49,8 +49,8 @@ def execute():
     parser.add_argument('infile', metavar='FILE', default=join(getcwd(), 'test_%d'),
                         help='input file name pattern (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
-                        help='specify input file encoding (default: %(default)s).')
-    parser.add_argument('--log-level', default=logging.INFO, metavar='LEVEL',
+                        help='input file encoding (default: %(default)s).')
+    parser.add_argument('--log-level', default='INFO', metavar='LEVEL',
                         help='verbosity level of diagnostic messages (default: %(default)s).')
     args = parser.parse_args()
 

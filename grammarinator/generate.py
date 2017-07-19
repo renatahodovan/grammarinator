@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import codecs
 import importlib
 import logging
 import sys
@@ -20,7 +21,7 @@ logger = logging.getLogger('grammarinator')
 logging.basicConfig(format='%(message)s')
 
 
-def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out):
+def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out, encoding):
     parser = parser_cls(lexer_cls(max_depth=max_depth))
     start_rule = getattr(parser, rule)
 
@@ -34,7 +35,7 @@ def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out):
     for transformer in transformers:
         root = transformer(root)
 
-    with open(out, 'w') as f:
+    with codecs.open(out, 'w', encoding) as f:
         f.write(str(root))
 
 
@@ -64,7 +65,9 @@ def execute():
     parser.add_argument('-j', '--jobs', default=cpu_count(), type=int, metavar='NUM',
                         help='test generation parallelization level (default: number of cpu cores (%(default)d)).')
     parser.add_argument('-o', '--out', metavar='FILE', default=join(getcwd(), 'test_%d'),
-                        help='output file format (default: %(default)s).')
+                        help='output file name pattern (default: %(default)s).')
+    parser.add_argument('--encoding', metavar='ENC', default='utf-8',
+                        help='output file encoding (default: %(default)s).')
     parser.add_argument('--log-level', default='INFO', metavar='LEVEL',
                         help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
@@ -75,8 +78,7 @@ def execute():
     logger.setLevel(args.log_level)
 
     out_dir = dirname(args.out)
-    if not exists(out_dir):
-        makedirs(out_dir, exist_ok=True)
+    makedirs(out_dir, exist_ok=True)
 
     if '%d' not in args.out:
         base, ext = splitext(args.out)
@@ -96,10 +98,10 @@ def execute():
 
     if args.n > 1 and args.jobs > 1:
         with Pool(args.jobs) as pool:
-            pool.starmap(generate, [(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i) for i in range(args.n)])
+            pool.starmap(generate, [(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i, args.encoding) for i in range(args.n)])
     else:
         for i in range(args.n):
-            generate(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i)
+            generate(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i, args.encoding)
 
 
 if __name__ == '__main__':
