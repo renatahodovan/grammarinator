@@ -291,3 +291,4 @@ class HTMLUnparser(Grammarinator):
     style.min_depth = 1
 
     default_rule = htmlDocument
+

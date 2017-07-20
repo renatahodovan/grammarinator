@@ -54,18 +54,6 @@ class GrammarGraph(object):
 
     def __init__(self):
         self.vertices = dict()
-        self.alt_id = 0
-        self.quant_id = 0
-
-    def new_alt_id(self):
-        alt_name = 'alt_{idx}'.format(idx=self.alt_id)
-        self.alt_id += 1
-        return alt_name
-
-    def new_quant_id(self):
-        quant_name = 'quant_{idx}'.format(idx=self.quant_id)
-        self.quant_id += 1
-        return quant_name
 
     def add_node(self, node):
         self.vertices[node.id] = node
@@ -112,6 +100,7 @@ class FuzzerGenerator(object):
 
         self.indent_level = 0
         self.charset_idx = 0
+        self.code_id = 0
 
         self.graph = GrammarGraph()
 
@@ -124,6 +113,7 @@ class FuzzerGenerator(object):
         self.parser_header = ''
         self.parser_body = ''
         self.parser_name = None
+        self.code_chunks = dict()
 
     @contextmanager
     def indent(self):
@@ -133,6 +123,11 @@ class FuzzerGenerator(object):
 
     def line(self, src):
         return (' ' * self.indent_level) + src + '\n'
+
+    def new_code_id(self, code_type):
+        code_name = '{type}_{idx}'.format(type=code_type, idx=self.code_id)
+        self.code_id += 1
+        return code_name
 
     def new_charset_name(self):
         charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
@@ -261,11 +256,11 @@ class FuzzerGenerator(object):
             if root:
                 self.generate_grammar(root)
 
-        self.generate_depths()
+        self.code_chunks.update(self.graph.calc_min_depths())
 
         return [
-            (self.lexer_name, self.lexer_header + '\n\n' + self.lexer_body),
-            (self.parser_name, self.parser_header + '\n\n' + self.parser_body),
+            (self.lexer_name, (self.lexer_header + '\n\n' + self.lexer_body).format(**self.code_chunks)),
+            (self.parser_name, (self.parser_header + '\n\n' + self.parser_body).format(**self.code_chunks)),
         ]
 
     def generate_grammar(self, node):
@@ -314,19 +309,22 @@ class FuzzerGenerator(object):
                         with self.indent():
                             action_src = ''.join([self.line(line) for line in raw_action_src.splitlines()])
 
+                    code_id = self.new_code_id('action')
+                    self.code_chunks[code_id] = action_src
+                    code_pattern = '{{{code_id}}}'.format(code_id=code_id)
                     # We simply append both member and header code chunks to the generated source.
                     # It's the user's responsibility to define them in order.
                     if action_scope == 'parser':
                         # Both 'member' and 'members' keywords are accepted.
                         if action_type.startswith('member'):
-                            self.parser_body += action_src
+                            self.parser_body += code_pattern
                         elif action_type == 'header':
-                            self.parser_header += action_src
+                            self.parser_header += code_pattern
                     elif action_scope == 'lexer':
                         if action_type.startswith('member'):
-                            self.lexer_body += action_src
+                            self.lexer_body += code_pattern
                         elif action_type == 'header':
-                            self.lexer_header += action_src
+                            self.lexer_header += code_pattern
 
         rules = node.rules().ruleSpec()
         lexer_rules, parser_rules = [], []
@@ -391,12 +389,14 @@ class FuzzerGenerator(object):
             if len(children) == 1:
                 return self.generate_single(children[0], parent_id)
 
-            alt_name = self.graph.new_alt_id()
+            alt_name = self.new_code_id('alt')
             self.graph.add_node(AlternationNode(id=alt_name))
             self.graph.add_edge(frm=parent_id, to=alt_name)
 
+            conditions = [(self.new_code_id('cond'), self.find_conditions(child)) for child in children]
+            self.code_chunks.update(conditions)
             result = self.line('choice = self.choice([0 if {{{alt_name}}}[i] > self.lexer.max_depth else w for i, w in enumerate([{weights}])])'
-                               .format(weights=', '.join([self.find_conditions(child) for child in children]),
+                               .format(weights=', '.join('{{{cond_id}}}'.format(cond_id=cond_id) for cond_id, _ in conditions),
                                        alt_name=alt_name))
             for i, child in enumerate(children):
                 alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
@@ -430,7 +430,9 @@ class FuzzerGenerator(object):
                 action_src = ''.join([str(child) for child in node.actionBlock().ACTION_CONTENT()])
                 action_src = re.sub('\$(?P<var_name>\w+)', 'local_ctx[\'\g<var_name>\']', action_src)
 
-                return ''.join([self.line(line) for line in action_src.splitlines()])
+                action_id = self.new_code_id('action')
+                self.code_chunks[action_id] = ''.join([self.line(line) for line in action_src.splitlines()])
+                return '{{{action_id}}}'.format(action_id=action_id)
 
             suffix = None
             if node.ebnfSuffix():
@@ -444,7 +446,7 @@ class FuzzerGenerator(object):
             suffix = str(suffix.children[0])
 
             if suffix in ['?', '*']:
-                quant_name = self.graph.new_quant_id()
+                quant_name = self.new_code_id('quant')
                 self.graph.add_node(QuantifierNode(id=quant_name))
                 self.graph.add_edge(frm=parent_id, to=quant_name)
                 parent_id = quant_name
@@ -515,17 +517,14 @@ class FuzzerGenerator(object):
                 src = str(node.STRING_LITERAL())[1:-1]
                 if self.current_start_range is not None:
                     self.current_start_range.append((ord(src[0]), ord(src[0]) + 1))
-                return self.line('current += self.create_node(UnlexerRule(src=\'{src}\'))'.format(src=src))
+                code_id = self.new_code_id('lit')
+                self.code_chunks[code_id] = src
+                return self.line('current += self.create_node(UnlexerRule(src=\'{{{code_id}}}\'))'.format(code_id=code_id))
 
         if isinstance(node, ParserRuleContext) and node.getChildCount():
             return ''.join([self.generate_single(child, parent_id) for child in node.children])
 
         return ''
-
-    def generate_depths(self):
-        min_depths = self.graph.calc_min_depths()
-        self.lexer_body = self.lexer_body.format(**min_depths)
-        self.parser_body = self.parser_body.format(**min_depths)
 
 
 class FuzzerFactory(object):
