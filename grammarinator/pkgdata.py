@@ -5,8 +5,9 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import antlerinator
 import pkgutil
+
+import antlerinator
 
 
 __version__ = pkgutil.get_data(__package__, 'VERSION').decode('ascii').strip()

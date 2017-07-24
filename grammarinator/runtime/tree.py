@@ -17,7 +17,7 @@ class BaseRule(object):
 
     # Support for += operation.
     def __iadd__(self, child):
-        if type(child) == list:
+        if isinstance(child, list):
             self.add_children(child)
         else:
             self.add_child(child)

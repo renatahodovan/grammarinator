@@ -26,9 +26,9 @@ def generate(unlexer_cls, unparser_cls, rule, max_depth, transformers, out, enco
     start_rule = getattr(unparser, rule)
 
     if not hasattr(start_rule, 'min_depth'):
-        logger.warning('The \'min_depth\' property of {rule} is not set. Fallback to 0.'.format(rule=rule))
+        logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
     elif start_rule.min_depth > max_depth:
-        logger.error('{rule} cannot be generated within the given depth (min needed: {cnt}).'.format(rule=rule, cnt=start_rule.min_depth))
+        logger.error('%s cannot be generated within the given depth (min needed: %d).', rule, start_rule.min_depth)
         return
 
     root = start_rule()
@@ -41,10 +41,7 @@ def generate(unlexer_cls, unparser_cls, rule, max_depth, transformers, out, enco
 
 def import_entity(name):
     steps = name.split('.')
-    module_name = '.'.join(steps[0:-1])
-    entity_name = steps[-1]
-    module = importlib.import_module(module_name)
-    return eval('module.' + entity_name)
+    return getattr(importlib.import_module('.'.join(steps[0:-1])), steps[-1])
 
 
 def execute():

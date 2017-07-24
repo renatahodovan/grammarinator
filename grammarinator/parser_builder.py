@@ -7,18 +7,20 @@
 
 import logging
 
-from antlr4 import *
 from os import listdir
 from os.path import basename, commonprefix, join, split, splitext
 from pkgutil import get_data
 from subprocess import CalledProcessError, Popen, PIPE
 
+from antlr4 import error
+
 logger = logging.getLogger(__name__)
+
 
 # Override ConsoleErrorListener to suppress parse issues in non-verbose mode.
 class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        logger.debug('line %d:%d %s' % (line, column, msg))
+        logger.debug('line %d:%d %s', line, column, msg)
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
@@ -36,8 +38,7 @@ def build_grammars(out, antlr):
             'python': {'antlr_arg': '-Dlanguage=Python3',
                        'ext': 'py',
                        'listener_format': 'Listener',
-                       'sources': ['ANTLRv4Lexer.g4', 'ANTLRv4Parser.g4', 'LexBasic.g4', 'LexerAdaptor.py']
-                       }
+                       'sources': ['ANTLRv4Lexer.g4', 'ANTLRv4Parser.g4', 'LexBasic.g4', 'LexerAdaptor.py']}
         }
 
         # Copy the grammars from the package to the given working directory.

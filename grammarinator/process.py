@@ -5,19 +5,21 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import antlerinator
-import autopep8
 import logging
 import re
 import sys
 
-from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
 from os.path import dirname, exists, join
 from os import getcwd, makedirs
 from shutil import rmtree
+
+import antlerinator
+import autopep8
+
+from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
@@ -177,7 +179,7 @@ class FuzzerGenerator(object):
         if not self.actions:
             return '1'
 
-        if type(node) == str:
+        if isinstance(node, str):
             return node
 
         action_block = getattr(node, 'actionBlock', None)
@@ -204,11 +206,11 @@ class FuzzerGenerator(object):
         start = str(node.characterRange().STRING_LITERAL(0))[1:-1]
         end = str(node.characterRange().STRING_LITERAL(1))[1:-1]
 
-        return int(start.replace('\\u', '0x'), 16) if '\\u' in start else ord(start),\
-               int(end.replace('\\u', '0x'), 16) if '\\u' in end else ord(end) + 1
+        return (int(start.replace('\\u', '0x'), 16) if '\\u' in start else ord(start),
+                int(end.replace('\\u', '0x'), 16) if '\\u' in end else ord(end) + 1)
 
     def lexer_charset_interval(self, src):
-        elements = re.split('(\w-\w)', src)
+        elements = re.split(r'(\w-\w)', src)
         ranges = []
         for element in elements:
             if not element:
@@ -423,7 +425,7 @@ class FuzzerGenerator(object):
                     return ''
 
                 action_src = ''.join([str(child) for child in node.actionBlock().ACTION_CONTENT()])
-                action_src = re.sub('\$(?P<var_name>\w+)', 'local_ctx[\'\g<var_name>\']', action_src)
+                action_src = re.sub(r'\$(?P<var_name>\w+)', 'local_ctx[\'\\g<var_name>\']', action_src)
 
                 action_id = self.new_code_id('action')
                 self.code_chunks[action_id] = ''.join([self.line(line) for line in action_src.splitlines()])
