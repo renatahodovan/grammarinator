@@ -13,7 +13,7 @@ import sys
 from argparse import ArgumentParser
 from multiprocessing import Pool
 from os import cpu_count, getcwd, makedirs
-from os.path import basename, dirname, exists, join, splitext
+from os.path import abspath, basename, dirname, join, splitext
 
 from .pkgdata import __version__
 
@@ -77,7 +77,7 @@ def execute():
 
     logger.setLevel(args.log_level)
 
-    out_dir = dirname(args.out)
+    out_dir = dirname(abspath(args.out))
     makedirs(out_dir, exist_ok=True)
 
     if '%d' not in args.out:
