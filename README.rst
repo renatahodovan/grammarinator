@@ -48,25 +48,19 @@ Or clone the project and run setuptools::
 Usage
 =====
 
-As a first step, *grammarinator* takes an ANTLR_ v4 grammar and creates a test
-generator script in Python3. Such a generator can be inherited later to
+As a first step, *grammarinator* takes an `ANTLR v4`_ grammar and creates a test
+generator script in Python3. Such a generator can be subclassed later to
 customize it further if needed.
 
 Example usage to create a test generator::
 
-    grammarinator-process <grammar-file(s)> -o <output-directory>
+    grammarinator-process <grammar-file(s)> -o <output-directory> --no-actions
 
-After having generated and optionally customized a fuzzer, it can be executed either
-by the ``grammarinator-generate`` script or by instantiating it manually.
+.. _`ANTLR v4`: https://github.com/antlr/grammars-v4
 
-Example usage of the builtin ``grammarinator-generate``::
+**Notes**
 
-    grammarinator-generate -l <unlexer> -p <unparser> -r <start-rule> \
-    -o <output-pattern> -n <number-of-tests> \
-    -t grammarinator.runtime.simple_space_transformer
-
-
-Grammarinator uses the ANTLR_ v4 grammar format as its input, which makes
+Grammarinator uses the `ANTLR v4`_ grammar format as its input, which makes
 existing grammars (lexer and parser rules) easily reusable. However, because
 of the inherently different goals of a fuzzer and a parser, inlined code
 (actions and conditions, header and member blocks) are most probably not
@@ -74,6 +68,44 @@ reusable, or even preventing proper execution. For first experiments with
 existing grammar files, ``grammarinator-process`` supports the command-line
 option ``--no-actions``, which skips all such code blocks during fuzzer
 generation. Once inlined code is tuned for fuzzing, that option may be omitted.
+
+After having generated and optionally customized a fuzzer, it can be executed
+either by the ``grammarinator-generate`` script or by instantiating it
+manually.
+
+Example usage of ``grammarinator-generate``::
+
+    grammarinator-generate -l <unlexer> -p <unparser> -r <start-rule> -d <max-depth> \
+    -o <output-pattern> -n <number-of-tests> \
+    -t <one-or-more-transformer>
+
+**Notes**
+
+Real-life grammars often use recursive rules to express certain patterns.
+However, when using such rule(s) for generation, we can easily end up in an
+unexpectedly deep call stack. With the ``--max-depth`` or ``-d`` options, this
+depth - and also the size of the generated test cases - can be controlled.
+
+Another speciality of the ANTLR grammars is that they support the so-called
+hidden tokens. These rules typically describe such elements of the target
+language that can be placed basically anywhere without breaking the syntax. The
+most common examples are comments or whitespaces. However, when using these
+grammars - which don't define explicitly where whitespace may or may not appear
+in rules - to generate test cases, we have to insert the missing spaces
+manually. This can be done by applying various transformers (with the ``-t``
+option) to the tree representation of the output tests. A simple transformer -
+that inserts a space after every unparser rule - is provided by grammarinator
+(``grammarinator.runtime.simple_space_transformer``).
+
+As a final thought, one must not forget that the original purpose of grammars
+is the syntax-wise validation of various inputs. As a consequence, these
+grammars encode syntactic expectations only, and not semantic rules. If we
+still want to add semantic knowledge into the generated test, then we can
+inherit custom fuzzers from the generated ones and redefine methods
+corresponding to lexer or parser rules in ways that encode the required
+knowledge (e.g.: HTMLCustomUnparser_).
+
+.. _HTMLCustomUnparser: examples/fuzzer/HTMLCustomUnparser.py
 
 Working Example
 ===============
@@ -89,7 +121,7 @@ Then, use the generator to produce test cases::
 
     grammarinator-generate -l examples/fuzzer/HTMLCustomUnlexer.py \
     -p examples/fuzzer/HTMLCustomUnparser.py -r htmlDocument \
-    -o examples/tests/test_%d.html -t HTMLUnparser.html_space_transformer -n 100
+    -o examples/tests/test_%d.html -t HTMLUnparser.html_space_transformer -n 100 -d 20
 
 .. _example: examples/
 
