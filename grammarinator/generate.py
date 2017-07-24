@@ -21,9 +21,9 @@ logger = logging.getLogger('grammarinator')
 logging.basicConfig(format='%(message)s')
 
 
-def generate(lexer_cls, parser_cls, rule, max_depth, transformers, out, encoding):
-    parser = parser_cls(lexer_cls(max_depth=max_depth))
-    start_rule = getattr(parser, rule)
+def generate(unlexer_cls, unparser_cls, rule, max_depth, transformers, out, encoding):
+    unparser = unparser_cls(unlexer_cls(max_depth=max_depth))
+    start_rule = getattr(unparser, rule)
 
     if not hasattr(start_rule, 'min_depth'):
         logger.warning('The \'min_depth\' property of {rule} is not set. Fallback to 0.'.format(rule=rule))
@@ -89,19 +89,19 @@ def execute():
     unlexer = splitext(basename(args.unlexer))[0]
     unparser = splitext(basename(args.unparser))[0]
 
-    lexer_cls = import_entity('.'.join([unlexer, unlexer]))
-    parser_cls = import_entity('.'.join([unparser, unparser]))
+    unlexer_cls = import_entity('.'.join([unlexer, unlexer]))
+    unparser_cls = import_entity('.'.join([unparser, unparser]))
     transformers = [import_entity(transformer) for transformer in args.transformers]
 
     if args.rule is None:
-        args.rule = parser_cls.default_rule.__name__
+        args.rule = unparser_cls.default_rule.__name__
 
     if args.n > 1 and args.jobs > 1:
         with Pool(args.jobs) as pool:
-            pool.starmap(generate, [(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i, args.encoding) for i in range(args.n)])
+            pool.starmap(generate, [(unlexer_cls, unparser_cls, args.rule, args.max_depth, transformers, args.out % i, args.encoding) for i in range(args.n)])
     else:
         for i in range(args.n):
-            generate(lexer_cls, parser_cls, args.rule, args.max_depth, transformers, args.out % i, args.encoding)
+            generate(unlexer_cls, unparser_cls, args.rule, args.max_depth, transformers, args.out % i, args.encoding)
 
 
 if __name__ == '__main__':

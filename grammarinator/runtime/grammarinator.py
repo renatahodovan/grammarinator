@@ -55,11 +55,11 @@ def multirange_diff(r1_list, r2_list):
 
 def depthcontrol(fn):
     def controlled_fn(obj, *args, **kwargs):
-        obj.lexer.max_depth -= 1
+        obj.unlexer.max_depth -= 1
         try:
             result = fn(obj, *args, **kwargs)
         finally:
-            obj.lexer.max_depth += 1
+            obj.unlexer.max_depth += 1
         return result
 
     return controlled_fn

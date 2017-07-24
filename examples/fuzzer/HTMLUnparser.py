@@ -3,6 +3,7 @@
 from itertools import chain
 from grammarinator.runtime import *
 
+import HTMLUnlexer
 
 def html_space_transformer(node):
 
@@ -23,12 +24,11 @@ def html_space_transformer(node):
 
 
 
-import HTMLUnlexer
 class HTMLUnparser(Grammarinator):
 
-    def __init__(self, lexer):
+    def __init__(self, unlexer):
         super(HTMLUnparser, self).__init__()
-        self.lexer = lexer
+        self.unlexer = unlexer
         self.set_options()
 
     def set_options(self):
@@ -40,39 +40,39 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlDocument(self):
         current = self.create_node(UnparserRule(name='htmlDocument'))
-        if self.lexer.max_depth >= 1:
+        if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [2, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
                 if choice == 0:
                     current += self.scriptlet()
                 elif choice == 1:
-                    current += self.lexer.SEA_WS()
+                    current += self.unlexer.SEA_WS()
 
-        if self.lexer.max_depth >= 2:
+        if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_one():
                 current += self.xml()
 
-        if self.lexer.max_depth >= 1:
+        if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [2, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
                 if choice == 0:
                     current += self.scriptlet()
                 elif choice == 1:
-                    current += self.lexer.SEA_WS()
+                    current += self.unlexer.SEA_WS()
 
-        if self.lexer.max_depth >= 2:
+        if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_one():
                 current += self.dtd()
 
-        if self.lexer.max_depth >= 1:
+        if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [2, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
                 if choice == 0:
                     current += self.scriptlet()
                 elif choice == 1:
-                    current += self.lexer.SEA_WS()
+                    current += self.unlexer.SEA_WS()
 
-        if self.lexer.max_depth >= 4:
+        if self.unlexer.max_depth >= 4:
             for _ in self.zero_or_more():
                 current += self.htmlElements()
 
@@ -82,12 +82,12 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlElements(self):
         current = self.create_node(UnparserRule(name='htmlElements'))
-        if self.lexer.max_depth >= 2:
+        if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_more():
                 current += self.htmlMisc()
 
         current += self.htmlElement()
-        if self.lexer.max_depth >= 2:
+        if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_more():
                 current += self.htmlMisc()
 
@@ -98,42 +98,42 @@ class HTMLUnparser(Grammarinator):
     def htmlElement(self):
         local_ctx = dict()
         current = self.create_node(UnparserRule(name='htmlElement'))
-        choice = self.choice([0 if [3, 3, 3, 2, 2, 2][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1])])
+        choice = self.choice([0 if [3, 3, 3, 2, 2, 2][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1])])
         if choice == 0:
-            current += self.lexer.TAG_OPEN()
+            current += self.unlexer.TAG_OPEN()
             current += self.htmlTagName()
             local_ctx['open_tag'] = current.last_child
-            if self.lexer.max_depth >= 4:
+            if self.unlexer.max_depth >= 4:
                 for _ in self.zero_or_more():
                     current += self.htmlAttribute()
 
-            current += self.lexer.TAG_CLOSE()
+            current += self.unlexer.TAG_CLOSE()
             current += self.htmlContent()
-            current += self.lexer.TAG_OPEN()
-            current += self.lexer.TAG_SLASH()
+            current += self.unlexer.TAG_OPEN()
+            current += self.unlexer.TAG_SLASH()
             current += self.htmlTagName()
             current.last_child = local_ctx['open_tag'].deepcopy()
-            current += self.lexer.TAG_CLOSE()
+            current += self.unlexer.TAG_CLOSE()
             self.endOfHtmlElement()
         elif choice == 1:
-            current += self.lexer.TAG_OPEN()
+            current += self.unlexer.TAG_OPEN()
             current += self.htmlTagName()
             local_ctx['open_tag'] = current.last_child
-            if self.lexer.max_depth >= 4:
+            if self.unlexer.max_depth >= 4:
                 for _ in self.zero_or_more():
                     current += self.htmlAttribute()
 
-            current += self.lexer.TAG_SLASH_CLOSE()
+            current += self.unlexer.TAG_SLASH_CLOSE()
             self.endOfHtmlElement()
         elif choice == 2:
-            current += self.lexer.TAG_OPEN()
+            current += self.unlexer.TAG_OPEN()
             current += self.htmlTagName()
             local_ctx['open_tag'] = current.last_child
-            if self.lexer.max_depth >= 4:
+            if self.unlexer.max_depth >= 4:
                 for _ in self.zero_or_more():
                     current += self.htmlAttribute()
 
-            current += self.lexer.TAG_CLOSE()
+            current += self.unlexer.TAG_CLOSE()
             self.endOfHtmlElement()
         elif choice == 3:
             current += self.scriptlet()
@@ -147,20 +147,20 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlContent(self):
         current = self.create_node(UnparserRule(name='htmlContent'))
-        if self.lexer.max_depth >= 2:
+        if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_one():
                 current += self.htmlChardata()
 
-        if self.lexer.max_depth >= 2:
+        if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [3, 2, 2][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1])])
+                choice = self.choice([0 if [3, 2, 2][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1])])
                 if choice == 0:
                     current += self.htmlElement()
                 elif choice == 1:
                     current += self.xhtmlCDATA()
                 elif choice == 2:
                     current += self.htmlComment()
-                if self.lexer.max_depth >= 2:
+                if self.unlexer.max_depth >= 2:
                     for _ in self.zero_or_one():
                         current += self.htmlChardata()
 
@@ -172,11 +172,11 @@ class HTMLUnparser(Grammarinator):
     def htmlAttribute(self):
         local_ctx = dict()
         current = self.create_node(UnparserRule(name='htmlAttribute'))
-        choice = self.choice([0 if [4, 3][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [4, 3][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
             current += self.htmlAttributeName()
             local_ctx['attr_name'] = current.last_child
-            current += self.lexer.TAG_EQUALS()
+            current += self.unlexer.TAG_EQUALS()
             current += self.htmlAttributeValue()
         elif choice == 1:
             current += self.htmlAttributeName()
@@ -187,106 +187,106 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlAttributeName(self):
         current = self.create_node(UnparserRule(name='htmlAttributeName'))
-        current += self.lexer.TAG_NAME()
+        current += self.unlexer.TAG_NAME()
         return current
     htmlAttributeName.min_depth = 2
 
     @depthcontrol
     def htmlAttributeValue(self):
         current = self.create_node(UnparserRule(name='htmlAttributeValue'))
-        current += self.lexer.ATTVALUE_VALUE()
+        current += self.unlexer.ATTVALUE_VALUE()
         return current
     htmlAttributeValue.min_depth = 3
 
     @depthcontrol
     def htmlTagName(self):
         current = self.create_node(UnparserRule(name='htmlTagName'))
-        current += self.lexer.TAG_NAME()
+        current += self.unlexer.TAG_NAME()
         return current
     htmlTagName.min_depth = 2
 
     @depthcontrol
     def htmlChardata(self):
         current = self.create_node(UnparserRule(name='htmlChardata'))
-        choice = self.choice([0 if [1, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
-            current += self.lexer.HTML_TEXT()
+            current += self.unlexer.HTML_TEXT()
         elif choice == 1:
-            current += self.lexer.SEA_WS()
+            current += self.unlexer.SEA_WS()
         return current
     htmlChardata.min_depth = 1
 
     @depthcontrol
     def htmlMisc(self):
         current = self.create_node(UnparserRule(name='htmlMisc'))
-        choice = self.choice([0 if [2, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
             current += self.htmlComment()
         elif choice == 1:
-            current += self.lexer.SEA_WS()
+            current += self.unlexer.SEA_WS()
         return current
     htmlMisc.min_depth = 1
 
     @depthcontrol
     def htmlComment(self):
         current = self.create_node(UnparserRule(name='htmlComment'))
-        choice = self.choice([0 if [1, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
-            current += self.lexer.HTML_COMMENT()
+            current += self.unlexer.HTML_COMMENT()
         elif choice == 1:
-            current += self.lexer.HTML_CONDITIONAL_COMMENT()
+            current += self.unlexer.HTML_CONDITIONAL_COMMENT()
         return current
     htmlComment.min_depth = 1
 
     @depthcontrol
     def xhtmlCDATA(self):
         current = self.create_node(UnparserRule(name='xhtmlCDATA'))
-        current += self.lexer.CDATA()
+        current += self.unlexer.CDATA()
         return current
     xhtmlCDATA.min_depth = 1
 
     @depthcontrol
     def dtd(self):
         current = self.create_node(UnparserRule(name='dtd'))
-        current += self.lexer.DTD()
+        current += self.unlexer.DTD()
         return current
     dtd.min_depth = 1
 
     @depthcontrol
     def xml(self):
         current = self.create_node(UnparserRule(name='xml'))
-        current += self.lexer.XML_DECLARATION()
+        current += self.unlexer.XML_DECLARATION()
         return current
     xml.min_depth = 1
 
     @depthcontrol
     def scriptlet(self):
         current = self.create_node(UnparserRule(name='scriptlet'))
-        current += self.lexer.SCRIPTLET()
+        current += self.unlexer.SCRIPTLET()
         return current
     scriptlet.min_depth = 1
 
     @depthcontrol
     def script(self):
         current = self.create_node(UnparserRule(name='script'))
-        current += self.lexer.SCRIPT_OPEN()
-        choice = self.choice([0 if [1, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        current += self.unlexer.SCRIPT_OPEN()
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
-            current += self.lexer.SCRIPT_BODY()
+            current += self.unlexer.SCRIPT_BODY()
         elif choice == 1:
-            current += self.lexer.SCRIPT_SHORT_BODY()
+            current += self.unlexer.SCRIPT_SHORT_BODY()
         return current
     script.min_depth = 1
 
     @depthcontrol
     def style(self):
         current = self.create_node(UnparserRule(name='style'))
-        current += self.lexer.STYLE_OPEN()
-        choice = self.choice([0 if [1, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        current += self.unlexer.STYLE_OPEN()
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
-            current += self.lexer.STYLE_BODY()
+            current += self.unlexer.STYLE_BODY()
         elif choice == 1:
-            current += self.lexer.STYLE_SHORT_BODY()
+            current += self.unlexer.STYLE_SHORT_BODY()
         return current
     style.min_depth = 1
 

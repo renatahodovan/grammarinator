@@ -20,7 +20,7 @@ class HTMLUnlexer(Grammarinator):
 
     def __init__(self, *, max_depth=float('inf')):
         super(HTMLUnlexer, self).__init__()
-        self.lexer = self
+        self.unlexer = self
         self.max_depth = max_depth
         self.set_options()
 
@@ -35,7 +35,7 @@ class HTMLUnlexer(Grammarinator):
     def HTML_COMMENT(self):
         current = self.create_node(UnlexerRule(name='HTML_COMMENT'))
         current += self.create_node(UnlexerRule(src='<!--'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -47,7 +47,7 @@ class HTMLUnlexer(Grammarinator):
     def HTML_CONDITIONAL_COMMENT(self):
         current = self.create_node(UnlexerRule(name='HTML_CONDITIONAL_COMMENT'))
         current += self.create_node(UnlexerRule(src='<!['))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -59,7 +59,7 @@ class HTMLUnlexer(Grammarinator):
     def XML_DECLARATION(self):
         current = self.create_node(UnlexerRule(name='XML_DECLARATION'))
         current += self.create_node(UnlexerRule(src='<?xml'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -71,7 +71,7 @@ class HTMLUnlexer(Grammarinator):
     def CDATA(self):
         current = self.create_node(UnlexerRule(name='CDATA'))
         current += self.create_node(UnlexerRule(src='<![CDATA['))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -83,7 +83,7 @@ class HTMLUnlexer(Grammarinator):
     def DTD(self):
         current = self.create_node(UnlexerRule(name='DTD'))
         current += self.create_node(UnlexerRule(src='<!'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -94,17 +94,17 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def SCRIPTLET(self):
         current = self.create_node(UnlexerRule(name='SCRIPTLET'))
-        choice = self.choice([0 if [0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [0, 0][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
         if choice == 0:
             current += self.create_node(UnlexerRule(src='<?'))
-            if self.lexer.max_depth >= 0:
+            if self.unlexer.max_depth >= 0:
                 for _ in self.zero_or_more():
                     current += UnlexerRule(src=self.any_char())
 
             current += self.create_node(UnlexerRule(src='?>'))
         elif choice == 1:
             current += self.create_node(UnlexerRule(src='<%'))
-            if self.lexer.max_depth >= 0:
+            if self.unlexer.max_depth >= 0:
                 for _ in self.zero_or_more():
                     current += UnlexerRule(src=self.any_char())
 
@@ -115,15 +115,15 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def SEA_WS(self):
         current = self.create_node(UnlexerRule(name='SEA_WS'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.one_or_more():
-                choice = self.choice([0 if [0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1])])
+                choice = self.choice([0 if [0, 0, 0][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1])])
                 if choice == 0:
                     current += self.create_node(UnlexerRule(src=' '))
                 elif choice == 1:
                     current += self.create_node(UnlexerRule(src='\t'))
                 elif choice == 2:
-                    if self.lexer.max_depth >= 0:
+                    if self.unlexer.max_depth >= 0:
                         for _ in self.zero_or_one():
                             current += self.create_node(UnlexerRule(src='\r'))
 
@@ -136,7 +136,7 @@ class HTMLUnlexer(Grammarinator):
     def SCRIPT_OPEN(self):
         current = self.create_node(UnlexerRule(name='SCRIPT_OPEN'))
         current += self.create_node(UnlexerRule(src='<script'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -148,7 +148,7 @@ class HTMLUnlexer(Grammarinator):
     def STYLE_OPEN(self):
         current = self.create_node(UnlexerRule(name='STYLE_OPEN'))
         current += self.create_node(UnlexerRule(src='<style'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -166,7 +166,7 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def HTML_TEXT(self):
         current = self.create_node(UnlexerRule(name='HTML_TEXT'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.one_or_more():
                 current += UnlexerRule(src=self.char_from_list(charset_0))
 
@@ -204,10 +204,10 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def TAG_NAME(self):
         current = self.create_node(UnlexerRule(name='TAG_NAME'))
-        current += self.lexer.TAG_NameStartChar()
-        if self.lexer.max_depth >= 1:
+        current += self.unlexer.TAG_NameStartChar()
+        if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                current += self.lexer.TAG_NameChar()
+                current += self.unlexer.TAG_NameChar()
 
         return current
     TAG_NAME.min_depth = 1
@@ -236,9 +236,9 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def TAG_NameChar(self):
         current = self.create_node(UnlexerRule(name='TAG_NameChar'))
-        choice = self.choice([0 if [1, 0, 0, 0, 1, 0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1, 1, 1])])
+        choice = self.choice([0 if [1, 0, 0, 0, 1, 0, 0, 0][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1, 1, 1])])
         if choice == 0:
-            current += self.lexer.TAG_NameStartChar()
+            current += self.unlexer.TAG_NameStartChar()
         elif choice == 1:
             current += self.create_node(UnlexerRule(src='-'))
         elif choice == 2:
@@ -246,7 +246,7 @@ class HTMLUnlexer(Grammarinator):
         elif choice == 3:
             current += self.create_node(UnlexerRule(src='.'))
         elif choice == 4:
-            current += self.lexer.DIGIT()
+            current += self.unlexer.DIGIT()
         elif choice == 5:
             current += self.create_node(UnlexerRule(src='\u00B7'))
         elif choice == 6:
@@ -259,7 +259,7 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def TAG_NameStartChar(self):
         current = self.create_node(UnlexerRule(name='TAG_NameStartChar'))
-        choice = self.choice([0 if [0, 0, 0, 0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1])])
+        choice = self.choice([0 if [0, 0, 0, 0, 0, 0][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1])])
         if choice == 0:
             current += self.create_node(UnlexerRule(src=self.char_from_list(charset_4)))
         elif choice == 1:
@@ -278,7 +278,7 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def SCRIPT_BODY(self):
         current = self.create_node(UnlexerRule(name='SCRIPT_BODY'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -289,7 +289,7 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def SCRIPT_SHORT_BODY(self):
         current = self.create_node(UnlexerRule(name='SCRIPT_SHORT_BODY'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.any_char())
 
@@ -316,35 +316,35 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def ATTVALUE_VALUE(self):
         current = self.create_node(UnlexerRule(name='ATTVALUE_VALUE'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += self.create_node(UnlexerRule(src=self.char_from_list(charset_5)))
 
-        current += self.lexer.ATTRIBUTE()
+        current += self.unlexer.ATTRIBUTE()
         return current
     ATTVALUE_VALUE.min_depth = 2
 
     @depthcontrol
     def ATTRIBUTE(self):
         current = self.create_node(UnlexerRule(name='ATTRIBUTE'))
-        choice = self.choice([0 if [1, 1, 2, 1, 1][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1])])
+        choice = self.choice([0 if [1, 1, 2, 1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1])])
         if choice == 0:
-            current += self.lexer.DOUBLE_QUOTE_STRING()
+            current += self.unlexer.DOUBLE_QUOTE_STRING()
         elif choice == 1:
-            current += self.lexer.SINGLE_QUOTE_STRING()
+            current += self.unlexer.SINGLE_QUOTE_STRING()
         elif choice == 2:
-            current += self.lexer.ATTCHARS()
+            current += self.unlexer.ATTCHARS()
         elif choice == 3:
-            current += self.lexer.HEXCHARS()
+            current += self.unlexer.HEXCHARS()
         elif choice == 4:
-            current += self.lexer.DECCHARS()
+            current += self.unlexer.DECCHARS()
         return current
     ATTRIBUTE.min_depth = 1
 
     @depthcontrol
     def ATTCHAR(self):
         current = self.create_node(UnlexerRule(name='ATTCHAR'))
-        choice = self.choice([0 if [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0][i] > self.lexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])])
+        choice = self.choice([0 if [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])])
         if choice == 0:
             current += self.create_node(UnlexerRule(src='-'))
         elif choice == 1:
@@ -375,11 +375,11 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def ATTCHARS(self):
         current = self.create_node(UnlexerRule(name='ATTCHARS'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.one_or_more():
-                current += self.lexer.ATTCHAR()
+                current += self.unlexer.ATTCHAR()
 
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_one():
                 current += self.create_node(UnlexerRule(src=' '))
 
@@ -390,7 +390,7 @@ class HTMLUnlexer(Grammarinator):
     def HEXCHARS(self):
         current = self.create_node(UnlexerRule(name='HEXCHARS'))
         current += self.create_node(UnlexerRule(src='#'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.one_or_more():
                 current += self.create_node(UnlexerRule(src=self.char_from_list(charset_7)))
 
@@ -400,11 +400,11 @@ class HTMLUnlexer(Grammarinator):
     @depthcontrol
     def DECCHARS(self):
         current = self.create_node(UnlexerRule(name='DECCHARS'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.one_or_more():
                 current += self.create_node(UnlexerRule(src=self.char_from_list(charset_8)))
 
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_one():
                 current += self.create_node(UnlexerRule(src='%'))
 
@@ -415,7 +415,7 @@ class HTMLUnlexer(Grammarinator):
     def DOUBLE_QUOTE_STRING(self):
         current = self.create_node(UnlexerRule(name='DOUBLE_QUOTE_STRING'))
         current += self.create_node(UnlexerRule(src='"'))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.char_from_list(charset_9))
 
@@ -427,7 +427,7 @@ class HTMLUnlexer(Grammarinator):
     def SINGLE_QUOTE_STRING(self):
         current = self.create_node(UnlexerRule(name='SINGLE_QUOTE_STRING'))
         current += self.create_node(UnlexerRule(src='\''))
-        if self.lexer.max_depth >= 0:
+        if self.unlexer.max_depth >= 0:
             for _ in self.zero_or_more():
                 current += UnlexerRule(src=self.char_from_list(charset_10))
 

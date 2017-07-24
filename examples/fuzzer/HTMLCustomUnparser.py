@@ -24,8 +24,8 @@ class HTMLCustomUnparser(HTMLUnparser):
     tag_stack = []
     tags = set()
 
-    def __init__(self, lexer):
-        super(HTMLCustomUnparser, self).__init__(lexer)
+    def __init__(self, unlexer):
+        super(HTMLCustomUnparser, self).__init__(unlexer)
         self.tag_names = list(tags.keys())
 
     # Override the original random_decision implementation in a way to increase the number of generated nodes.

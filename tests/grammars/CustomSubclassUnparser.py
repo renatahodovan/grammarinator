@@ -14,8 +14,8 @@ from CustomUnparser import CustomUnparser
 
 class CustomSubclassUnparser(CustomUnparser):
 
-    def __init__(self, lexer):
-        super(CustomSubclassUnparser, self).__init__(lexer)
+    def __init__(self, unlexer):
+        super(CustomSubclassUnparser, self).__init__(unlexer)
 
     def random_decision(self, *args, **kwargs):
         return False
