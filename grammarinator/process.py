@@ -17,6 +17,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from os.path import dirname, exists, join
 from os import getcwd, makedirs
+from shutil import rmtree
 
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
@@ -627,6 +628,8 @@ def execute():
                         help='grammar file encoding (default: %(default)s).')
     parser.add_argument('--lib', metavar='DIR',
                         help='alternative location of import grammars.')
+    parser.add_argument('--disable-cleanup', dest='cleanup', default=True, action='store_false',
+                        help='disable the removal of intermediate files.')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
     parser.add_argument('--log-level', metavar='LEVEL', default='INFO',
@@ -646,6 +649,9 @@ def execute():
         antlerinator.install(lazy=True)
 
     FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+
+    if args.cleanup:
+        rmtree(join(args.out, 'antlr'), ignore_errors=True)
 
 
 if __name__ == '__main__':
