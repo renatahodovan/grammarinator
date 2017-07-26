@@ -268,6 +268,20 @@ class FuzzerGenerator(object):
 
         if node.prequelConstruct():
             for prequelConstruct in node.prequelConstruct():
+                if prequelConstruct.tokensSpec():
+                    id_list = prequelConstruct.tokensSpec().idList()
+                    if id_list:
+                        for identifier in id_list.identifier():
+                            assert identifier.TOKEN_REF() is not None, 'Token names must start with uppercase letter.'
+                            rule_name = str(identifier.TOKEN_REF())
+                            self.graph.add_node(RuleNode(id=rule_name))
+
+                            with self.indent():
+                                self.unlexer_body += self.line('def {rule_name}(self):'.format(rule_name=rule_name))
+                                with self.indent():
+                                    self.unlexer_body += self.line('return self.create_node(UnlexerRule(name=\'{rule_name}\'))\n'.format(rule_name=rule_name))
+
+            for prequelConstruct in node.prequelConstruct():
                 if prequelConstruct.optionsSpec():
                     option_spec = prequelConstruct.optionsSpec()
                     options = []
