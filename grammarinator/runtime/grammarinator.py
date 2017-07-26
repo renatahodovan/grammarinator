@@ -62,6 +62,7 @@ def depthcontrol(fn):
             obj.unlexer.max_depth += 1
         return result
 
+    controlled_fn.__name__ = fn.__name__
     return controlled_fn
 
 
