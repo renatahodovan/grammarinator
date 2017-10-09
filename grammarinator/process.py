@@ -152,13 +152,15 @@ class FuzzerGenerator(object):
 
         src = self.line('class {fuzzer_name}(Grammarinator):\n'.format(fuzzer_name=fuzzer_name))
         with self.indent():
-            src += self.line('def __init__(self, {args}):'.format(args='*, max_depth=float(\'inf\')' if unlexer else 'unlexer'))
+            src += self.line('def __init__(self, {args}):'.format(args='*, max_depth=float(\'inf\'), weights=None, cooldown=1.0' if unlexer else 'unlexer'))
 
             with self.indent():
                 src += self.line('super({fuzzer_name}, self).__init__()'.format(fuzzer_name=fuzzer_name))
                 src += self.line('self.unlexer = {unlexer_ref}'.format(unlexer_ref='self' if unlexer else 'unlexer'))
                 if unlexer:
                     src += self.line('self.max_depth = max_depth')
+                    src += self.line('self.weights = weights or dict()')
+                    src += self.line('self.cooldown = cooldown')
                 src += self.line('self.set_options()\n')
 
         if unlexer:
@@ -406,9 +408,10 @@ class FuzzerGenerator(object):
 
             conditions = [(self.new_code_id('cond'), self.find_conditions(child)) for child in children]
             self.code_chunks.update(conditions)
-            result = self.line('choice = self.choice([0 if {{{alt_name}}}[i] > self.unlexer.max_depth else w for i, w in enumerate([{weights}])])'
+            result = self.line('choice = self.choice([0 if {{{alt_name}}}[i] > self.unlexer.max_depth else w * self.unlexer.weights.get(({alt_name!r}, i), 1) for i, w in enumerate([{weights}])])'
                                .format(weights=', '.join('{{{cond_id}}}'.format(cond_id=cond_id) for cond_id, _ in conditions),
                                        alt_name=alt_name))
+            result += self.line('self.unlexer.weights[({alt_name!r}, choice)] = self.unlexer.weights.get(({alt_name!r}, choice), 1) * self.unlexer.cooldown'.format(alt_name=alt_name))
             for i, child in enumerate(children):
                 alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
                 self.graph.add_node(AlternativeNode(id=alternative_name))

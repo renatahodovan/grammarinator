@@ -42,7 +42,8 @@ class HTMLUnparser(Grammarinator):
         current = self.create_node(UnparserRule(name='htmlDocument'))
         if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_119', i), 1) for i, w in enumerate([1, 1])])
+                self.unlexer.weights[('alt_119', choice)] = self.unlexer.weights.get(('alt_119', choice), 1) * self.unlexer.cooldown
                 if choice == 0:
                     current += self.scriptlet()
                 elif choice == 1:
@@ -54,7 +55,8 @@ class HTMLUnparser(Grammarinator):
 
         if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_124', i), 1) for i, w in enumerate([1, 1])])
+                self.unlexer.weights[('alt_124', choice)] = self.unlexer.weights.get(('alt_124', choice), 1) * self.unlexer.cooldown
                 if choice == 0:
                     current += self.scriptlet()
                 elif choice == 1:
@@ -66,7 +68,8 @@ class HTMLUnparser(Grammarinator):
 
         if self.unlexer.max_depth >= 1:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+                choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_129', i), 1) for i, w in enumerate([1, 1])])
+                self.unlexer.weights[('alt_129', choice)] = self.unlexer.weights.get(('alt_129', choice), 1) * self.unlexer.cooldown
                 if choice == 0:
                     current += self.scriptlet()
                 elif choice == 1:
@@ -98,7 +101,8 @@ class HTMLUnparser(Grammarinator):
     def htmlElement(self):
         local_ctx = dict()
         current = self.create_node(UnparserRule(name='htmlElement'))
-        choice = self.choice([0 if [3, 3, 3, 2, 2, 2][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1, 1, 1, 1])])
+        choice = self.choice([0 if [3, 3, 3, 2, 2, 2][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_135', i), 1) for i, w in enumerate([1, 1, 1, 1, 1, 1])])
+        self.unlexer.weights[('alt_135', choice)] = self.unlexer.weights.get(('alt_135', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.unlexer.TAG_OPEN()
             current += self.htmlTagName()
@@ -153,7 +157,8 @@ class HTMLUnparser(Grammarinator):
 
         if self.unlexer.max_depth >= 2:
             for _ in self.zero_or_more():
-                choice = self.choice([0 if [3, 2, 2][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1, 1])])
+                choice = self.choice([0 if [3, 2, 2][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_151', i), 1) for i, w in enumerate([1, 1, 1])])
+                self.unlexer.weights[('alt_151', choice)] = self.unlexer.weights.get(('alt_151', choice), 1) * self.unlexer.cooldown
                 if choice == 0:
                     current += self.htmlElement()
                 elif choice == 1:
@@ -172,7 +177,8 @@ class HTMLUnparser(Grammarinator):
     def htmlAttribute(self):
         local_ctx = dict()
         current = self.create_node(UnparserRule(name='htmlAttribute'))
-        choice = self.choice([0 if [4, 3][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [4, 3][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_156', i), 1) for i, w in enumerate([1, 1])])
+        self.unlexer.weights[('alt_156', choice)] = self.unlexer.weights.get(('alt_156', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.htmlAttributeName()
             local_ctx['attr_name'] = current.last_child
@@ -208,7 +214,8 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlChardata(self):
         current = self.create_node(UnparserRule(name='htmlChardata'))
-        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_159', i), 1) for i, w in enumerate([1, 1])])
+        self.unlexer.weights[('alt_159', choice)] = self.unlexer.weights.get(('alt_159', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.unlexer.HTML_TEXT()
         elif choice == 1:
@@ -219,7 +226,8 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlMisc(self):
         current = self.create_node(UnparserRule(name='htmlMisc'))
-        choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [2, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_162', i), 1) for i, w in enumerate([1, 1])])
+        self.unlexer.weights[('alt_162', choice)] = self.unlexer.weights.get(('alt_162', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.htmlComment()
         elif choice == 1:
@@ -230,7 +238,8 @@ class HTMLUnparser(Grammarinator):
     @depthcontrol
     def htmlComment(self):
         current = self.create_node(UnparserRule(name='htmlComment'))
-        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_165', i), 1) for i, w in enumerate([1, 1])])
+        self.unlexer.weights[('alt_165', choice)] = self.unlexer.weights.get(('alt_165', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.unlexer.HTML_COMMENT()
         elif choice == 1:
@@ -270,7 +279,8 @@ class HTMLUnparser(Grammarinator):
     def script(self):
         current = self.create_node(UnparserRule(name='script'))
         current += self.unlexer.SCRIPT_OPEN()
-        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_168', i), 1) for i, w in enumerate([1, 1])])
+        self.unlexer.weights[('alt_168', choice)] = self.unlexer.weights.get(('alt_168', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.unlexer.SCRIPT_BODY()
         elif choice == 1:
@@ -282,7 +292,8 @@ class HTMLUnparser(Grammarinator):
     def style(self):
         current = self.create_node(UnparserRule(name='style'))
         current += self.unlexer.STYLE_OPEN()
-        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w for i, w in enumerate([1, 1])])
+        choice = self.choice([0 if [1, 1][i] > self.unlexer.max_depth else w * self.unlexer.weights.get(('alt_171', i), 1) for i, w in enumerate([1, 1])])
+        self.unlexer.weights[('alt_171', choice)] = self.unlexer.weights.get(('alt_171', choice), 1) * self.unlexer.cooldown
         if choice == 0:
             current += self.unlexer.STYLE_BODY()
         elif choice == 1:
