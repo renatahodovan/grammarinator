@@ -98,7 +98,7 @@ def execute():
 
     start_rule = getattr(unparser_cls, args.rule)
     if not hasattr(start_rule, 'min_depth'):
-        logger.warning('The \'min_depth\' property of {rule} is not set. Fallback to 0.'.format(rule=args.rule))
+        logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', args.rule)
     elif start_rule.min_depth > args.max_depth:
         parser.error('{rule} cannot be generated within the given depth (min needed: {depth}).'.format(rule=args.rule, depth=start_rule.min_depth))
 
