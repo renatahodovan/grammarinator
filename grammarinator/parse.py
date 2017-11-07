@@ -71,6 +71,15 @@ class ParserFactory(object):
     def antlr_to_grammarinator_tree(self, antlr_node, parser):
         if isinstance(antlr_node, ParserRuleContext):
             rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
+            class_name = antlr_node.__class__.__name__
+
+             # Check if the rule is a labeled alternative.
+            if not class_name.lower().startswith(rule_name.lower()):
+                alt_name = class_name[:-len('Context')] if class_name.endswith('Context') else class_name
+                rule_name = '{rule_name}_{alternative}'.format(
+                    rule_name=rule_name,
+                    alternative=alt_name[0].upper() + alt_name[1:])
+
             node = UnparserRule(name=rule_name)
             assert node.name, 'Node name of a parser rule is empty or None.'
             for child in (antlr_node.children or []):

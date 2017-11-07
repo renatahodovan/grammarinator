@@ -117,6 +117,7 @@ class FuzzerGenerator(object):
         self.unparser_body = None
         self.unparser_name = None
         self.code_chunks = dict()
+        self.labeled_alts = []
 
     @contextmanager
     def indent(self):
@@ -394,6 +395,19 @@ class FuzzerGenerator(object):
             # local_ctx only has to be initialized if we have variable assignment.
             rule_code = rule_header + (local_ctx if 'local_ctx' in rule_code else '') + rule_code
 
+            if self.labeled_alts:
+                for _ in range(len(self.labeled_alts)):
+                    name, children = self.labeled_alts.pop(0)
+                    labeled_function = self.line('@depthcontrol')
+                    labeled_function += self.line('def {name}(self):'.format(name=name))
+                    with self.indent():
+                        labeled_function += self.line('current = self.create_node(UnparserRule(name=\'{name}\'))'.format(name=name))
+                        for child in children:
+                            labeled_function += self.generate_single(child, name)
+                        labeled_function += self.line('return current')
+                    labeled_function += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=name))
+                    rule_code += labeled_function
+
             if not parser_rule:
                 self.token_start_ranges[rule_name] = self.current_start_range
                 self.current_start_range = None
@@ -425,6 +439,15 @@ class FuzzerGenerator(object):
                     result += self.generate_single(child, alternative_name) or self.line('pass')
             return result
 
+        if isinstance(node, self.antlr_parser_cls.LabeledAltContext) and node.identifier():
+            rule_name = node.parentCtx.parentCtx.parentCtx.RULE_REF().symbol.text
+            name = '{rule_name}_{label_name}'.format(rule_name=rule_name,
+                                                     label_name=(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()).symbol.text)
+            self.graph.add_node(RuleNode(id=name))
+            self.graph.add_edge(frm=parent_id, to=name)
+            # Notify the alternative that it's a labeled one and should be processed later.
+            return self.generate_single(node.alternative(), '#' + name)
+
         # Sequences.
         if isinstance(node, (self.antlr_parser_cls.AlternativeContext, self.antlr_parser_cls.LexerAltContext)):
             if not node.children:
@@ -436,6 +459,14 @@ class FuzzerGenerator(object):
                 children = node.lexerElements().lexerElement()
             else:
                 children = []
+
+            if parent_id.startswith('#'):
+                # If the current alternative is labeled then it will be processed
+                # later since its content goes to a separate method.
+                parent_id = parent_id[1:]
+                self.labeled_alts.append((parent_id, children))
+                return self.line('current = self.{name}()'.format(name=parent_id))
+
             return ''.join([self.generate_single(child, parent_id) for child in children])
 
         if isinstance(node, (self.antlr_parser_cls.ElementContext, self.antlr_parser_cls.LexerElementContext)):
