@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -93,17 +93,15 @@ class Grammarinator(object):
             if upto + w >= r:
                 return i
             upto += w
-        assert False, 'Shouldn\'t get here.'
+        raise AssertionError('Shouldn\'t get here.')
 
     def zero_or_one(self):
         if self.random_decision():
             yield
-        raise StopIteration
 
     def zero_or_more(self):
         while self.random_decision():
             yield
-        raise StopIteration
 
     def one_or_more(self):
         yield

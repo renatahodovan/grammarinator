@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
         logger.debug('line %d:%d %s', line, column, msg)
+
+
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 

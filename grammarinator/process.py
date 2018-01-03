@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -246,6 +246,8 @@ class FuzzerGenerator(object):
             src = str(node.TOKEN_REF())
             assert src in self.token_start_ranges, '{src} not in token_start_ranges.'.format(src=src)
             return self.token_start_ranges[src]
+
+        return []
 
     def generate(self, lexer_root, parser_root):
         for root in [lexer_root, parser_root]:
