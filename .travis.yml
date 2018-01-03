@@ -4,11 +4,11 @@ sudo: false
 matrix:
   include:
     - python: 3.4
-      env: TOXENV=py34
+      env: TOXENV=py
     - python: 3.5
-      env: TOXENV=py35
+      env: TOXENV=py
     - python: 3.6
-      env: TOXENV=py36
+      env: TOXENV=py
 
     - python: 3.4
       env: TOXENV=cov
@@ -18,4 +18,4 @@ matrix:
       env: TOXENV=lint
 
 install: pip install -U tox
-script: tox
+script: tox -v
