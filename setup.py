@@ -29,6 +29,7 @@ setup(
         'console_scripts': [
             'grammarinator-process = grammarinator.process:execute',
             'grammarinator-generate = grammarinator.generate:execute',
+            'grammarinator-parse = grammarinator.parse:execute',
         ]
     },
 )

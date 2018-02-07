@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -7,7 +7,7 @@
 
 from .grammarinator import depthcontrol, Grammarinator, multirange_diff, printable_ascii_ranges, printable_unicode_ranges
 from .transformer import *
-from .tree import BaseRule, UnlexerRule, UnparserRule
+from .tree import BaseRule, Tree, UnlexerRule, UnparserRule
 
 __all__ = [
     'BaseRule',
@@ -17,6 +17,7 @@ __all__ = [
     'simple_space_transformer',
     'printable_ascii_ranges',
     'printable_unicode_ranges',
+    'Tree',
     'UnlexerRule',
     'UnparserRule',
 ]

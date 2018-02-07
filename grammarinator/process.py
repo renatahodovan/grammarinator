@@ -14,6 +14,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from os.path import dirname, exists, join
 from os import getcwd, makedirs
+from pkgutil import get_data
 from shutil import rmtree
 
 import antlerinator
@@ -560,7 +561,13 @@ class FuzzerFactory(object):
         if antlr_dir not in sys.path:
             sys.path.append(antlr_dir)
 
-        self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_dir, antlr=antlr)
+        # Copy the grammars from the package to the given working directory.
+        antlr_resources = ['ANTLRv4Lexer.g4', 'ANTLRv4Parser.g4', 'LexBasic.g4', 'LexerAdaptor.py']
+        for resource in antlr_resources:
+            with open(join(antlr_dir, resource), 'wb') as f:
+                f.write(get_data(__package__, join('resources', 'antlr', resource)))
+
+        self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_resources, antlr_dir, antlr=antlr)
 
     def generate_fuzzer(self, grammars, *, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """

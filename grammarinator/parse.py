@@ -1,0 +1,177 @@
+# Copyright (c) 2018 Renata Hodovan, Akos Kiss.
+#
+# Licensed under the BSD 3-Clause License
+# <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
+# This file may not be copied, modified, or distributed except
+# according to those terms.
+
+import antlerinator
+import importlib
+import logging
+import os
+import shutil
+import sys
+
+from antlr4 import *
+from argparse import ArgumentParser
+from multiprocessing import Pool
+from os.path import basename, exists, join
+
+from .parser_builder import build_grammars
+from .pkgdata import __version__, default_antlr_path
+from .runtime.tree import UnlexerRule, UnparserRule, Tree
+
+logger = logging.getLogger('grammarinator')
+logging.basicConfig(format='%(message)s')
+
+
+# Override ConsoleErrorListener to suppress parse issues in non-verbose mode.
+class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        logger.debug('line %d:%d %s', line, column, msg)
+error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
+
+
+def import_entity(name):
+    steps = name.split('.')
+    return getattr(importlib.import_module('.'.join(steps[0:-1])), steps[-1])
+
+
+class ParserFactory(object):
+    """
+    Class to parse existing sources and create Grammarinator compatible tree representation
+    from them. These trees can be reused later by generation.
+    """
+
+    def __init__(self, grammars, parser_dir,
+                 transformers=None, antlr=None, max_depth=None, cleanup=True):
+        self.max_depth = max_depth
+        self.cleanup = cleanup
+        self.transformers = [import_entity(transformer) for transformer in transformers] if transformers else []
+
+        self.parser_dir = parser_dir
+        os.makedirs(self.parser_dir, exist_ok=True)
+
+        if self.parser_dir not in sys.path:
+            sys.path.append(self.parser_dir)
+
+        for i, grammar in enumerate(grammars):
+            shutil.copy(grammar, self.parser_dir)
+            grammars[i] = basename(grammar)
+
+        self.lexer_cls, self.parser_cls, self.listener_cls = build_grammars(grammars, self.parser_dir, antlr)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.cleanup:
+            shutil.rmtree(self.parser_dir, ignore_errors=True)
+
+    def antlr_to_grammarinator_tree(self, antlr_node, parser):
+        if isinstance(antlr_node, ParserRuleContext):
+            rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
+            node = UnparserRule(name=rule_name)
+            assert node.name, 'Node name of a parser rule is empty or None.'
+            for child in (antlr_node.children or []):
+                node.add_child(self.antlr_to_grammarinator_tree(child, parser))
+        else:
+            assert isinstance(antlr_node, TerminalNode), 'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {node_cls} was found.'.format(node_cls=antlr_node.__class__.__name__)
+            name, text = (parser.symbolicNames[antlr_node.symbol.type], antlr_node.symbol.text) if antlr_node.symbol.type != Token.EOF else ('EOF', '')
+            assert name, '{name} is None or empty'.format(name=name)
+            node = UnlexerRule(name=name, src=text)
+        return node
+
+    def create_tree(self, input_stream, rule, fn=None):
+        try:
+            parser = self.parser_cls(CommonTokenStream(self.lexer_cls(input_stream)))
+            rule = rule or self.parser_cls.ruleNames[0]
+            parse_tree_root = getattr(parser, rule)()
+            if not parser._syntaxErrors:
+                gr_tree = Tree(self.antlr_to_grammarinator_tree(parse_tree_root, parser))
+
+                for transformer in self.transformers:
+                    gr_tree.root = transformer(gr_tree.root)
+
+                return gr_tree
+            else:
+                logger.warning('{cnt} syntax errors detected.'.format(cnt=parser._syntaxErrors))
+        except Exception as e:
+            logger.warning('Exception in parsing.{info}'.format(info=' [{fn}]'.format(fn=fn) if fn else ''))
+            logger.warning(e)
+
+    def tree_from_file(self, fn, rule, out, encoding):
+        logger.info('Process file {fn}.'.format(fn=fn))
+        try:
+            tree = self.create_tree(FileStream(fn, encoding=encoding), rule, fn)
+            if tree is not None:
+                tree.save(join(out, basename(fn) + Tree.extension), max_depth=self.max_depth)
+        except Exception as e:
+            logger.warning('Exception while processing {fn}: {msg}'.format(fn=fn, msg=str(e)))
+
+
+def iterate_tests(files, rule, out, encoding):
+    for test in files:
+        yield (test, rule, out, encoding)
+
+
+def execute():
+    parser = ArgumentParser(description='Grammarinator: Parser', epilog="""
+    The tool parses files with ANTLR v4 grammars, builds Grammarinator-
+    compatible tree representations from them and saves them for further
+    reuse. 
+    """)
+    parser.add_argument('files', nargs='+',
+                        help='input files to process.')
+    parser.add_argument('-g', '--grammars', nargs='+', metavar='FILE', required=True,
+                        help='ANTLR grammar files describing the expected format of input to parse.')
+    parser.add_argument('-r', '--rule', metavar='NAME',
+                        help='name of the rule to start parsing with (default: first parser rule)')
+    parser.add_argument('-t', '--transformers', metavar='LIST', nargs='+', default=[],
+                        help='list of transformers (in package.module.function format) to postprocess the parsed tree.')
+    parser.add_argument('--antlr', metavar='FILE', default=default_antlr_path,
+                        help='path of the ANTLR jar file (default: %(default)s).')
+    parser.add_argument('--encoding', metavar='ENC', default='utf-8',
+                        help='input file encoding (default: %(default)s).')
+    parser.add_argument('--disable-cleanup', dest='cleanup', default=True, action='store_false',
+                        help='disable the removal of intermediate files.')
+    parser.add_argument('-j', '--jobs', default=os.cpu_count(), type=int, metavar='NUM',
+                        help='parsing parallelization level (default: number of cpu cores (%(default)d)).')
+    parser.add_argument('--max-depth', type=int, default=float('inf'),
+                        help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
+    parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
+                        help='directory to save the trees (default: %(default)s).')
+    parser.add_argument('--parser-dir', metavar='DIR',
+                        help='directory to save the parser grammars (default: <OUTDIR>/grammars).')
+    parser.add_argument('--sys-recursion-limit', metavar='NUM', type=int, default=sys.getrecursionlimit(),
+                        help='override maximum depth of the Python interpreter stack (default: %(default)d)')
+    parser.add_argument('--log-level', default='INFO', metavar='LEVEL',
+                        help='verbosity level of diagnostic messages (default: %(default)s).')
+    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
+    args = parser.parse_args()
+
+    for grammar in args.grammars:
+        if not exists(grammar):
+            parser.error('{grammar} does not exist.'.format(grammar=grammar))
+
+    if not args.parser_dir:
+        args.parser_dir = join(args.out, 'grammars')
+
+    logger.setLevel(args.log_level)
+    sys.setrecursionlimit(int(args.sys_recursion_limit))
+
+    if args.antlr == default_antlr_path:
+        antlerinator.install(lazy=True)
+
+    with ParserFactory(grammars=args.grammars, transformers=args.transformers, parser_dir=args.parser_dir, antlr=args.antlr,
+                       max_depth=args.max_depth, cleanup=args.cleanup) as factory:
+        if args.jobs > 1:
+            with Pool(args.jobs) as pool:
+                pool.starmap(factory.tree_from_file, iterate_tests(args.files, args.rule, args.out, args.encoding))
+        else:
+            for create_args in iterate_tests(args.files, args.rule, args.out, args.encoding):
+                factory.tree_from_file(*create_args)
+
+
+if __name__ == '__main__':
+    execute()

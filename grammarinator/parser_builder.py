@@ -8,8 +8,7 @@
 import logging
 
 from os import listdir
-from os.path import basename, commonprefix, join, split, splitext
-from pkgutil import get_data
+from os.path import basename, commonprefix, split, splitext
 from subprocess import CalledProcessError, Popen, PIPE
 
 from antlr4 import error
@@ -26,11 +25,12 @@ class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
-def build_grammars(out, antlr):
+def build_grammars(grammars, out, antlr):
     """
     Build lexer and grammar from ANTLRv4 grammar files in Python3 target.
 
-    :param out: Output directory.
+    :param grammars: List of grammar files.
+    :param out: Directory where grammars are placed and where the output will be generated to.
     :param antlr: Path to the ANTLR4 tool (Java jar binary).
     :return: List of references/names of the lexer, parser and listener classes of the target.
     """
@@ -39,16 +39,10 @@ def build_grammars(out, antlr):
         languages = {
             'python': {'antlr_arg': '-Dlanguage=Python3',
                        'ext': 'py',
-                       'listener_format': 'Listener',
-                       'sources': ['ANTLRv4Lexer.g4', 'ANTLRv4Parser.g4', 'LexBasic.g4', 'LexerAdaptor.py']}
+                       'listener_format': 'Listener'}
         }
 
-        # Copy the grammars from the package to the given working directory.
-        for resource in languages['python']['sources']:
-            with open(join(out, resource), 'wb') as f:
-                f.write(get_data(__package__, join('resources', 'antlr', resource)))
-
-        grammars = tuple([file for file in languages['python']['sources'] if file.endswith('.g4')])
+        grammars = tuple(fn for fn in grammars if fn.endswith('.g4'))
 
         # Generate parser and lexer in the target language and return either with
         # python class ref or the name of java classes.
