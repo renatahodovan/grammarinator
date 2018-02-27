@@ -1,4 +1,5 @@
 __pycache__
+*.py[co]
 build
 dist
 *.egg-info
