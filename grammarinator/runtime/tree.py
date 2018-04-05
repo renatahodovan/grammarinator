@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -74,6 +74,14 @@ class BaseRule(object):
 
     def __str__(self):
         return ''.join([str(child) for child in self.children])
+
+    def __getattr__(self, item):
+        result = [child for child in self.children if child.name == item]
+
+        if not result:
+            raise AttributeError('No child with name \'{name}\'.'.format(name=item))
+
+        return result[0] if len(result) == 1 else result
 
 
 class UnparserRule(BaseRule):
