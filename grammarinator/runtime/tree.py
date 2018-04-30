@@ -10,6 +10,8 @@ from copy import copy, deepcopy
 
 class BaseRule(object):
 
+    children = []
+
     def __init__(self, *, name):
         self.name = name
         self.children = []
