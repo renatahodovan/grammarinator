@@ -87,6 +87,8 @@ class Grammarinator(object):
 
     def choice(self, choices):
         # assert sum(choices) > 0, 'Sum of choices is zero.'
+        max_item = max(choices)
+        choices = [i / max_item for i in choices]
         r = random.uniform(0, sum(choices))
         upto = 0
         for i, w in enumerate(choices):
