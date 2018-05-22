@@ -5,18 +5,20 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import antlerinator
 import importlib
 import logging
-import os
 import shutil
 import sys
 
-from antlr4 import *
-from argparse import ArgumentParser
-from multiprocessing import Pool
+import os
 from os.path import basename, exists, join
 
+from argparse import ArgumentParser
+from multiprocessing import Pool
+
+import antlerinator
+
+from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
 from .runtime.tree import UnlexerRule, UnparserRule, Tree
@@ -29,6 +31,8 @@ logging.basicConfig(format='%(message)s')
 class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
         logger.debug('line %d:%d %s', line, column, msg)
+
+
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
@@ -73,7 +77,7 @@ class ParserFactory(object):
             rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
             class_name = antlr_node.__class__.__name__
 
-             # Check if the rule is a labeled alternative.
+            # Check if the rule is a labeled alternative.
             if not class_name.lower().startswith(rule_name.lower()):
                 alt_name = class_name[:-len('Context')] if class_name.endswith('Context') else class_name
                 rule_name = '{rule_name}_{alternative}'.format(
@@ -97,26 +101,27 @@ class ParserFactory(object):
             rule = rule or self.parser_cls.ruleNames[0]
             parse_tree_root = getattr(parser, rule)()
             if not parser._syntaxErrors:
-                gr_tree = Tree(self.antlr_to_grammarinator_tree(parse_tree_root, parser))
+                tree = Tree(self.antlr_to_grammarinator_tree(parse_tree_root, parser))
 
                 for transformer in self.transformers:
-                    gr_tree.root = transformer(gr_tree.root)
+                    tree.root = transformer(tree.root)
 
-                return gr_tree
+                return tree
             else:
-                logger.warning('{cnt} syntax errors detected.'.format(cnt=parser._syntaxErrors))
+                logger.warning('%s syntax errors detected.', parser._syntaxErrors)
         except Exception as e:
-            logger.warning('Exception in parsing.{info}'.format(info=' [{fn}]'.format(fn=fn) if fn else ''))
+            logger.warning('Exception in parsing.%s', ' [{fn}]'.format(fn=fn) if fn else '')
             logger.warning(e)
+        return None
 
     def tree_from_file(self, fn, rule, out, encoding):
-        logger.info('Process file {fn}.'.format(fn=fn))
+        logger.info('Process file %s.', fn)
         try:
             tree = self.create_tree(FileStream(fn, encoding=encoding), rule, fn)
             if tree is not None:
                 tree.save(join(out, basename(fn) + Tree.extension), max_depth=self.max_depth)
         except Exception as e:
-            logger.warning('Exception while processing {fn}: {msg}'.format(fn=fn, msg=str(e)))
+            logger.warning('Exception while processing %s: %s', fn, str(e))
 
 
 def iterate_tests(files, rule, out, encoding):
@@ -125,11 +130,12 @@ def iterate_tests(files, rule, out, encoding):
 
 
 def execute():
-    parser = ArgumentParser(description='Grammarinator: Parser', epilog="""
-    The tool parses files with ANTLR v4 grammars, builds Grammarinator-
-    compatible tree representations from them and saves them for further
-    reuse. 
-    """)
+    parser = ArgumentParser(description='Grammarinator: Parser',
+                            epilog="""
+                            The tool parses files with ANTLR v4 grammars, builds Grammarinator-
+                            compatible tree representations from them and saves them for further
+                            reuse.
+                            """)
     parser.add_argument('files', nargs='+',
                         help='input files to process.')
     parser.add_argument('-g', '--grammars', nargs='+', metavar='FILE', required=True,

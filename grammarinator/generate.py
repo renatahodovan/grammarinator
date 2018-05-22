@@ -10,14 +10,14 @@ import glob
 import importlib
 import json
 import logging
-import os
 import random
 import uuid
 import sys
 
-from argparse import ArgumentParser, ArgumentTypeError
-from os import cpu_count, getcwd, makedirs
+import os
 from os.path import abspath, basename, dirname, isdir, join, splitext
+
+from argparse import ArgumentParser, ArgumentTypeError
 from shutil import rmtree
 
 from .pkgdata import __version__
@@ -73,7 +73,7 @@ class Generator(object):
         self.rule = rule or self.unparser_cls.default_rule.__name__
 
         out_dir = abspath(dirname(out_format))
-        makedirs(out_dir, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
 
         if '%d' not in out_format:
             base, ext = splitext(out_format)
@@ -92,12 +92,12 @@ class Generator(object):
         self.encoding = encoding
 
         tree_transformers = tree_transformers or []
-        if type(tree_transformers) == str:
+        if isinstance(tree_transformers, str):
             tree_transformers = json.loads(tree_transformers)
         self.tree_transformers = [import_entity(transformer) for transformer in tree_transformers]
 
         test_transformers = test_transformers or []
-        if type(test_transformers) == str:
+        if isinstance(test_transformers, str):
             test_transformers = json.loads(test_transformers)
         self.test_transformers = [import_entity(transformer) for transformer in test_transformers]
 
@@ -160,9 +160,9 @@ class Generator(object):
     def generate(self, rule, max_depth):
         start_rule = getattr(self.unparser_cls if rule[0].islower() else self.unlexer_cls, rule)
         if not hasattr(start_rule, 'min_depth'):
-          logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
+            logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
         elif start_rule.min_depth > max_depth:
-          raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
+            raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
 
         unlexer = self.unlexer_cls(**dict(self.unlexer_kwargs, max_depth=max_depth))
         tree = Tree(getattr(self.unparser_cls(unlexer) if rule[0].islower() else unlexer, rule)())
@@ -202,10 +202,7 @@ class Generator(object):
         raise ValueError('Could not find node pairs to recombine.')
 
     def default_selector(self, iterable):
-        return [node for node in iterable if node.name is not None
-                                            and node.parent is not None
-                                            and node.name != 'EOF'
-                                            and node.level < self.max_depth] # and node.children]
+        return [node for node in iterable if node.name is not None and node.parent is not None and node.name != 'EOF' and node.level < self.max_depth]
 
     def random_node(self, tree):
         options = self.default_selector([x for name in tree.node_dict for x in tree.node_dict[name]])
@@ -255,9 +252,9 @@ def execute():
                         help='keep generated tests to participate in further mutations or recombinations (default: %(default)d).')
 
     # Auxiliary settings.
-    parser.add_argument('-j', '--jobs', default=cpu_count(), type=int, metavar='NUM',
+    parser.add_argument('-j', '--jobs', default=os.cpu_count(), type=int, metavar='NUM',
                         help='test generation parallelization level (default: number of cpu cores (%(default)d)).')
-    parser.add_argument('-o', '--out', metavar='FILE', default=join(getcwd(), 'tests', 'test_%d'),
+    parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', 'test_%d'),
                         help='output file name pattern (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='output file encoding (default: %(default)s).')
@@ -285,7 +282,7 @@ def execute():
                    cleanup=False, encoding=args.encoding) as generator:
         for i in range(args.n):
             test_fn = generator()
-            logger.debug('#{idx} {fn}'.format(idx=i, fn=test_fn))
+            logger.debug('#%s %s', i, test_fn)
 
 
 if __name__ == '__main__':

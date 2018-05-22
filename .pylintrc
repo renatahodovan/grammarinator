@@ -15,7 +15,7 @@ disable=
     too-many-arguments, too-many-locals,
     too-many-statements, too-many-return-statements, too-many-branches,
     too-many-instance-attributes, too-few-public-methods,
-    redefined-builtin
+    redefined-builtin, broad-except, protected-access
 
 [REPORTS]
 
