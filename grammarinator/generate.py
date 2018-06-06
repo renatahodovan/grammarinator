@@ -68,7 +68,7 @@ class Generator(object):
 
         unlexer, unparser = splitext(basename(unlexer_path))[0], splitext(basename(unparser_path))[0]
         self.unlexer_cls = import_entity('.'.join([unlexer, unlexer]))
-        self.unlexer_kwargs = dict(cooldown=cooldown, weights=dict())
+        self.unlexer_kwargs = dict(cooldown=float(cooldown), weights=dict())
         self.unparser_cls = import_entity('.'.join([unparser, unparser]))
         self.rule = rule or self.unparser_cls.default_rule.__name__
 
