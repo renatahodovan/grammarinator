@@ -62,6 +62,9 @@ class Tree(object):
             with open(fn, 'wb') as f:
                 pickle.dump(self, f)
 
+    def __str__(self):
+        return str(self.root)
+
 
 class BaseRule(object):
 
