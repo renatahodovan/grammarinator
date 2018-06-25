@@ -38,11 +38,11 @@ Install
 
 The quick way::
 
-    pip install grammarinator
+    pip3 install grammarinator
 
 Or clone the project and run setuptools::
 
-    python setup.py install
+    python3 setup.py install
 
 
 Usage
