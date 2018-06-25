@@ -6,6 +6,7 @@
 # according to those terms.
 
 import importlib
+import json
 import logging
 import shutil
 import sys
@@ -49,9 +50,10 @@ class ParserFactory(object):
 
     def __init__(self, grammars, parser_dir,
                  transformers=None, antlr=None, max_depth=None, cleanup=True):
-        self.max_depth = max_depth
-        self.cleanup = cleanup
-        self.transformers = [import_entity(transformer) for transformer in transformers] if transformers else []
+        self.max_depth = max_depth if not isinstance(max_depth, str) else (float('inf') if max_depth == 'inf' else int(max_depth))
+        self.cleanup = cleanup in [True, 1, 'True', 'true']
+        transformers = transformers if isinstance(transformers, list) else json.loads(transformers) if transformers else []
+        self.transformers = [import_entity(transformer) for transformer in transformers]
 
         self.parser_dir = parser_dir
         os.makedirs(self.parser_dir, exist_ok=True)
@@ -59,6 +61,7 @@ class ParserFactory(object):
         if self.parser_dir not in sys.path:
             sys.path.append(self.parser_dir)
 
+        grammars = grammars if isinstance(grammars, list) else json.loads(grammars)
         for i, grammar in enumerate(grammars):
             shutil.copy(grammar, self.parser_dir)
             grammars[i] = basename(grammar)
