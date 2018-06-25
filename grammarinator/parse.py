@@ -49,11 +49,12 @@ class ParserFactory(object):
     """
 
     def __init__(self, grammars, parser_dir,
-                 transformers=None, antlr=None, max_depth=None, cleanup=True):
+                 hidden=None, transformers=None, antlr=None, max_depth=None, cleanup=True):
         self.max_depth = max_depth if not isinstance(max_depth, str) else (float('inf') if max_depth == 'inf' else int(max_depth))
         self.cleanup = cleanup in [True, 1, 'True', 'true']
         transformers = transformers if isinstance(transformers, list) else json.loads(transformers) if transformers else []
         self.transformers = [import_entity(transformer) for transformer in transformers]
+        self.hidden = hidden if isinstance(hidden, list) else json.loads(hidden) if hidden else []
 
         self.parser_dir = parser_dir
         os.makedirs(self.parser_dir, exist_ok=True)
@@ -75,7 +76,9 @@ class ParserFactory(object):
         if self.cleanup:
             shutil.rmtree(self.parser_dir, ignore_errors=True)
 
-    def antlr_to_grammarinator_tree(self, antlr_node, parser):
+    def antlr_to_grammarinator_tree(self, antlr_node, parser, visited=None):
+        visited = visited or set()
+
         if isinstance(antlr_node, ParserRuleContext):
             rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
             class_name = antlr_node.__class__.__name__
@@ -90,12 +93,30 @@ class ParserFactory(object):
             node = UnparserRule(name=rule_name)
             assert node.name, 'Node name of a parser rule is empty or None.'
             for child in (antlr_node.children or []):
-                node.add_child(self.antlr_to_grammarinator_tree(child, parser))
+                node += self.antlr_to_grammarinator_tree(child, parser, visited)
         else:
             assert isinstance(antlr_node, TerminalNode), 'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {node_cls} was found.'.format(node_cls=antlr_node.__class__.__name__)
             name, text = (parser.symbolicNames[antlr_node.symbol.type], antlr_node.symbol.text) if antlr_node.symbol.type != Token.EOF else ('EOF', '')
             assert name, '{name} is None or empty'.format(name=name)
-            node = UnlexerRule(name=name, src=text)
+
+            if not self.hidden:
+                node = UnlexerRule(name=name, src=text)
+            else:
+                hidden_tokens_to_left = parser.getTokenStream().getHiddenTokensToLeft(antlr_node.symbol.tokenIndex, -1) or []
+                node = []
+                for token in hidden_tokens_to_left:
+                    if parser.symbolicNames[token.type] in self.hidden:
+                        if token not in visited:
+                            node.append(UnlexerRule(name=parser.symbolicNames[token.type], src=token.text))
+                            visited.add(token)
+
+                node.append(UnlexerRule(name=name, src=text))
+                hidden_tokens_to_right = parser.getTokenStream().getHiddenTokensToRight(antlr_node.symbol.tokenIndex, -1) or []
+                for token in hidden_tokens_to_right:
+                    if parser.symbolicNames[token.type] in self.hidden:
+                        if token not in visited:
+                            node.append(UnlexerRule(name=parser.symbolicNames[token.type], src=token.text))
+                            visited.add(token)
         return node
 
     def create_tree(self, input_stream, rule, fn=None):
@@ -147,6 +168,8 @@ def execute():
                         help='name of the rule to start parsing with (default: first parser rule)')
     parser.add_argument('-t', '--transformers', metavar='LIST', nargs='+', default=[],
                         help='list of transformers (in package.module.function format) to postprocess the parsed tree.')
+    parser.add_argument('--hidden', nargs='+', metavar='NAME',
+                        help='list of hidden tokens to be built into the parsed tree.')
     parser.add_argument('--antlr', metavar='FILE', default=default_antlr_path,
                         help='path of the ANTLR jar file (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
@@ -181,7 +204,7 @@ def execute():
     if args.antlr == default_antlr_path:
         antlerinator.install(lazy=True)
 
-    with ParserFactory(grammars=args.grammars, transformers=args.transformers, parser_dir=args.parser_dir, antlr=args.antlr,
+    with ParserFactory(grammars=args.grammars, hidden=args.hidden, transformers=args.transformers, parser_dir=args.parser_dir, antlr=args.antlr,
                        max_depth=args.max_depth, cleanup=args.cleanup) as factory:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
