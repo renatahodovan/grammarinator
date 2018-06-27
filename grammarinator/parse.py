@@ -77,7 +77,8 @@ class ParserFactory(object):
             shutil.rmtree(self.parser_dir, ignore_errors=True)
 
     def antlr_to_grammarinator_tree(self, antlr_node, parser, visited=None):
-        visited = visited or set()
+        if visited is None:
+            visited = set()
 
         if isinstance(antlr_node, ParserRuleContext):
             rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
