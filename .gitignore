@@ -6,5 +6,6 @@ dist
 .DS_Store
 .idea
 .cache
+.pytest_cache
 .tox
 .coverage*
