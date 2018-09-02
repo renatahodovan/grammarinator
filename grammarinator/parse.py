@@ -132,8 +132,8 @@ class ParserFactory(object):
                     tree.root = transformer(tree.root)
 
                 return tree
-            else:
-                logger.warning('%s syntax errors detected.', parser._syntaxErrors)
+
+            logger.warning('%s syntax errors detected.', parser._syntaxErrors)
         except Exception as e:
             logger.warning('Exception in parsing.%s', ' [{fn}]'.format(fn=fn) if fn else '')
             logger.warning(e)

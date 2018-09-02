@@ -107,7 +107,6 @@ class Generator(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.cleanup:
             rmtree(dirname(self.out_format))
-        return None
 
     def __call__(self, *args, **kwargs):
         return self.create_new_test()[0]
