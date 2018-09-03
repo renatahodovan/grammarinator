@@ -49,11 +49,11 @@ class ParserFactory(object):
     """
 
     def __init__(self, grammars, parser_dir,
-                 hidden=None, transformers=None, antlr=None, max_depth=None, cleanup=True):
+                 hidden=None, transformers=None, antlr=default_antlr_path, max_depth='inf', cleanup=True):
         self.max_depth = max_depth if not isinstance(max_depth, str) else (float('inf') if max_depth == 'inf' else int(max_depth))
         self.cleanup = cleanup in [True, 1, 'True', 'true']
         transformers = transformers if isinstance(transformers, list) else json.loads(transformers) if transformers else []
-        self.transformers = [import_entity(transformer) for transformer in transformers]
+        self.transformers = [import_entity(transformer) if isinstance(transformer, str) else transformer for transformer in transformers]
         self.hidden = hidden if isinstance(hidden, list) else json.loads(hidden) if hidden else []
 
         self.parser_dir = parser_dir
