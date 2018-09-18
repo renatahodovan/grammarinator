@@ -135,16 +135,11 @@ class BaseRule(object):
             self.add_child(child)
 
     def replace(self, other):
-        assert self.__class__ == other.__class__ and self.name == other.name, \
-            '{cls1} != {cls2} or {name1} != {name2}'.format(cls1=self.__class__.__name__,
-                                                            cls2=other.__class__.__name__,
-                                                            name1=self.name,
-                                                            name2=other.name)
         if self.parent:
             self.parent.children[self.parent.children.index(self)] = other
             other.parent = self.parent
             self.parent = None
-        return self
+        return other
 
     def delete(self):
         if self.parent:
