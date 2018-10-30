@@ -131,13 +131,20 @@ Compatibility
 
 *grammarinator* was tested on:
 
-* Linux (Ubuntu 16.04)
-* Mac OS Sierra (10.12.4).
+* Linux (Ubuntu 16.04 / 18.04)
+* Mac OS X (Sierra 10.12 / High Sierra 10.13 / Mojave 10.14)
+
+
+Citations
+=========
+
+Background on *grammarinator* is published in (R. Hodovan, A. Kiss, T. Gyimothy:
+"Grammarinator: A Grammar-Based Open Source Fuzzer", A-TEST 2018).
 
 
 Copyright and Licensing
 =======================
 
-See LICENSE_.
+Licensed under the BSD 3-Clause License_.
 
 .. _LICENSE: LICENSE.rst
