@@ -2,6 +2,24 @@
 *Grammarinator* Release Notes
 =============================
 
+18.10
+=====
+
+Summary of changes:
+
+* Added support for parsing existing test cases and applying evolutionary
+  operators to them (e.g., to mutate and recombine them).
+* Added support for a cool-down mechanism to deprioritize already taken
+  alternatives during generation, thus giving others a higher probability and
+  helping to reach all parts of the grammar.
+* Added support for labelled alternatives in grammars to ease the navigation in
+  the tree representation of the generated test case.
+* Upgraded dependency to ANTLR v4.7.1 (via *ANTLeRinator*).
+* Improved the testing infrastructure (simplified and unified config files,
+  followed up on pep8 tool name change, added support for Python 3.7).
+* Minor bug fixes and improvements.
+
+
 17.7
 ====
 
