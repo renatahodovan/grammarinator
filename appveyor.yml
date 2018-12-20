@@ -1,3 +1,5 @@
+version: "{build}"
+
 environment:
   TOXENV: "py"
   TOX_TESTENV_PASSENV: "USERPROFILE" # should be passed down to test command automatically but obviously isn't
