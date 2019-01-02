@@ -1,4 +1,4 @@
-# Copyright (c) 2018 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2019 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -133,9 +133,9 @@ class ParserFactory(object):
 
                 return tree
 
-            logger.warning('%s syntax errors detected.', parser._syntaxErrors)
+            logger.warning('%s syntax errors detected%s.', parser._syntaxErrors, ' in {fn}'.format(fn=fn) if fn else '')
         except Exception as e:
-            logger.warning('Exception in parsing.%s', ' [{fn}]'.format(fn=fn) if fn else '')
+            logger.warning('Exception while parsing%s.', ' {fn}'.format(fn=fn) if fn else '')
             logger.warning(e)
         return None
 
