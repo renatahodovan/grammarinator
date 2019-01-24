@@ -87,10 +87,12 @@ class GrammarGraph(object):
                 assert all(min_depths[node.id] < float('inf') for node in self.vertices[ident].out_neighbours), '{ident} has an alternative that isn\'t reachable.'.format(ident=ident)
                 min_depths[ident] = [min_depths[node.id] for node in self.vertices[ident].out_neighbours]
 
-        # The lifted Alternatives aren't needed anymore.
+        # Remove the lifted Alternatives and check for infinite derivations.
         for ident in list(min_depths.keys()):
             if isinstance(self.vertices[ident], AlternativeNode):
                 del min_depths[ident]
+            else:
+                assert min_depths[ident] != float('inf'), 'Rule with infinite derivation: %s' % ident
 
         return min_depths
 
