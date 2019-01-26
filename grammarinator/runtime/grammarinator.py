@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -73,6 +73,7 @@ class Grammarinator(object):
         self.node_cnt = 0
         self.options = dict()
         self.root = None
+        self.any_char = self.any_ascii_char
 
     def set_options(self):
         pass
@@ -120,11 +121,6 @@ class Grammarinator(object):
 
     def any_ascii_letter(self):
         return random.choice(string.ascii_letters)
-
-    def any_char(self):
-        if 'dot' in self.options:
-            return getattr(self, self.options['dot'])()
-        return self.any_ascii_char()
 
     def obj_join(self, lst, item):
         result = [item] * (len(lst) * 2 - 1)

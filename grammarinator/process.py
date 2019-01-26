@@ -140,7 +140,7 @@ class FuzzerGenerator(object):
         self.charset_idx += 1
         return charset_name
 
-    def generate_header(self, grammar_name, fuzzer_type):
+    def generate_header(self, grammar_name, fuzzer_type, options):
         unlexer = fuzzer_type == 'Unlexer'
         fuzzer_name = '{grammar_name}{fuzzer_type}'.format(grammar_name=grammar_name, fuzzer_type=fuzzer_type)
 
@@ -164,8 +164,9 @@ class FuzzerGenerator(object):
                 if unlexer:
                     src += self.line('self.max_depth = max_depth')
                     src += self.line('self.weights = weights or dict()')
-                    src += self.line('self.cooldown = cooldown')
-                src += self.line('self.set_options()\n')
+                    src += self.line('self.cooldown = cooldown\n')
+                if options.get('dot'):
+                    src += self.line('self.{base}any_char = self.{dot}'.format(base='' if unlexer else 'unlexer.', dot=options['dot']))
 
         if unlexer:
             self.unlexer_body = src
@@ -268,11 +269,20 @@ class FuzzerGenerator(object):
     def generate_grammar(self, node):
         assert isinstance(node, self.antlr_parser_cls.GrammarSpecContext)
 
+        options = dict()
+        if node.prequelConstruct():
+            for prequelConstruct in node.prequelConstruct():
+                if prequelConstruct.optionsSpec():
+                    for option in prequelConstruct.optionsSpec().option():
+                        ident = option.identifier()
+                        ident = ident.RULE_REF() or ident.TOKEN_REF()
+                        options[str(ident)] = option.optionValue().getText()
+
         grammar_name = str(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()).replace('Parser', '').replace('Lexer', '')
         if node.grammarType().LEXER() or not node.grammarType().PARSER():
-            self.generate_header(grammar_name, 'Unlexer')
+            self.generate_header(grammar_name, 'Unlexer', options)
         if node.grammarType().PARSER() or not node.grammarType().LEXER():
-            self.generate_header(grammar_name, 'Unparser')
+            self.generate_header(grammar_name, 'Unparser', options)
 
         if node.prequelConstruct():
             for prequelConstruct in node.prequelConstruct():
@@ -290,25 +300,7 @@ class FuzzerGenerator(object):
                                     self.unlexer_body += self.line('return self.create_node(UnlexerRule(name=\'{rule_name}\'))\n'.format(rule_name=rule_name))
 
             for prequelConstruct in node.prequelConstruct():
-                if prequelConstruct.optionsSpec():
-                    option_spec = prequelConstruct.optionsSpec()
-                    options = []
-                    for option in option_spec.option():
-                        ident = option.identifier()
-                        options.append('{name}="{value}"'.format(name=ident.RULE_REF() or ident.TOKEN_REF(),
-                                                                 value=option.optionValue().getText()))
-
-                    with self.indent():
-                        set_options = self.line('def set_options(self):')
-                        with self.indent():
-                            set_options += self.line('self.options = dict({options})\n'.format(options=', '.join(options)))
-
-                    if self.unlexer_body:
-                        self.unlexer_body += set_options
-                    if self.unparser_body:
-                        self.unparser_body += set_options
-
-                elif prequelConstruct.action() and self.actions:
+                if prequelConstruct.action() and self.actions:
                     action = prequelConstruct.action()
                     scope_name = action.actionScopeName()
                     if scope_name:
