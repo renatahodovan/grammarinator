@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -127,7 +127,7 @@ class Generator(object):
             generator = random.choice(generators)
             tree = generator(self.rule, self.max_depth)
         except Exception as e:
-            logger.warning('Test generation failed: %s.', e)
+            logger.warning('Test generation failed.', exc_info=e)
             return self.create_new_test()
 
         # Ensure creating unique tests even if the output directory is not empty.

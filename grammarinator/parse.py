@@ -135,8 +135,7 @@ class ParserFactory(object):
 
             logger.warning('%s syntax errors detected%s.', parser._syntaxErrors, ' in {fn}'.format(fn=fn) if fn else '')
         except Exception as e:
-            logger.warning('Exception while parsing%s.', ' {fn}'.format(fn=fn) if fn else '')
-            logger.warning(e)
+            logger.warning('Exception while parsing%s.', ' {fn}'.format(fn=fn) if fn else '', exc_info=e)
         return None
 
     def tree_from_file(self, fn, rule, out, encoding):
@@ -146,7 +145,7 @@ class ParserFactory(object):
             if tree is not None:
                 tree.save(join(out, basename(fn) + Tree.extension), max_depth=self.max_depth)
         except Exception as e:
-            logger.warning('Exception while processing %s: %s', fn, str(e))
+            logger.warning('Exception while processing %s.', fn, exc_info=e)
 
 
 def iterate_tests(files, rule, out, encoding):
