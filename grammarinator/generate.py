@@ -201,7 +201,10 @@ class Generator(object):
         raise ValueError('Could not find node pairs to recombine.')
 
     def default_selector(self, iterable):
-        return [node for node in iterable if node.name is not None and node.parent is not None and node.name != 'EOF' and node.level < self.max_depth]
+        def min_depth(node):
+            return getattr(getattr(self.unparser_cls if node.name[0].islower() else self.unlexer_cls, node.name), 'min_depth', 0)
+
+        return [node for node in iterable if node.name is not None and node.parent is not None and node.name != 'EOF' and node.level + min_depth(node) < self.max_depth]
 
     def random_node(self, tree):
         options = self.default_selector([x for name in tree.node_dict for x in tree.node_dict[name]])
