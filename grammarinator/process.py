@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -398,15 +398,18 @@ class FuzzerGenerator(object):
             if self.labeled_alts:
                 for _ in range(len(self.labeled_alts)):
                     name, children = self.labeled_alts.pop(0)
-                    labeled_function = self.line('@depthcontrol')
-                    labeled_function += self.line('def {name}(self):'.format(name=name))
+                    labeled_header = self.line('@depthcontrol')
+                    labeled_header += self.line('def {name}(self):'.format(name=name))
                     with self.indent():
-                        labeled_function += self.line('current = self.create_node(UnparserRule(name=\'{name}\'))'.format(name=name))
+                        local_ctx = self.line('local_ctx = dict()')
+                        labeled_code = self.line('current = self.create_node(UnparserRule(name=\'{name}\'))'.format(name=name))
                         for child in children:
-                            labeled_function += self.generate_single(child, name)
-                        labeled_function += self.line('return current')
-                    labeled_function += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=name))
-                    rule_code += labeled_function
+                            labeled_code += self.generate_single(child, name)
+                        labeled_code += self.line('return current')
+                    labeled_code += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=name))
+
+                    labeled_code = labeled_header + (local_ctx if 'local_ctx' in labeled_code else '') + labeled_code
+                    rule_code += labeled_code
 
             if not parser_rule:
                 self.token_start_ranges[rule_name] = self.current_start_range

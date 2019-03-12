@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2018-2019 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -8,7 +8,8 @@
  */
 
 /*
- * This test checks whether the labeled alternatives are handled correctly.
+ * This test checks whether the labeled alternatives are handled correctly
+ * (including the handling of variables within labeled alternatives).
  *
  * Note:
  *  - Because this test generates multiple outputs files, it exercises both
@@ -25,8 +26,8 @@
 grammar LabeledAlternatives;
 
 start
-    : Hello World           # HelloAlternative
-    | Grammarinator Rulez   # GrammarinatorAlternative
+    : x=Hello World           # HelloAlternative
+    | Grammarinator y=Rulez   # GrammarinatorAlternative
     ;
 
 Hello : 'hello' ;
