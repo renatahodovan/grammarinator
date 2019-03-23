@@ -2,6 +2,22 @@
 *Grammarinator* Release Notes
 =============================
 
+19.3
+====
+
+Summary of changes:
+
+* Added support for parallel test case generation.
+* Added support for custom fuzzer superclasses.
+* Upgraded dependency to *ANTLeRinator* 4.7.1-1.
+* Improved the generation of "dot" (i.e., "any character").
+* Improved diagnostic messages.
+* Improved the testing infrastructure (maintenance changes to various CI
+  configurations).
+* Bug fixes (variables in labeled alternatives, node selection of evolutionary
+  operators).
+
+
 18.10
 =====
 
