@@ -18,6 +18,7 @@ import os
 from os.path import abspath, basename, dirname, isdir, join, splitext
 
 from argparse import ArgumentParser, ArgumentTypeError
+from multiprocessing import Pool
 from shutil import rmtree
 
 from .pkgdata import __version__
@@ -282,9 +283,12 @@ def execute():
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                    tree_transformers=args.tree_transformers, test_transformers=args.test_transformers,
                    cleanup=False, encoding=args.encoding) as generator:
-        for i in range(args.n):
-            test_fn = generator()
-            logger.debug('#%s %s', i, test_fn)
+        if args.jobs > 1:
+            with Pool(args.jobs) as pool:
+                pool.map(generator, range(args.n))
+        else:
+            for i in range(args.n):
+                generator(i)
 
 
 if __name__ == '__main__':
