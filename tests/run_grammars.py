@@ -1,11 +1,10 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import antlerinator
 import argparse
 import glob
 import os
@@ -13,6 +12,8 @@ import re
 import shlex
 import subprocess
 import sys
+
+import antlerinator
 
 
 tool_dir = os.path.dirname(os.path.abspath(__file__))

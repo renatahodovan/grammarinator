@@ -12,8 +12,8 @@ import sys
 from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
-from os.path import dirname, exists, join
 from os import getcwd, makedirs
+from os.path import dirname, exists, join
 from pkgutil import get_data
 from shutil import rmtree
 
@@ -24,7 +24,7 @@ from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
-from .runtime.tree import *
+from .runtime import UnlexerRule, UnparserRule
 
 logger = logging.getLogger('grammarinator')
 logging.basicConfig(format='%(message)s')

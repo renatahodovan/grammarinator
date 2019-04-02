@@ -11,7 +11,7 @@
 # --disable=W"
 disable=
     line-too-long, fixme, missing-docstring, invalid-name, no-self-use, unused-argument,
-    wildcard-import, unused-wildcard-import,
+    wildcard-import, unused-wildcard-import, ungrouped-imports,
     too-many-arguments, too-many-locals,
     too-many-statements, too-many-return-statements, too-many-branches,
     too-many-instance-attributes, too-few-public-methods,

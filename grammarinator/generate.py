@@ -10,15 +10,14 @@ import glob
 import importlib
 import json
 import logging
-import random
-import uuid
-import sys
-
 import os
-from os.path import abspath, basename, dirname, isdir, join, splitext
+import random
+import sys
+import uuid
 
 from argparse import ArgumentParser, ArgumentTypeError
 from multiprocessing import Pool
+from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
 from .pkgdata import __version__

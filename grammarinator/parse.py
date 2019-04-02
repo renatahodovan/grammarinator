@@ -8,21 +8,21 @@
 import importlib
 import json
 import logging
+import os
 import shutil
 import sys
 
-import os
-from os.path import basename, exists, join
-
 from argparse import ArgumentParser
 from multiprocessing import Pool
+from os.path import basename, exists, join
 
 import antlerinator
 
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
+
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
-from .runtime.tree import UnlexerRule, UnparserRule, Tree
+from .runtime import Tree, UnlexerRule, UnparserRule
 
 logger = logging.getLogger('grammarinator')
 logging.basicConfig(format='%(message)s')
