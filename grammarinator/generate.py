@@ -266,8 +266,13 @@ def execute():
                         help='number of tests to generate (default: %(default)s).')
     parser.add_argument('--sys-recursion-limit', metavar='NUM', type=int, default=sys.getrecursionlimit(),
                         help='override maximum depth of the Python interpreter stack')
+    parser.add_argument('--random-seed', type=int, metavar='NUM',
+                        help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
     parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
+
+    if args.jobs == 1 and args.random_seed:
+        random.seed(args.random_seed)
 
     logger.setLevel(args.log_level)
     sys.setrecursionlimit(args.sys_recursion_limit)
