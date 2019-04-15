@@ -25,11 +25,11 @@ class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
-def build_grammars(grammars, out, antlr):
+def build_grammars(in_files, out, antlr):
     """
     Build lexer and grammar from ANTLRv4 grammar files in Python3 target.
 
-    :param grammars: List of grammar files.
+    :param in_files: List resources (grammars and additional sources) needed to parse the input.
     :param out: Directory where grammars are placed and where the output will be generated to.
     :param antlr: Path to the ANTLR4 tool (Java jar binary).
     :return: List of references/names of the lexer, parser and listener classes of the target.
@@ -42,7 +42,7 @@ def build_grammars(grammars, out, antlr):
                        'listener_format': 'Listener'}
         }
 
-        grammars = tuple(fn for fn in grammars if fn.endswith('.g4'))
+        grammars = tuple(fn for fn in in_files if fn.endswith('.g4'))
 
         # Generate parser and lexer in the target language and return either with
         # python class ref or the name of java classes.
@@ -58,7 +58,7 @@ def build_grammars(grammars, out, antlr):
                              stderr.decode('utf-8', 'ignore'))
                 raise CalledProcessError(returncode=proc.returncode, cmd=cmd, output=stdout + stderr)
 
-        files = listdir(out)
+        files = set(listdir(out)) - set(in_files)
         filename = basename(grammars[0])
 
         def file_endswith(end_pattern):
