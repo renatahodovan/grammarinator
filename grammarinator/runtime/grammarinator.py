@@ -10,8 +10,6 @@ import string
 
 from itertools import chain
 
-from .tree import *
-
 
 def printable_ranges(lower_bound, upper_bound):
     ranges = []
@@ -121,30 +119,3 @@ class Grammarinator(object):
 
     def any_ascii_letter(self):
         return random.choice(string.ascii_letters)
-
-    def obj_join(self, lst, item):
-        result = [item] * (len(lst) * 2 - 1)
-        result[0::2] = lst
-        return result
-
-    # TODO: move to specific fuzzers
-    def choose_multiple(self, options, *, interval=None, repeat=True, glue=' '):
-        if not interval and not repeat:
-            interval = range(1, len(options))
-
-        result = []
-        for _ in range(random.choice(interval)) if interval else self.one_or_more():
-            choice = random.choice(options)
-            if not repeat:
-                options.remove(choice)
-            result.append(choice() if callable(choice) else UnlexerRule(src=choice))
-        return self.obj_join(result, UnlexerRule(src=glue))
-
-    def repeat(self, rule, *, interval=None, glue=' '):
-        if not interval:
-            interval = self.one_or_more()
-
-        result = []
-        for _ in interval:
-            result.append(rule() if callable(rule) else rule)
-        return self.obj_join(result, UnlexerRule(src=glue))
