@@ -17,7 +17,10 @@ according to an input ANTLR_ v4 grammar. The motivation behind this
 grammar-based approach is to leverage the large variety of publicly
 available `ANTLR v4 grammars`_.
 
+The `trophy page`_ of the found issues is available from the wiki.
+
 .. _`ANTLR v4 grammars`: https://github.com/antlr/grammars-v4
+.. _`trophy page`: https://github.com/renatahodovan/grammarinator/wiki
 
 
 Requirements
