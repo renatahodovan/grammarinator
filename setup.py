@@ -5,16 +5,28 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from os.path import dirname, join
 from setuptools import find_packages, setup
 
-with open(join(dirname(__file__), 'grammarinator/VERSION'), 'rb') as f:
-    version = f.read().decode('ascii').strip()
+
+def grammarinator_version():
+    def _version_scheme(version):
+        return version.format_with('{tag}')
+
+    def _local_scheme(version):
+        if version.exact and not version.dirty:
+            return ''
+        parts = ['{distance}'.format(distance=version.distance)]
+        if version.node:
+            parts.append('{node}'.format(node=version.node))
+        if version.dirty:
+            parts.append('d{time:%Y%m%d}'.format(time=version.time))
+        return '+{parts}'.format(parts='.'.join(parts))
+
+    return { 'version_scheme': _version_scheme, 'local_scheme': _local_scheme }
 
 
 setup(
     name='grammarinator',
-    version=version,
     packages=find_packages(),
     url='https://github.com/renatahodovan/grammarinator',
     license='BSD',
@@ -22,9 +34,11 @@ setup(
     author_email='hodovan@inf.u-szeged.hu, akiss@inf.u-szeged.hu',
     description='Grammarinator: Grammar-based Random Test Generator',
     long_description=open('README.rst').read(),
-    install_requires=['antlerinator==4.7.1-1', 'autopep8'],
+    install_requires=['antlerinator==4.7.1-1', 'autopep8', 'setuptools'],
     zip_safe=False,
     include_package_data=True,
+    setup_requires=['setuptools_scm'],
+    use_scm_version=grammarinator_version,
     entry_points={
         'console_scripts': [
             'grammarinator-process = grammarinator.process:execute',
