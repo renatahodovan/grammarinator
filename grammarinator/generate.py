@@ -13,7 +13,6 @@ import logging
 import os
 import random
 import sys
-import uuid
 
 from argparse import ArgumentParser, ArgumentTypeError
 from multiprocessing import Pool
@@ -108,10 +107,10 @@ class Generator(object):
         if self.cleanup:
             rmtree(dirname(self.out_format))
 
-    def __call__(self, *args, **kwargs):
-        return self.create_new_test()[0]
+    def __call__(self, index, *args, **kwargs):
+        return self.create_new_test(index)[0]
 
-    def create_new_test(self):
+    def create_new_test(self, index):
         generators = []
 
         if self.enable_generation:
@@ -128,10 +127,9 @@ class Generator(object):
             tree = generator(self.rule, self.max_depth)
         except Exception as e:
             logger.warning('Test generation failed.', exc_info=e)
-            return self.create_new_test()
+            return self.create_new_test(index)
 
-        # Ensure creating unique tests even if the output directory is not empty.
-        test_fn = self.out_format % uuid.uuid4().int
+        test_fn = self.out_format % index
         tree.root = Generator.transform(tree.root, self.tree_transformers)
 
         tree_fn = None
