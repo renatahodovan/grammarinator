@@ -75,6 +75,7 @@ class Generator(object):
         self.options = dict()
         self.root = None
         self.any_char = self.any_ascii_char
+        self.listeners = []
 
     def create_node(self, node):
         self.root = self.root or node
@@ -95,3 +96,11 @@ class Generator(object):
     @staticmethod
     def any_ascii_letter():
         return random.choice(string.ascii_letters)
+
+    def enter_rule(self, node):
+        for listener in self.listeners:
+            listener.enter_rule(node)
+
+    def exit_rule(self, node):
+        for listener in reversed(self.listeners):
+            listener.exit_rule(node)

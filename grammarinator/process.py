@@ -278,7 +278,7 @@ class FuzzerGenerator(object):
                             with self.indent():
                                 self.generator_body += self.line('def {rule_name}(self):'.format(rule_name=rule_name))
                                 with self.indent():
-                                    self.generator_body += self.line('return self.create_node(UnlexerRule(name=\'{rule_name}\'))\n'.format(rule_name=rule_name))
+                                    self.generator_body += self.line('return self.create_node(UnlexerRule(name={rule_name!r}))\n'.format(rule_name=rule_name))
 
             for prequelConstruct in node.prequelConstruct():
                 if prequelConstruct.action() and self.actions:
@@ -347,8 +347,10 @@ class FuzzerGenerator(object):
                 local_ctx = self.line('local_ctx = dict()')
                 rule_code = self.line('current = self.create_node({node_type}(name={rule_name!r}))'.format(node_type=node_type.__name__,
                                                                                                            rule_name=rule_name))
+                rule_code += self.line('self.enter_rule(current)')
                 rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
                 rule_code += self.generate_single(rule_block, rule_name)
+                rule_code += self.line('self.exit_rule(current)')
                 rule_code += self.line('return current')
             rule_code += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=rule_name))
 
@@ -362,9 +364,11 @@ class FuzzerGenerator(object):
                     labeled_header += self.line('def {name}(self):'.format(name=name))
                     with self.indent():
                         local_ctx = self.line('local_ctx = dict()')
-                        labeled_code = self.line('current = self.create_node(UnparserRule(name=\'{name}\'))'.format(name=name))
+                        labeled_code = self.line('current = self.create_node(UnparserRule(name={name!r}))'.format(name=name))
+                        labeled_code += self.line('self.enter_rule(current)')
                         for child in children:
                             labeled_code += self.generate_single(child, name)
+                        labeled_code += self.line('self.exit_rule(current)')
                         labeled_code += self.line('return current')
                     labeled_code += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=name))
 
@@ -473,9 +477,9 @@ class FuzzerGenerator(object):
 
         if isinstance(node, self.antlr_parser_cls.LabeledElementContext):
             ident = node.identifier()
-            name = ident.RULE_REF() or ident.TOKEN_REF()
+            name = str(ident.RULE_REF() or ident.TOKEN_REF())
             result = self.generate_single(node.atom() or node.block(), parent_id)
-            result += self.line('local_ctx[\'{name}\'] = current.last_child'.format(name=name))
+            result += self.line('local_ctx[{name!r}] = current.last_child'.format(name=name))
             return result
 
         if isinstance(node, self.antlr_parser_cls.RulerefContext):

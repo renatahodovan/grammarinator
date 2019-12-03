@@ -45,7 +45,7 @@ class Population(object):
 class Generator(object):
 
     def __init__(self, generator, rule, out_format,
-                 model=None, max_depth=inf, cooldown=1.0,
+                 model=None, listeners=None, max_depth=inf, cooldown=1.0,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8'):
@@ -67,6 +67,7 @@ class Generator(object):
 
         self.generator_cls = import_entity(generator)
         self.model_cls = import_entity(model or 'grammarinator.model.DefaultModel')
+        self.listener_cls = import_list(listeners)
         self.transformers = import_list(transformers)
         self.serializer = import_entity(serializer) if serializer else str
         self.rule = rule or self.generator_cls.default_rule.__name__
@@ -147,10 +148,22 @@ class Generator(object):
         elif start_rule.min_depth > max_depth:
             raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
 
-        model = self.model_cls()
+        instances = {}
+
+        def instantiate(cls):
+            obj = instances.get(cls)
+            if not obj:
+                obj = cls()
+                instances[cls] = obj
+            return obj
+
+        model = instantiate(self.model_cls)
         if self.cooldown < 1:
             model = CooldownModel(model, cooldown=self.cooldown, weights=self.weights)
-        return Tree(getattr(self.generator_cls(model=model, max_depth=max_depth), rule)())
+        generator = self.generator_cls(model=model, max_depth=max_depth)
+        for listener_cls in self.listener_cls:
+            generator.listeners.append(instantiate(listener_cls))
+        return Tree(getattr(generator, rule)())
 
     def random_individuals(self, n):
         return self.population.random_individuals(n=n)
@@ -214,6 +227,8 @@ def execute():
                         help='name of the rule to start generation from (default: first parser rule).')
     parser.add_argument('-m', '--model', metavar='NAME', default='grammarinator.model.DefaultModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
+    parser.add_argument('-l', '--listener', metavar='NAME', action='append', default=[],
+                        help='reference to a listener (in package.module.class format).')
     parser.add_argument('-t', '--transformer', metavar='NAME', action='append', default=[],
                         help='reference to a transformer (in package.module.function format) to postprocess the generated tree '
                              '(the result of these transformers will be saved into the serialized tree, e.g., variable matching).')
@@ -266,7 +281,7 @@ def execute():
         args.population = abspath(args.population)
 
     with Generator(generator=args.generator, rule=args.rule, out_format=args.out,
-                   model=args.model, max_depth=args.max_depth, cooldown=args.cooldown,
+                   model=args.model, listeners=args.listener, max_depth=args.max_depth, cooldown=args.cooldown,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                    transformers=args.transformer, serializer=args.serializer,
                    cleanup=False, encoding=args.encoding) as generator:
