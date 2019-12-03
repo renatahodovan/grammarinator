@@ -13,10 +13,10 @@ class CooldownModel(object):
         self.weights = weights or dict()
         self.cooldown = cooldown
 
-    def choice(self, name, choices):
-        i = self.model.choice(name, [w * self.weights.get((name, i), 1) for i, w in enumerate(choices)])
-        self.weights[(name, i)] = self.weights.get((name, i), 1) * self.cooldown
+    def choice(self, node, idx, choices):
+        i = self.model.choice(node, idx, [w * self.weights.get((node.name, i), 1) for i, w in enumerate(choices)])
+        self.weights[(node.name, i)] = self.weights.get((node.name, i), 1) * self.cooldown
         return i
 
-    def quantify(self, min, max):
-        yield from self.model.quantify(min=min, max=max)
+    def quantify(self, node, idx, min, max):
+        yield from self.model.quantify(node, idx, min, max)

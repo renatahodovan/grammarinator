@@ -14,7 +14,7 @@ class DefaultModel(object):
     def random_decision():
         return bool(random.getrandbits(1))
 
-    def choice(self, name, choices):
+    def choice(self, node, idx, choices):
         # assert sum(choices) > 0, 'Sum of choices is zero.'
         max_item = max(choices)
         choices = [i / max_item for i in choices]
@@ -26,7 +26,7 @@ class DefaultModel(object):
             upto += w
         raise AssertionError('Shouldn\'t get here.')
 
-    def quantify(self, min, max):
+    def quantify(self, node, idx, min, max):
         cnt = 0
         for _ in range(min):
             yield

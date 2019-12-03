@@ -7,9 +7,11 @@
 
 from .cooldown_model import CooldownModel
 from .default_model import DefaultModel
+from .dispatching_model import DispatchingModel
 
 
 __all__ = [
     'CooldownModel',
     'DefaultModel',
+    'DispatchingModel',
 ]

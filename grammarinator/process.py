@@ -102,6 +102,8 @@ class FuzzerGenerator(object):
         self.indent_level = 0
         self.charset_idx = 0
         self.code_id = 0
+        self.alt_id = 0
+        self.quant_id = 0
 
         self.graph = GrammarGraph()
 
@@ -325,14 +327,15 @@ class FuzzerGenerator(object):
 
         with self.indent():
             for rule in generator_rules:
-                self.generator_body += self.generate_single(rule, None)
+                self.generator_body += self.generate_single(rule)
 
         if node.grammarType().PARSER() or not (node.grammarType().LEXER() or node.grammarType().PARSER()):
             with self.indent():
                 self.generator_body += self.line('default_rule = {name}\n'.format(name=generator_rules[0].RULE_REF()))
 
-    def generate_single(self, node, parent_id):
+    def generate_single(self, node, parent_id=None):
         if isinstance(node, (self.antlr_parser_cls.ParserRuleSpecContext, self.antlr_parser_cls.LexerRuleSpecContext)):
+            self.alt_id, self.quant_id = 0, 0
             parser_rule = isinstance(node, self.antlr_parser_cls.ParserRuleSpecContext)
             node_type = UnparserRule if parser_rule else UnlexerRule
             rule_name = str(node.RULE_REF() if parser_rule else node.TOKEN_REF())
@@ -392,9 +395,13 @@ class FuzzerGenerator(object):
 
             conditions = [(self.new_code_id('cond'), self.find_conditions(child)) for child in children]
             self.code_chunks.update(conditions)
-            result = self.line('choice = self.model.choice({alt_name!r}, [0 if {{{alt_name}}}[i] > self.max_depth else w for i, w in enumerate([{weights}])])'
+
+            result = self.line('choice = self.model.choice(current, {idx}, [0 if {{{alt_name}}}[i] > self.max_depth else w for i, w in enumerate([{weights}])])'
                                .format(alt_name=alt_name,
+                                       idx=self.alt_id,
                                        weights=', '.join('{{{cond_id}}}'.format(cond_id=cond_id) for cond_id, _ in conditions)))
+            self.alt_id += 1
+
             for i, child in enumerate(children):
                 alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
                 self.graph.add_node(AlternativeNode(id=alternative_name))
@@ -403,6 +410,7 @@ class FuzzerGenerator(object):
                 result += self.line('{if_kw} choice == {idx}:'.format(if_kw='if' if i == 0 else 'elif', idx=i))
                 with self.indent():
                     result += self.generate_single(child, alternative_name) or self.line('pass')
+
             return result
 
         if isinstance(node, self.antlr_parser_cls.LabeledAltContext) and node.identifier():
@@ -458,7 +466,6 @@ class FuzzerGenerator(object):
                 return self.generate_single(node.children[0], parent_id)
 
             suffix = str(suffix.children[0])
-
             if suffix in ['?', '*']:
                 quant_name = self.new_code_id('quant')
                 self.graph.add_node(QuantifierNode(id=quant_name))
@@ -468,8 +475,8 @@ class FuzzerGenerator(object):
             quant_args = {'?': 'min=0, max=1', '*': 'min=0, max=inf', '+': 'min=1, max=inf'}[suffix]
             result = self.line('if self.max_depth >= {min_depth}:'.format(min_depth='0' if suffix == '+' else '{{{name}}}'.format(name=parent_id)))
             with self.indent():
-                result += self.line('for _ in self.model.quantify({args}):'.format(args=quant_args))
-
+                result += self.line('for _ in self.model.quantify(current, {idx}, {args}):'.format(idx=self.quant_id, args=quant_args))
+                self.quant_id += 1
                 with self.indent():
                     result += self.generate_single(node.children[0], parent_id)
                 result += '\n'
