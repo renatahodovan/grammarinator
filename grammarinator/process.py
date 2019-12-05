@@ -278,9 +278,9 @@ class FuzzerGenerator(object):
                             self.graph.add_node(RuleNode(id=rule_name))
 
                             with self.indent():
-                                self.generator_body += self.line('def {rule_name}(self):'.format(rule_name=rule_name))
+                                self.generator_body += self.line('def {rule_name}(self, parent=None):'.format(rule_name=rule_name))
                                 with self.indent():
-                                    self.generator_body += self.line('return self.create_node(UnlexerRule(name={rule_name!r}))\n'.format(rule_name=rule_name))
+                                    self.generator_body += self.line('return UnlexerRule(name={rule_name!r}, parent=parent)\n'.format(rule_name=rule_name))
 
             for prequelConstruct in node.prequelConstruct():
                 if prequelConstruct.action() and self.actions:
@@ -345,11 +345,11 @@ class FuzzerGenerator(object):
                 self.current_start_range = []
 
             rule_header = self.line('@depthcontrol')
-            rule_header += self.line('def {rule_name}(self):'.format(rule_name=rule_name))
+            rule_header += self.line('def {rule_name}(self, parent=None):'.format(rule_name=rule_name))
             with self.indent():
                 local_ctx = self.line('local_ctx = dict()')
-                rule_code = self.line('current = self.create_node({node_type}(name={rule_name!r}))'.format(node_type=node_type.__name__,
-                                                                                                           rule_name=rule_name))
+                rule_code = self.line('current = {node_type}(name={rule_name!r}, parent=parent)'.format(node_type=node_type.__name__,
+                                                                                                        rule_name=rule_name))
                 rule_code += self.line('self.enter_rule(current)')
                 rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
                 rule_code += self.generate_single(rule_block, rule_name)
@@ -364,10 +364,10 @@ class FuzzerGenerator(object):
                 for _ in range(len(self.labeled_alts)):
                     name, children = self.labeled_alts.pop(0)
                     labeled_header = self.line('@depthcontrol')
-                    labeled_header += self.line('def {name}(self):'.format(name=name))
+                    labeled_header += self.line('def {name}(self, parent=None):'.format(name=name))
                     with self.indent():
                         local_ctx = self.line('local_ctx = dict()')
-                        labeled_code = self.line('current = self.create_node(UnparserRule(name={name!r}))'.format(name=name))
+                        labeled_code = self.line('current = UnparserRule(name={name!r}, parent=parent)'.format(name=name))
                         labeled_code += self.line('self.enter_rule(current)')
                         for child in children:
                             labeled_code += self.generate_single(child, name)
@@ -425,7 +425,7 @@ class FuzzerGenerator(object):
         # Sequences.
         if isinstance(node, (self.antlr_parser_cls.AlternativeContext, self.antlr_parser_cls.LexerAltContext)):
             if not node.children:
-                return self.line('current += UnlexerRule(src=\'\')')
+                return self.line('UnlexerRule(src=\'\', parent=current)')
 
             if isinstance(node, self.antlr_parser_cls.AlternativeContext):
                 children = node.element()
@@ -439,7 +439,7 @@ class FuzzerGenerator(object):
                 # later since its content goes to a separate method.
                 parent_id = parent_id[1:]
                 self.labeled_alts.append((parent_id, children))
-                return self.line('current = self.{name}()'.format(name=parent_id))
+                return self.line('current = self.{name}(parent=parent)'.format(name=parent_id))
 
             return ''.join([self.generate_single(child, parent_id) for child in children])
 
@@ -491,11 +491,11 @@ class FuzzerGenerator(object):
 
         if isinstance(node, self.antlr_parser_cls.RulerefContext):
             self.graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
-            return self.line('current += self.{rule_name}()'.format(rule_name=node.RULE_REF()))
+            return self.line('self.{rule_name}(parent=current)'.format(rule_name=node.RULE_REF()))
 
         if isinstance(node, (self.antlr_parser_cls.LexerAtomContext, self.antlr_parser_cls.AtomContext)):
             if node.DOT():
-                return self.line('current += UnlexerRule(src=self.any_char())')
+                return self.line('UnlexerRule(src=self.any_char(), parent=current)')
 
             if node.notSet():
                 if node.notSet().setElement():
@@ -507,14 +507,14 @@ class FuzzerGenerator(object):
 
                 charset_name = self.new_charset_name()
                 self.generator_header += '{charset_name} = list(chain(*multirange_diff(printable_unicode_ranges, [{charset}])))\n'.format(charset_name=charset_name, charset=', '.join(['({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in sorted(options, key=lambda x: x[0])]))
-                return self.line('current += UnlexerRule(src=self.char_from_list({charset_ref}))'.format(charset_ref=charset_name))
+                return self.line('UnlexerRule(src=self.char_from_list({charset_name}), parent=current)'.format(charset_name=charset_name))
 
             if isinstance(node, self.antlr_parser_cls.LexerAtomContext):
                 if node.characterRange():
                     start, end = self.character_range_interval(node)
                     if self.current_start_range is not None:
                         self.current_start_range.append((start, end))
-                    return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list(range({start}, {end}))))'.format(start=start, end=end))
+                    return self.line('UnlexerRule(src=self.char_from_list(range({start}, {end})), parent=current)'.format(start=start, end=end))
 
                 if node.LEXER_CHAR_SET():
                     ranges = self.lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
@@ -524,14 +524,14 @@ class FuzzerGenerator(object):
 
                     charset_name = self.new_charset_name()
                     self.generator_header += '{charset_name} = list(chain({charset}))\n'.format(charset_name=charset_name, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
-                    return self.line('current += self.create_node(UnlexerRule(src=self.char_from_list({charset_name})))'.format(charset_name=charset_name))
+                    return self.line('UnlexerRule(src=self.char_from_list({charset_name}), parent=current)'.format(charset_name=charset_name))
 
             return ''.join([self.generate_single(child, parent_id) for child in node.children])
 
         if isinstance(node, self.antlr_parser_cls.TerminalContext):
             if node.TOKEN_REF():
                 self.graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
-                return self.line('current += self.{rule_name}()'.format(rule_name=node.TOKEN_REF()))
+                return self.line('self.{rule_name}(parent=current)'.format(rule_name=node.TOKEN_REF()))
 
             if node.STRING_LITERAL():
                 src = str(node.STRING_LITERAL())[1:-1]
@@ -539,7 +539,7 @@ class FuzzerGenerator(object):
                     self.current_start_range.append((ord(src[0]), ord(src[0]) + 1))
                 code_id = self.new_code_id('lit')
                 self.code_chunks[code_id] = src
-                return self.line('current += self.create_node(UnlexerRule(src=\'{{{code_id}}}\'))'.format(code_id=code_id))
+                return self.line('UnlexerRule(src=\'{{{code_id}}}\', parent=current)'.format(code_id=code_id))
 
         if isinstance(node, ParserRuleContext) and node.getChildCount():
             return ''.join([self.generate_single(child, parent_id) for child in node.children])

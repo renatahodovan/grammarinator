@@ -27,5 +27,5 @@ superClass=SuperGenerator;
 }
 
 start
-  : {current += self.create_node(self.inheritedRule())}
+  : {self.inheritedRule(parent=current)}
   ;

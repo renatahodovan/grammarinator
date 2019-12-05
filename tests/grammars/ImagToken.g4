@@ -18,8 +18,8 @@
 grammar ImagToken;
 
 @lexer::members {
-def REDEFINED(self):
-    return self.create_node(UnlexerRule(name='REDEFINED', src='redefined'))
+def REDEFINED(self, parent=None):
+    return UnlexerRule(name='REDEFINED', src='redefined', parent=parent)
 }
 
 tokens { IMAG, REDEFINED }

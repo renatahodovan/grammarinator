@@ -14,13 +14,10 @@ from CustomGenerator import CustomGenerator
 
 class CustomSubclassGenerator(CustomGenerator):
 
-    def random_decision(self, *args, **kwargs):
-        return False
-
-    def tagname(self, *args, **kwargs):
-        current = self.create_node(UnparserRule(name='tagname'))
-        current += UnlexerRule(src='customtag')
+    def tagname(self, parent=None):
+        current = UnparserRule(name='tagname', parent=parent)
+        UnlexerRule(src='customtag', parent=current)
         return current
 
-    def _custom_lexer_content(self):
-        return UnlexerRule(src='custom content')
+    def _custom_lexer_content(self, parent=None):
+        return UnlexerRule(src='custom content', parent=parent)

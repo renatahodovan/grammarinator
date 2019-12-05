@@ -28,32 +28,32 @@ class HTMLCustomGenerator(HTMLGenerator):
     tags = set()
 
     # Customize the function generated from the htmlTagName parser rule to produce valid tag names.
-    def htmlTagName(self):
-        current = self.create_node(UnparserRule(name='htmlTagName'))
+    def htmlTagName(self, parent=None):
+        current = UnparserRule(name='htmlTagName', parent=parent)
         name = random.choice(tags[self.tag_stack[-1]]['children'] or tag_names if self.tag_stack else tag_names)
         self.tag_stack.append(name)
-        current += UnlexerRule(src=name)
+        UnlexerRule(src=name, parent=current)
         self.tag_stack.append(name)
         return current
 
     # Customize the function generated from the htmlAttributeName parser rule to produce valid attribute names.
-    def htmlAttributeName(self):
-        current = self.create_node(UnparserRule(name='htmlAttributeName'))
+    def htmlAttributeName(self, parent=None):
+        current = UnparserRule(name='htmlAttributeName', parent=parent)
         name = random.choice(list(tags[self.tag_stack[-1]]['attributes'].keys()) or ['""'])
         self.attr_stack.append(name)
-        current += UnlexerRule(src=name)
+        UnlexerRule(src=name, parent=current)
         return current
 
     # Customize the function generated from the htmlAttributeValue parser rule to produce valid attribute values
     # to the current tag and attribute name.
-    def htmlAttributeValue(self):
-        current = self.create_node(UnparserRule(name='htmlAttributeValue'))
-        current += UnlexerRule(src=random.choice(tags[self.tag_stack[-1]]['attributes'].get(self.attr_stack.pop(), ['""']) or ['""']))
+    def htmlAttributeValue(self, parent=None):
+        current = UnparserRule(name='htmlAttributeValue', parent=parent)
+        UnlexerRule(src=random.choice(tags[self.tag_stack[-1]]['attributes'].get(self.attr_stack.pop(), ['""']) or ['""']), parent=current)
         return current
 
     def endOfHtmlElement(self):
         self.tag_stack.pop()
 
     # You probably want to rewrite this with a distinct CSS fuzzer.
-    def style_sheet(self):
-        return UnlexerRule(src='* { background: green; }')
+    def style_sheet(self, parent=None):
+        return UnlexerRule(src='* { background: green; }', parent=parent)

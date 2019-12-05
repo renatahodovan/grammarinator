@@ -73,13 +73,8 @@ class Generator(object):
         self.model = model or DefaultModel()
         self.max_depth = max_depth
         self.options = dict()
-        self.root = None
         self.any_char = self.any_ascii_char
         self.listeners = []
-
-    def create_node(self, node):
-        self.root = self.root or node
-        return node
 
     @staticmethod
     def char_from_list(options):

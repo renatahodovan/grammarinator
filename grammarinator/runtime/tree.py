@@ -71,10 +71,12 @@ class BaseRule(object):
 
     children = []
 
-    def __init__(self, *, name):
+    def __init__(self, *, name, parent=None):
         self.name = name
+        self.parent = parent
+        if parent:
+            parent += self
         self.children = []
-        self.parent = None
         self.level = None
         self.depth = None
 
@@ -165,8 +167,8 @@ class UnparserRule(BaseRule):
 
 class UnlexerRule(BaseRule):
 
-    def __init__(self, *, name=None, src=None):
-        super(UnlexerRule, self).__init__(name=name)
+    def __init__(self, *, name=None, parent=None, src=None):
+        super().__init__(name=name, parent=parent)
         self.src = src
 
     def __str__(self):

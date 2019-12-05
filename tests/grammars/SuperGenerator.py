@@ -12,5 +12,5 @@ from grammarinator.runtime import *
 
 class SuperGenerator(Generator):
 
-    def inheritedRule(self):
-        return UnlexerRule(src='I was inherited.')
+    def inheritedRule(self, parent=None):
+        return UnlexerRule(src='I was inherited.', parent=parent)
