@@ -26,7 +26,7 @@ The `trophy page`_ of the found issues is available from the wiki.
 Requirements
 ============
 
-* Python_ >= 3.4
+* Python_ >= 3.5
 * pip_ and setuptools Python packages (the latter is automatically installed by
   pip).
 * ANTLR_ v4
