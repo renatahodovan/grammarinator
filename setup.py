@@ -34,7 +34,7 @@ setup(
     author_email='hodovan@inf.u-szeged.hu, akiss@inf.u-szeged.hu',
     description='Grammarinator: Grammar-based Random Test Generator',
     long_description=open('README.rst').read(),
-    install_requires=['antlerinator==4.7.1-1', 'autopep8', 'setuptools'],
+    install_requires=['antlerinator==4.7.2', 'autopep8', 'setuptools'],
     zip_safe=False,
     include_package_data=True,
     setup_requires=['setuptools_scm'],
