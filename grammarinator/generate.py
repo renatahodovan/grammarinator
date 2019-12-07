@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -46,7 +46,8 @@ class Population(object):
 
 class Generator(object):
 
-    def __init__(self, unlexer_path, unparser_path, rule, out_format, max_depth=float('inf'), cooldown=1.0,
+    def __init__(self, unlexer_path, unparser_path, rule, out_format,
+                 model=None, max_depth=float('inf'), cooldown=1.0,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  tree_transformers=None, test_transformers=None,
                  cleanup=True, encoding='utf-8'):
@@ -66,6 +67,7 @@ class Generator(object):
 
         unlexer, unparser = splitext(basename(unlexer_path))[0], splitext(basename(unparser_path))[0]
         self.unlexer_cls = import_entity('.'.join([unlexer, unlexer]))
+        self.model_cls = import_entity(model or 'grammarinator.model.RandomModel')
         self.unlexer_kwargs = dict(cooldown=float(cooldown), weights=dict())
         self.unparser_cls = import_entity('.'.join([unparser, unparser]))
         self.rule = rule or self.unparser_cls.default_rule.__name__
@@ -160,7 +162,8 @@ class Generator(object):
         elif start_rule.min_depth > max_depth:
             raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
 
-        unlexer = self.unlexer_cls(**dict(self.unlexer_kwargs, max_depth=max_depth))
+        model = self.model_cls()
+        unlexer = self.unlexer_cls(**dict(self.unlexer_kwargs, model=model, max_depth=max_depth))
         tree = Tree(getattr(self.unparser_cls(unlexer) if rule[0].islower() else unlexer, rule)())
         return tree
 
@@ -224,6 +227,8 @@ def execute():
                         help='grammarinator-generated unparser.')
     parser.add_argument('-l', '--unlexer', required=True, metavar='FILE',
                         help='grammarinator-generated unlexer.')
+    parser.add_argument('--model', default='grammarinator.model.RandomModel',
+                        help='reference to the decision model (in package.module.class format) (default: %(default)s).')
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start generation from (default: first parser rule).')
     parser.add_argument('-t', '--tree-transformers', metavar='LIST', nargs='+', default=[],
@@ -238,6 +243,7 @@ def execute():
     parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
                         help='cool-down factor defines how much the probability of an alternative should decrease '
                              'after it has been chosen (interval: (0, 1]; default: %(default)f).')
+
     # Evolutionary settings.
     parser.add_argument('--population', metavar='DIR',
                         help='directory of grammarinator tree pool.')
@@ -281,7 +287,7 @@ def execute():
         args.population = abspath(args.population)
 
     with Generator(unlexer_path=args.unlexer, unparser_path=args.unparser, rule=args.rule, out_format=args.out,
-                   max_depth=args.max_depth, cooldown=args.cooldown,
+                   model=args.model, max_depth=args.max_depth, cooldown=args.cooldown,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                    tree_transformers=args.tree_transformers, test_transformers=args.test_transformers,
                    cleanup=False, encoding=args.encoding) as generator:
