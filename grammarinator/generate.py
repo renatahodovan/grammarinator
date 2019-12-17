@@ -23,7 +23,6 @@ from .pkgdata import __version__
 from .runtime import Tree
 
 logger = logging.getLogger('grammarinator')
-logging.basicConfig(format='%(message)s')
 
 
 class Population(object):
@@ -272,6 +271,7 @@ def execute():
     if args.jobs == 1 and args.random_seed:
         random.seed(args.random_seed)
 
+    logging.basicConfig(format='%(message)s')
     logger.setLevel(args.log_level)
     sys.setrecursionlimit(args.sys_recursion_limit)
 

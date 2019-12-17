@@ -25,7 +25,6 @@ from .pkgdata import __version__, default_antlr_path
 from .runtime import Tree, UnlexerRule, UnparserRule
 
 logger = logging.getLogger('grammarinator')
-logging.basicConfig(format='%(message)s')
 
 
 # Override ConsoleErrorListener to suppress parse issues in non-verbose mode.
@@ -198,6 +197,7 @@ def execute():
     if not args.parser_dir:
         args.parser_dir = join(args.out, 'grammars')
 
+    logging.basicConfig(format='%(message)s')
     logger.setLevel(args.log_level)
     sys.setrecursionlimit(int(args.sys_recursion_limit))
 
