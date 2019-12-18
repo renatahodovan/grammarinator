@@ -27,7 +27,6 @@ from .pkgdata import __version__, default_antlr_path
 from .runtime import UnlexerRule, UnparserRule
 
 logger = logging.getLogger('grammarinator')
-logging.basicConfig(format='%(message)s')
 
 
 class Node(object):
@@ -698,6 +697,7 @@ def execute():
     parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     args = parser.parse_args()
 
+    logging.basicConfig(format='%(message)s')
     logger.setLevel(args.log_level)
 
     for grammar in args.grammars:

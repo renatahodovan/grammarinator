@@ -17,7 +17,6 @@ from os.path import basename, dirname, join, splitext
 from antlr4 import *
 
 logger = logging.getLogger('grammarinator')
-logging.basicConfig(format='%(message)s')
 
 
 def parse(lexer_cls, parser_cls, rule, infile, encoding):
@@ -55,6 +54,7 @@ def execute():
                         help='verbosity level of diagnostic messages (default: %(default)s).')
     args = parser.parse_args()
 
+    logging.basicConfig(format='%(message)s')
     logger.setLevel(args.log_level)
 
     if '%d' not in args.infile:
