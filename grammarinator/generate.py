@@ -60,7 +60,7 @@ class Generator(object):
             return value in ['True', True, 1]
 
         if dirname(unlexer_path) not in sys.path:
-            sys.path.append(dirname(unparser_path))
+            sys.path.append(dirname(unlexer_path))
 
         if dirname(unparser_path) not in sys.path:
             sys.path.append(dirname(unparser_path))
