@@ -80,14 +80,18 @@ class Generator(object):
         self.root = self.root or node
         return node
 
-    def char_from_list(self, options):
+    @staticmethod
+    def char_from_list(options):
         return chr(random.choice(options))
 
-    def any_ascii_char(self):
+    @staticmethod
+    def any_ascii_char():
         return random.choice(string.printable)
 
-    def any_unicode_char(self):
-        return self.char_from_list(printable_unicode_chars)
+    @staticmethod
+    def any_unicode_char():
+        return Generator.char_from_list(printable_unicode_chars)
 
-    def any_ascii_letter(self):
+    @staticmethod
+    def any_ascii_letter():
         return random.choice(string.ascii_letters)

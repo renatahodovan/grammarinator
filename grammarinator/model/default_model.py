@@ -10,7 +10,8 @@ import random
 
 class DefaultModel(object):
 
-    def random_decision(self):
+    @staticmethod
+    def random_decision():
         return bool(random.getrandbits(1))
 
     def choice(self, name, choices):
