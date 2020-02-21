@@ -11,7 +11,6 @@ import importlib
 import json
 import os
 import random
-import sys
 
 from argparse import ArgumentParser, ArgumentTypeError
 from math import inf
@@ -19,7 +18,7 @@ from multiprocessing import Pool
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
-from .cli import add_jobs_argument, add_log_level_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_log_level_argument, process_sys_recursion_limit_argument
+from .cli import add_jobs_argument, add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from .model import CooldownModel
 from .runtime import Tree
 
@@ -45,24 +44,22 @@ class Population(object):
 
 class Generator(object):
 
-    def __init__(self, generator_path, rule, out_format,
+    def __init__(self, generator, rule, out_format,
                  model=None, max_depth=inf, cooldown=1.0,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  tree_transformers=None, test_transformers=None,
                  cleanup=True, encoding='utf-8'):
 
         def import_entity(name):
+            if not name:
+                return None
             steps = name.split('.')
             return getattr(importlib.import_module('.'.join(steps[0:-1])), steps[-1])
 
         def get_boolean(value):
             return value in ['True', True, 1]
 
-        if dirname(generator_path) not in sys.path:
-            sys.path.append(dirname(generator_path))
-
-        generator = splitext(basename(generator_path))[0]
-        self.generator_cls = import_entity('.'.join([generator, generator]))
+        self.generator_cls = import_entity(generator)
         self.model_cls = import_entity(model or 'grammarinator.model.DefaultModel')
         self.rule = rule or self.generator_cls.default_rule.__name__
 
@@ -219,7 +216,7 @@ def execute():
         """)
     # Settings for generating from grammar.
     parser.add_argument('generator', metavar='FILE',
-                        help='generator created by grammarinator-process.')
+                        help='reference to the generator created by grammarinator-process  (in package.module.class format).')
     parser.add_argument('--model', default='grammarinator.model.DefaultModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
     parser.add_argument('-r', '--rule', metavar='NAME',
@@ -259,6 +256,7 @@ def execute():
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
     add_jobs_argument(parser)
+    add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
     add_log_level_argument(parser)
     add_version_argument(parser)
@@ -268,6 +266,7 @@ def execute():
         random.seed(args.random_seed)
 
     process_log_level_argument(args)
+    process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
 
     if args.population:
@@ -275,7 +274,7 @@ def execute():
             parser.error('Population must point to an existing directory.')
         args.population = abspath(args.population)
 
-    with Generator(generator_path=args.generator, rule=args.rule, out_format=args.out,
+    with Generator(generator=args.generator, rule=args.rule, out_format=args.out,
                    model=args.model, max_depth=args.max_depth, cooldown=args.cooldown,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                    tree_transformers=args.tree_transformers, test_transformers=args.test_transformers,

@@ -13,7 +13,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator -r start -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -o {tmpdir}/{grammar}%d.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
 
 grammar Curly;

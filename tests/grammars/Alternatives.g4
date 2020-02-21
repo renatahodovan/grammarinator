@@ -17,8 +17,8 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator -r start -j 1 -n 5 -o {tmpdir}/{grammar}S%d.txt -c 0.9
-// TEST-GENERATE: {grammar}Generator -r start -j 2 -n 5 -o {tmpdir}/{grammar}M%d.txt -c 0.9
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 -o {tmpdir}/{grammar}S%d.txt -c 0.9
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 -o {tmpdir}/{grammar}M%d.txt -c 0.9
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
 // TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}S%d.txt
 // TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}M%d.txt

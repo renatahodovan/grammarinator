@@ -17,7 +17,7 @@ from os.path import basename, exists, join
 
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
 
-from .cli import add_antlr_argument, add_disable_cleanup_argument, add_jobs_argument, add_log_level_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_antlr_argument, process_log_level_argument, process_sys_recursion_limit_argument
+from .cli import add_antlr_argument, add_disable_cleanup_argument, add_jobs_argument, add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_antlr_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from .parser_builder import build_grammars
 from .pkgdata import default_antlr_path
 from .runtime import Tree, UnlexerRule, UnparserRule
@@ -173,6 +173,7 @@ def execute():
     add_disable_cleanup_argument(parser)
     add_jobs_argument(parser)
     add_antlr_argument(parser)
+    add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
     add_log_level_argument(parser)
     add_version_argument(parser)
@@ -186,6 +187,7 @@ def execute():
         args.parser_dir = join(args.out, 'grammars')
 
     process_log_level_argument(args)
+    process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
     process_antlr_argument(args)
 

@@ -30,7 +30,7 @@ class HTMLCustomGenerator(HTMLGenerator):
     # Customize the function generated from the htmlTagName parser rule to produce valid tag names.
     def htmlTagName(self):
         current = self.create_node(UnparserRule(name='htmlTagName'))
-        name = random.choice(tags[self.tag_stack[-1]]['children'] or self.tag_names if self.tag_stack else self.tag_names)
+        name = random.choice(tags[self.tag_stack[-1]]['children'] or tag_names if self.tag_stack else tag_names)
         self.tag_stack.append(name)
         current += UnlexerRule(src=name)
         self.tag_stack.append(name)

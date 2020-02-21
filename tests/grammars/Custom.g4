@@ -25,10 +25,10 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator -r start -j 1 -n 5 -o {tmpdir}/{grammar}GS%d.txt
-// TEST-GENERATE: {grammar}Generator -r start -j 2 -n 5 -o {tmpdir}/{grammar}GM%d.txt
-// TEST-GENERATE: {grammar}SubclassGenerator -r start -j 1 -n 5 -o {tmpdir}/{grammar}SS%d.txt
-// TEST-GENERATE: {grammar}SubclassGenerator -r start -j 2 -n 5 -o {tmpdir}/{grammar}SM%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 -o {tmpdir}/{grammar}GS%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 -o {tmpdir}/{grammar}GM%d.txt
+// TEST-GENERATE: {grammar}SubclassGenerator.{grammar}SubclassGenerator -r start -j 1 -n 5 -o {tmpdir}/{grammar}SS%d.txt
+// TEST-GENERATE: {grammar}SubclassGenerator.{grammar}SubclassGenerator -r start -j 2 -n 5 -o {tmpdir}/{grammar}SM%d.txt
 
 grammar Custom;
 

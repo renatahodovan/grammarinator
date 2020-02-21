@@ -122,8 +122,8 @@ a try, run the processor first::
 
 Then, use the generator to produce test cases::
 
-    grammarinator-generate examples/fuzzer/HTMLCustomGenerator.py -r htmlDocument \
-    -o examples/tests/test_%d.html -t HTMLGenerator.html_space_transformer -n 100 -d 20
+    grammarinator-generate HTMLCustomGenerator.HTMLCustomGenerator -r htmlDocument \
+    -o examples/tests/test_%d.html -t HTMLGenerator.html_space_transformer -n 100 -d 20 --sys-path examples/fuzzer/
 
 .. _example: examples/
 

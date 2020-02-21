@@ -15,7 +15,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir} --pep8
-// TEST-GENERATE: {grammar}Generator -r start -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -o {tmpdir}/{grammar}%d.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
 // TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}%d.txt
 

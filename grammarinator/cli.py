@@ -57,3 +57,14 @@ def add_jobs_argument(parser):
 def add_disable_cleanup_argument(parser):
     parser.add_argument('--disable-cleanup', dest='cleanup', default=True, action='store_false',
                         help='disable the removal of intermediate files.')
+
+
+def add_sys_path_argument(parser):
+    parser.add_argument('--sys-path', metavar='DIR', action='append', default=[],
+                        help='add directory to the search path for Python modules (may be specified multiple times)')
+
+
+def process_sys_path_argument(args):
+    for path in args.sys_path:
+        if path not in sys.path:
+            sys.path.append(path)
