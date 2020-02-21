@@ -20,6 +20,7 @@ from multiprocessing import Pool
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
+from .model import CooldownModel
 from .pkgdata import __version__
 from .runtime import Tree
 
@@ -65,8 +66,7 @@ class Generator(object):
 
         generator = splitext(basename(generator_path))[0]
         self.generator_cls = import_entity('.'.join([generator, generator]))
-        self.generator_kwargs = dict(cooldown=float(cooldown), weights=dict())
-        self.model_cls = import_entity(model or 'grammarinator.model.RandomModel')
+        self.model_cls = import_entity(model or 'grammarinator.model.DefaultModel')
         self.rule = rule or self.generator_cls.default_rule.__name__
 
         out_dir = abspath(dirname(out_format))
@@ -80,6 +80,7 @@ class Generator(object):
 
         self.max_depth = float(max_depth)
         self.cooldown = float(cooldown)
+        self.weights = dict()
         self.population = Population(population) if population else None
         self.enable_generation = get_boolean(generate)
         self.enable_mutation = get_boolean(mutate)
@@ -159,7 +160,10 @@ class Generator(object):
         elif start_rule.min_depth > max_depth:
             raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
 
-        return Tree(getattr(self.generator_cls(**dict(self.generator_kwargs, model=self.model_cls(), max_depth=max_depth)), rule)())
+        model = self.model_cls()
+        if self.cooldown < 1:
+            model = CooldownModel(model, cooldown=self.cooldown, weights=self.weights)
+        return Tree(getattr(self.generator_cls(model=model, max_depth=max_depth), rule)())
 
     def random_individuals(self, n):
         return self.population.random_individuals(n=n)
@@ -219,7 +223,7 @@ def execute():
     # Settings for generating from grammar.
     parser.add_argument('generator', metavar='FILE',
                         help='generator created by grammarinator-process.')
-    parser.add_argument('--model', default='grammarinator.model.RandomModel',
+    parser.add_argument('--model', default='grammarinator.model.DefaultModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start generation from (default: first parser rule).')

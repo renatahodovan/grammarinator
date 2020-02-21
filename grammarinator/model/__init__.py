@@ -5,9 +5,11 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .random import RandomModel
+from .cooldown_model import CooldownModel
+from .default_model import DefaultModel
 
 
 __all__ = [
-    'RandomModel',
+    'CooldownModel',
+    'DefaultModel',
 ]

@@ -8,12 +8,12 @@
 import random
 
 
-class RandomModel(object):
+class DefaultModel(object):
 
     def random_decision(self):
         return bool(random.getrandbits(1))
 
-    def choice(self, choices):
+    def choice(self, name, choices):
         # assert sum(choices) > 0, 'Sum of choices is zero.'
         max_item = max(choices)
         choices = [i / max_item for i in choices]

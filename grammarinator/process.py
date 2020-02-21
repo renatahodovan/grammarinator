@@ -349,8 +349,8 @@ class FuzzerGenerator(object):
             rule_header += self.line('def {rule_name}(self):'.format(rule_name=rule_name))
             with self.indent():
                 local_ctx = self.line('local_ctx = dict()')
-                rule_code = self.line('current = self.create_node({node_type}(name=\'{rule_name}\'))'.format(node_type=node_type.__name__,
-                                                                                                             rule_name=rule_name))
+                rule_code = self.line('current = self.create_node({node_type}(name={rule_name!r}))'.format(node_type=node_type.__name__,
+                                                                                                           rule_name=rule_name))
                 rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
                 rule_code += self.generate_single(rule_block, rule_name)
                 rule_code += self.line('return current')
@@ -392,10 +392,9 @@ class FuzzerGenerator(object):
 
             conditions = [(self.new_code_id('cond'), self.find_conditions(child)) for child in children]
             self.code_chunks.update(conditions)
-            result = self.line('choice = self.model.choice([0 if {{{alt_name}}}[i] > self.max_depth else w * self.weights.get(({alt_name!r}, i), 1) for i, w in enumerate([{weights}])])'
-                               .format(weights=', '.join('{{{cond_id}}}'.format(cond_id=cond_id) for cond_id, _ in conditions),
-                                       alt_name=alt_name))
-            result += self.line('self.weights[({alt_name!r}, choice)] = self.weights.get(({alt_name!r}, choice), 1) * self.cooldown'.format(alt_name=alt_name))
+            result = self.line('choice = self.model.choice({alt_name!r}, [0 if {{{alt_name}}}[i] > self.max_depth else w for i, w in enumerate([{weights}])])'
+                               .format(alt_name=alt_name,
+                                       weights=', '.join('{{{cond_id}}}'.format(cond_id=cond_id) for cond_id, _ in conditions)))
             for i, child in enumerate(children):
                 alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
                 self.graph.add_node(AlternativeNode(id=alternative_name))

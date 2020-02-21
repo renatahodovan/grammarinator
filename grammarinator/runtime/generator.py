@@ -11,7 +11,7 @@ import string
 from itertools import chain
 from math import inf
 
-from ..model import RandomModel
+from ..model import DefaultModel
 
 
 def printable_ranges(lower_bound, upper_bound):
@@ -69,11 +69,9 @@ def depthcontrol(fn):
 
 class Generator(object):
 
-    def __init__(self, *, model=None, max_depth=inf, weights=None, cooldown=1.0):
-        self.model = model or RandomModel()
+    def __init__(self, *, model=None, max_depth=inf):
+        self.model = model or DefaultModel()
         self.max_depth = max_depth
-        self.weights = weights
-        self.cooldown = cooldown
         self.options = dict()
         self.root = None
         self.any_char = self.any_ascii_char
