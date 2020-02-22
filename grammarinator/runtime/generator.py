@@ -10,6 +10,8 @@ import string
 
 from itertools import chain
 
+from ..model import RandomModel
+
 
 def printable_ranges(lower_bound, upper_bound):
     ranges = []
@@ -53,29 +55,30 @@ def multirange_diff(r1_list, r2_list):
 
 def depthcontrol(fn):
     def controlled_fn(obj, *args, **kwargs):
-        obj.unlexer.max_depth -= 1
+        obj.max_depth -= 1
         try:
             result = fn(obj, *args, **kwargs)
         finally:
-            obj.unlexer.max_depth += 1
+            obj.max_depth += 1
         return result
 
     controlled_fn.__name__ = fn.__name__
     return controlled_fn
 
 
-class Grammarinator(object):
+class Generator(object):
 
-    def __init__(self, *, max_cnt=8000):
-        self.max_cnt = max_cnt
-        self.node_cnt = 0
+    def __init__(self, *, model=None, max_depth=float('inf'), weights=None, cooldown=1.0):
+        self.model = model or RandomModel()
+        self.max_depth = max_depth
+        self.weights = weights
+        self.cooldown = cooldown
         self.options = dict()
         self.root = None
         self.any_char = self.any_ascii_char
 
     def create_node(self, node):
         self.root = self.root or node
-        self.node_cnt += 1
         return node
 
     def char_from_list(self, options):

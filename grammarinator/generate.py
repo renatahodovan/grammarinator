@@ -46,7 +46,7 @@ class Population(object):
 
 class Generator(object):
 
-    def __init__(self, unlexer_path, unparser_path, rule, out_format,
+    def __init__(self, generator_path, rule, out_format,
                  model=None, max_depth=float('inf'), cooldown=1.0,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  tree_transformers=None, test_transformers=None,
@@ -59,18 +59,14 @@ class Generator(object):
         def get_boolean(value):
             return value in ['True', True, 1]
 
-        if dirname(unlexer_path) not in sys.path:
-            sys.path.append(dirname(unlexer_path))
+        if dirname(generator_path) not in sys.path:
+            sys.path.append(dirname(generator_path))
 
-        if dirname(unparser_path) not in sys.path:
-            sys.path.append(dirname(unparser_path))
-
-        unlexer, unparser = splitext(basename(unlexer_path))[0], splitext(basename(unparser_path))[0]
-        self.unlexer_cls = import_entity('.'.join([unlexer, unlexer]))
+        generator = splitext(basename(generator_path))[0]
+        self.generator_cls = import_entity('.'.join([generator, generator]))
+        self.generator_kwargs = dict(cooldown=float(cooldown), weights=dict())
         self.model_cls = import_entity(model or 'grammarinator.model.RandomModel')
-        self.unlexer_kwargs = dict(cooldown=float(cooldown), weights=dict())
-        self.unparser_cls = import_entity('.'.join([unparser, unparser]))
-        self.rule = rule or self.unparser_cls.default_rule.__name__
+        self.rule = rule or self.generator_cls.default_rule.__name__
 
         out_dir = abspath(dirname(out_format))
         os.makedirs(out_dir, exist_ok=True)
@@ -156,16 +152,13 @@ class Generator(object):
         return root
 
     def generate(self, rule, max_depth):
-        start_rule = getattr(self.unparser_cls if rule[0].islower() else self.unlexer_cls, rule)
+        start_rule = getattr(self.generator_cls, rule)
         if not hasattr(start_rule, 'min_depth'):
             logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
         elif start_rule.min_depth > max_depth:
             raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
 
-        model = self.model_cls()
-        unlexer = self.unlexer_cls(**dict(self.unlexer_kwargs, model=model, max_depth=max_depth))
-        tree = Tree(getattr(self.unparser_cls(unlexer) if rule[0].islower() else unlexer, rule)())
-        return tree
+        return Tree(getattr(self.generator_cls(**dict(self.generator_kwargs, model=self.model_cls(), max_depth=max_depth)), rule)())
 
     def random_individuals(self, n):
         return self.population.random_individuals(n=n)
@@ -202,7 +195,7 @@ class Generator(object):
 
     def default_selector(self, iterable):
         def min_depth(node):
-            return getattr(getattr(self.unparser_cls if node.name[0].islower() else self.unlexer_cls, node.name), 'min_depth', 0)
+            return getattr(getattr(self.generator_cls, node.name), 'min_depth', 0)
 
         return [node for node in iterable if node.name is not None and node.parent is not None and node.name != 'EOF' and node.level + min_depth(node) < self.max_depth]
 
@@ -219,14 +212,12 @@ def execute():
         return value
 
     parser = ArgumentParser(description='Grammarinator: Generate', epilog="""
-        The tool acts as a default execution harness for unlexers and unparsers
+        The tool acts as a default execution harness for generators
         created by Grammarinator:Processor.
         """)
     # Settings for generating from grammar.
-    parser.add_argument('-p', '--unparser', required=True, metavar='FILE',
-                        help='grammarinator-generated unparser.')
-    parser.add_argument('-l', '--unlexer', required=True, metavar='FILE',
-                        help='grammarinator-generated unlexer.')
+    parser.add_argument('generator', metavar='FILE',
+                        help='generator created by grammarinator-process.')
     parser.add_argument('--model', default='grammarinator.model.RandomModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
     parser.add_argument('-r', '--rule', metavar='NAME',
@@ -286,7 +277,7 @@ def execute():
             parser.error('Population must point to an existing directory.')
         args.population = abspath(args.population)
 
-    with Generator(unlexer_path=args.unlexer, unparser_path=args.unparser, rule=args.rule, out_format=args.out,
+    with Generator(generator_path=args.generator, rule=args.rule, out_format=args.out,
                    model=args.model, max_depth=args.max_depth, cooldown=args.cooldown,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                    tree_transformers=args.tree_transformers, test_transformers=args.test_transformers,

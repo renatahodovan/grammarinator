@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -9,10 +9,10 @@
 
 from grammarinator.runtime import *
 
-from CustomUnparser import CustomUnparser
+from CustomGenerator import CustomGenerator
 
 
-class CustomSubclassUnparser(CustomUnparser):
+class CustomSubclassGenerator(CustomGenerator):
 
     def random_decision(self, *args, **kwargs):
         return False
@@ -21,3 +21,6 @@ class CustomSubclassUnparser(CustomUnparser):
         current = self.create_node(UnparserRule(name='tagname'))
         current += UnlexerRule(src='customtag')
         return current
+
+    def _custom_lexer_content(self):
+        return UnlexerRule(src='custom content')

@@ -78,7 +78,7 @@ manually.
 
 Example usage of ``grammarinator-generate``::
 
-    grammarinator-generate -l <unlexer> -p <unparser> -r <start-rule> -d <max-depth> \
+    grammarinator-generate <generator> -r <start-rule> -d <max-depth> \
     -o <output-pattern> -n <number-of-tests> \
     -t <one-or-more-transformer>
 
@@ -106,9 +106,9 @@ grammars encode syntactic expectations only, and not semantic rules. If we
 still want to add semantic knowledge into the generated test, then we can
 inherit custom fuzzers from the generated ones and redefine methods
 corresponding to lexer or parser rules in ways that encode the required
-knowledge (e.g.: HTMLCustomUnparser_).
+knowledge (e.g.: HTMLCustomGenerator_).
 
-.. _HTMLCustomUnparser: examples/fuzzer/HTMLCustomUnparser.py
+.. _HTMLCustomGenerator: examples/fuzzer/HTMLCustomGenerator.py
 
 Working Example
 ===============
@@ -122,9 +122,8 @@ a try, run the processor first::
 
 Then, use the generator to produce test cases::
 
-    grammarinator-generate -l examples/fuzzer/HTMLCustomUnlexer.py \
-    -p examples/fuzzer/HTMLCustomUnparser.py -r htmlDocument \
-    -o examples/tests/test_%d.html -t HTMLUnparser.html_space_transformer -n 100 -d 20
+    grammarinator-generate examples/fuzzer/HTMLCustomGenerator.py -r htmlDocument \
+    -o examples/tests/test_%d.html -t HTMLGenerator.html_space_transformer -n 100 -d 20
 
 .. _example: examples/
 

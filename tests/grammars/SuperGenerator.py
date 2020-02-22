@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2019-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,7 +10,7 @@
 from grammarinator.runtime import *
 
 
-class SuperGenerator(Grammarinator):
+class SuperGenerator(Generator):
 
     def inheritedRule(self):
         return UnlexerRule(src='I was inherited.')

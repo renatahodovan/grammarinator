@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -12,7 +12,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: -p {grammar}Unparser -l {grammar}Unlexer -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator -o {tmpdir}/{grammar}%d.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
 // TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}%d.txt
 

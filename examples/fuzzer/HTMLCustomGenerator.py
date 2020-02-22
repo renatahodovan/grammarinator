@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -11,29 +11,21 @@ import random
 from os.path import dirname, join
 
 from grammarinator.runtime import *
-from HTMLUnparser import HTMLUnparser
+
+from HTMLGenerator import HTMLGenerator
 
 
 with open(join(dirname(__file__), 'html.json')) as f:
     tags = json.load(f)
 
+tag_names = list(tags.keys())
 
-class HTMLCustomUnparser(HTMLUnparser):
+
+class HTMLCustomGenerator(HTMLGenerator):
 
     attr_stack = []
     tag_stack = []
     tags = set()
-
-    def __init__(self, unlexer):
-        super(HTMLCustomUnparser, self).__init__(unlexer)
-        self.tag_names = list(tags.keys())
-
-    # Override the original random_decision implementation in a way to increase the number of generated nodes.
-    def random_decision(self):
-        # Playing with size.
-        if self.node_cnt < self.max_cnt // 4:
-            return random.randint(0, 1000) > 100
-        return random.randint(0, 1000) < 400
 
     # Customize the function generated from the htmlTagName parser rule to produce valid tag names.
     def htmlTagName(self):
@@ -61,3 +53,7 @@ class HTMLCustomUnparser(HTMLUnparser):
 
     def endOfHtmlElement(self):
         self.tag_stack.pop()
+
+    # You probably want to rewrite this with a distinct CSS fuzzer.
+    def style_sheet(self):
+        return UnlexerRule(src='* { background: green; }')

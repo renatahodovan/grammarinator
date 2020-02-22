@@ -27,8 +27,8 @@
 */
 
 // TEST-PROCESS: {grammar}Parser.g4 {grammar}Lexer.g4 -o {tmpdir}
-// TEST-GENERATE: -p {grammar}Unparser.py -l {grammar}Unlexer.py -r htmlDocument -t HTMLUnparser.html_space_transformer -n 5 -o {tmpdir}/{grammar}G%d.html
-// TEST-GENERATE: -p ../fuzzer/{grammar}CustomUnparser.py -l ../fuzzer/{grammar}CustomUnlexer.py -r htmlDocument -t HTMLUnparser.html_space_transformer -n 5 -o {tmpdir}/{grammar}C%d.html
+// TEST-GENERATE: {grammar}Generator -r htmlDocument -t HTMLGenerator.html_space_transformer -n 5 -o {tmpdir}/{grammar}G%d.html
+// TEST-GENERATE: ../fuzzer/{grammar}CustomGenerator.py -r htmlDocument -t HTMLGenerator.html_space_transformer -n 5 -o {tmpdir}/{grammar}C%d.html
 
 parser grammar HTMLParser;
 
@@ -58,6 +58,7 @@ def html_space_transformer(node):
 @parser::member {
 def endOfHtmlElement(self):
     pass
+
 }
 
 htmlDocument
