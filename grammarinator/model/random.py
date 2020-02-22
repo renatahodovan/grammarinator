@@ -25,14 +25,11 @@ class RandomModel(object):
             upto += w
         raise AssertionError('Shouldn\'t get here.')
 
-    def zero_or_one(self):
-        if self.random_decision():
+    def quantify(self, min, max):
+        cnt = 0
+        for _ in range(min):
             yield
-
-    def zero_or_more(self):
-        while self.random_decision():
+            cnt += 1
+        while cnt < max and self.random_decision():
             yield
-
-    def one_or_more(self):
-        yield
-        yield from self.zero_or_more()
+            cnt += 1
