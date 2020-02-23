@@ -12,6 +12,7 @@ import sys
 from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
+from math import inf
 from os import getcwd, makedirs
 from os.path import dirname, exists, join
 from pkgutil import get_data
@@ -66,7 +67,7 @@ class GrammarGraph(object):
         self.vertices[frm].out_neighbours.append(self.vertices[to])
 
     def calc_min_depths(self):
-        min_depths = defaultdict(lambda: float('inf'))
+        min_depths = defaultdict(lambda: inf)
         changed = True
 
         while changed:
@@ -83,7 +84,7 @@ class GrammarGraph(object):
         # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
         for ident in min_depths:
             if isinstance(self.vertices[ident], AlternationNode):
-                assert all(min_depths[node.id] < float('inf') for node in self.vertices[ident].out_neighbours), '{ident} has an alternative that isn\'t reachable.'.format(ident=ident)
+                assert all(min_depths[node.id] < inf for node in self.vertices[ident].out_neighbours), '{ident} has an alternative that isn\'t reachable.'.format(ident=ident)
                 min_depths[ident] = [min_depths[node.id] for node in self.vertices[ident].out_neighbours]
 
         # Remove the lifted Alternatives and check for infinite derivations.
@@ -91,7 +92,7 @@ class GrammarGraph(object):
             if isinstance(self.vertices[ident], AlternativeNode):
                 del min_depths[ident]
             else:
-                assert min_depths[ident] != float('inf'), 'Rule with infinite derivation: %s' % ident
+                assert min_depths[ident] != inf, 'Rule with infinite derivation: %s' % ident
 
         return min_depths
 

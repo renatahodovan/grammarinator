@@ -9,6 +9,7 @@ import random
 import string
 
 from itertools import chain
+from math import inf
 
 from ..model import RandomModel
 
@@ -68,7 +69,7 @@ def depthcontrol(fn):
 
 class Generator(object):
 
-    def __init__(self, *, model=None, max_depth=float('inf'), weights=None, cooldown=1.0):
+    def __init__(self, *, model=None, max_depth=inf, weights=None, cooldown=1.0):
         self.model = model or RandomModel()
         self.max_depth = max_depth
         self.weights = weights

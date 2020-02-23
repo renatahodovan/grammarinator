@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -13,6 +13,7 @@ import shutil
 import sys
 
 from argparse import ArgumentParser
+from math import inf
 from multiprocessing import Pool
 from os.path import basename, exists, join
 
@@ -48,8 +49,8 @@ class ParserFactory(object):
     """
 
     def __init__(self, grammars, parser_dir,
-                 hidden=None, transformers=None, antlr=default_antlr_path, max_depth='inf', cleanup=True):
-        self.max_depth = max_depth if not isinstance(max_depth, str) else (float('inf') if max_depth == 'inf' else int(max_depth))
+                 hidden=None, transformers=None, antlr=default_antlr_path, max_depth=inf, cleanup=True):
+        self.max_depth = float(max_depth)
         self.cleanup = cleanup in [True, 1, 'True', 'true']
         transformers = transformers if isinstance(transformers, list) else json.loads(transformers) if transformers else []
         self.transformers = [import_entity(transformer) if isinstance(transformer, str) else transformer for transformer in transformers]
@@ -177,7 +178,7 @@ def execute():
                         help='disable the removal of intermediate files.')
     parser.add_argument('-j', '--jobs', default=os.cpu_count(), type=int, metavar='NUM',
                         help='parsing parallelization level (default: number of cpu cores (%(default)d)).')
-    parser.add_argument('--max-depth', type=int, default=float('inf'),
+    parser.add_argument('--max-depth', type=int, default=inf,
                         help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
                         help='directory to save the trees (default: %(default)s).')

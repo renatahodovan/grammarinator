@@ -15,6 +15,7 @@ import random
 import sys
 
 from argparse import ArgumentParser, ArgumentTypeError
+from math import inf
 from multiprocessing import Pool
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
@@ -47,7 +48,7 @@ class Population(object):
 class Generator(object):
 
     def __init__(self, generator_path, rule, out_format,
-                 model=None, max_depth=float('inf'), cooldown=1.0,
+                 model=None, max_depth=inf, cooldown=1.0,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  tree_transformers=None, test_transformers=None,
                  cleanup=True, encoding='utf-8'):
@@ -229,7 +230,7 @@ def execute():
                         help='list of transformers (in package.module.function format) to postprocess the generated tree '
                              '(the result of these transformers will only affect test serialization but won\'t be saved to the '
                              'tree representation, e.g., space insertion).')
-    parser.add_argument('-d', '--max-depth', default=float('inf'), type=int, metavar='NUM',
+    parser.add_argument('-d', '--max-depth', default=inf, type=int, metavar='NUM',
                         help='maximum recursion depth during generation (default: %(default)f).')
     parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
                         help='cool-down factor defines how much the probability of an alternative should decrease '

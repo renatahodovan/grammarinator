@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2018 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -8,6 +8,7 @@
 import pickle
 
 from copy import copy, deepcopy
+from math import inf
 
 
 class Tree(object):
@@ -55,7 +56,7 @@ class Tree(object):
         with open(fn, 'rb') as f:
             return pickle.load(f)
 
-    def save(self, fn, max_depth=float('inf')):
+    def save(self, fn, max_depth=inf):
         self.annotate()
 
         if self.root.depth <= max_depth:
