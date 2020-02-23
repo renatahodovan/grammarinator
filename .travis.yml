@@ -12,7 +12,8 @@ jobs:
       env: TOXENV=py
     - python: 3.7
       env: TOXENV=py
-      dist: xenial
+    - python: 3.8
+      env: TOXENV=py
     - python: 3.5
       env: TOXENV=lint
 
