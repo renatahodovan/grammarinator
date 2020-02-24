@@ -152,15 +152,15 @@ def execute():
                             compatible tree representations from them and saves them for further
                             reuse.
                             """)
-    parser.add_argument('files', nargs='+',
-                        help='input files to process.')
-    parser.add_argument('-g', '--grammars', nargs='+', metavar='FILE', required=True,
+    parser.add_argument('grammar', metavar='FILE', nargs='+',
                         help='ANTLR grammar files describing the expected format of input to parse.')
+    parser.add_argument('-i', '--input', metavar='FILE', nargs='+', required=True,
+                        help='input files to process.')
     parser.add_argument('-r', '--rule', metavar='NAME',
-                        help='name of the rule to start parsing with (default: first parser rule)')
-    parser.add_argument('-t', '--transformers', metavar='LIST', nargs='+', default=[],
-                        help='list of transformers (in package.module.function format) to postprocess the parsed tree.')
-    parser.add_argument('--hidden', nargs='+', metavar='NAME',
+                        help='name of the rule to start parsing with (default: first parser rule).')
+    parser.add_argument('-t', '--transformer', metavar='NAME', action='append', default=[],
+                        help='reference to a transformer (in package.module.function format) to postprocess the parsed tree.')
+    parser.add_argument('--hidden', metavar='NAME', action='append', default=[],
                         help='list of hidden tokens to be built into the parsed tree.')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='input file encoding (default: %(default)s).')
@@ -179,7 +179,7 @@ def execute():
     add_version_argument(parser)
     args = parser.parse_args()
 
-    for grammar in args.grammars:
+    for grammar in args.grammar:
         if not exists(grammar):
             parser.error('{grammar} does not exist.'.format(grammar=grammar))
 
@@ -191,7 +191,7 @@ def execute():
     process_sys_recursion_limit_argument(args)
     process_antlr_argument(args)
 
-    with ParserFactory(grammars=args.grammars, hidden=args.hidden, transformers=args.transformers, parser_dir=args.parser_dir, antlr=args.antlr,
+    with ParserFactory(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr,
                        max_depth=args.max_depth, cleanup=args.cleanup) as factory:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:

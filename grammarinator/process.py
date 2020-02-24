@@ -630,7 +630,7 @@ def execute():
         creates a fuzzer that can generate randomized content conforming to
         the format described by the grammar.
         """)
-    parser.add_argument('grammars', nargs='+', metavar='FILE',
+    parser.add_argument('grammar', metavar='FILE', nargs='+',
                         help='ANTLR grammar files describing the expected format to generate.')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')
@@ -648,14 +648,14 @@ def execute():
     add_version_argument(parser)
     args = parser.parse_args()
 
-    for grammar in args.grammars:
+    for grammar in args.grammar:
         if not exists(grammar):
             parser.error('{grammar} does not exist.'.format(grammar=grammar))
 
     process_log_level_argument(args)
     process_antlr_argument(args)
 
-    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammar, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
     if args.cleanup:
         rmtree(join(args.out, 'antlr'), ignore_errors=True)

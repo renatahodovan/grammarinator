@@ -80,7 +80,7 @@ Example usage of ``grammarinator-generate``::
 
     grammarinator-generate <generator> -r <start-rule> -d <max-depth> \
     -o <output-pattern> -n <number-of-tests> \
-    -t <one-or-more-transformer>
+    -t <transformer1> -t <transformer2>
 
 **Notes**
 

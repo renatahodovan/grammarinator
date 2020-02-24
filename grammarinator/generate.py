@@ -56,6 +56,12 @@ class Generator(object):
             steps = name.split('.')
             return getattr(importlib.import_module('.'.join(steps[0:-1])), steps[-1])
 
+        def import_list(lst):
+            lst = lst or []
+            if isinstance(lst, str):
+                lst = json.loads(lst)
+            return [import_entity(item) for item in lst]
+
         def get_boolean(value):
             return value in ['True', True, 1]
 
@@ -83,15 +89,8 @@ class Generator(object):
         self.cleanup = get_boolean(cleanup)
         self.encoding = encoding
 
-        tree_transformers = tree_transformers or []
-        if isinstance(tree_transformers, str):
-            tree_transformers = json.loads(tree_transformers)
-        self.tree_transformers = [import_entity(transformer) for transformer in tree_transformers]
-
-        test_transformers = test_transformers or []
-        if isinstance(test_transformers, str):
-            test_transformers = json.loads(test_transformers)
-        self.test_transformers = [import_entity(transformer) for transformer in test_transformers]
+        self.tree_transformers = import_list(tree_transformers)
+        self.test_transformers = import_list(test_transformers)
 
     def __enter__(self):
         return self
@@ -215,17 +214,17 @@ def execute():
         created by Grammarinator:Processor.
         """)
     # Settings for generating from grammar.
-    parser.add_argument('generator', metavar='FILE',
-                        help='reference to the generator created by grammarinator-process  (in package.module.class format).')
-    parser.add_argument('--model', default='grammarinator.model.DefaultModel',
-                        help='reference to the decision model (in package.module.class format) (default: %(default)s).')
+    parser.add_argument('generator', metavar='NAME',
+                        help='reference to the generator created by grammarinator-process (in package.module.class format).')
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start generation from (default: first parser rule).')
-    parser.add_argument('-t', '--tree-transformers', metavar='LIST', nargs='+', default=[],
-                        help='list of transformers (in package.module.function format) to postprocess the generated tree '
+    parser.add_argument('-m', '--model', metavar='NAME', default='grammarinator.model.DefaultModel',
+                        help='reference to the decision model (in package.module.class format) (default: %(default)s).')
+    parser.add_argument('-t', '--tree-transformer', metavar='NAME', action='append', default=[],
+                        help='reference to a transformer (in package.module.function format) to postprocess the generated tree '
                              '(the result of these transformers will be saved into the serialized tree, e.g., variable matching).')
-    parser.add_argument('--test-transformers', metavar='LIST', nargs='+', default=[],
-                        help='list of transformers (in package.module.function format) to postprocess the generated tree '
+    parser.add_argument('--test-transformer', metavar='NAME', action='append', default=[],
+                        help='reference to a transformer (in package.module.function format) to postprocess the generated tree '
                              '(the result of these transformers will only affect test serialization but won\'t be saved to the '
                              'tree representation, e.g., space insertion).')
     parser.add_argument('-d', '--max-depth', default=inf, type=int, metavar='NUM',
@@ -277,7 +276,7 @@ def execute():
     with Generator(generator=args.generator, rule=args.rule, out_format=args.out,
                    model=args.model, max_depth=args.max_depth, cooldown=args.cooldown,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
-                   tree_transformers=args.tree_transformers, test_transformers=args.test_transformers,
+                   tree_transformers=args.tree_transformer, test_transformers=args.test_transformer,
                    cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
