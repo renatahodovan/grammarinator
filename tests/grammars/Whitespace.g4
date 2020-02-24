@@ -15,7 +15,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -t grammarinator.runtime.simple_space_transformer -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -s grammarinator.runtime.simple_space_serializer -o {tmpdir}/{grammar}%d.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
 // TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}%d.txt
 

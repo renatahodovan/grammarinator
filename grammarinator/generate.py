@@ -47,7 +47,7 @@ class Generator(object):
     def __init__(self, generator, rule, out_format,
                  model=None, max_depth=inf, cooldown=1.0,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
-                 tree_transformers=None, test_transformers=None,
+                 transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8'):
 
         def import_entity(name):
@@ -67,6 +67,8 @@ class Generator(object):
 
         self.generator_cls = import_entity(generator)
         self.model_cls = import_entity(model or 'grammarinator.model.DefaultModel')
+        self.transformers = import_list(transformers)
+        self.serializer = import_entity(serializer) if serializer else str
         self.rule = rule or self.generator_cls.default_rule.__name__
 
         out_dir = abspath(dirname(out_format))
@@ -88,9 +90,6 @@ class Generator(object):
         self.keep_trees = get_boolean(keep_trees)
         self.cleanup = get_boolean(cleanup)
         self.encoding = encoding
-
-        self.tree_transformers = import_list(tree_transformers)
-        self.test_transformers = import_list(test_transformers)
 
     def __enter__(self):
         return self
@@ -122,7 +121,7 @@ class Generator(object):
             return self.create_new_test(index)
 
         test_fn = self.out_format % index
-        tree.root = Generator.transform(tree.root, self.tree_transformers)
+        tree.root = Generator.transform(tree.root, self.transformers)
 
         tree_fn = None
         if self.keep_trees:
@@ -131,14 +130,9 @@ class Generator(object):
             tree.save(tree_fn)
 
         with codecs.open(test_fn, 'w', self.encoding) as f:
-            f.write(str(Generator.transform(tree.root, self.test_transformers)))
+            f.write(self.serializer(tree.root))
 
         return test_fn, tree_fn
-
-    def serialize(self, tree):
-        tree.root = Generator.transform(tree.root, self.tree_transformers)
-        tree.root = Generator.transform(tree.root, self.test_transformers)
-        return str(tree.root)
 
     @staticmethod
     def transform(root, transformers):
@@ -220,13 +214,11 @@ def execute():
                         help='name of the rule to start generation from (default: first parser rule).')
     parser.add_argument('-m', '--model', metavar='NAME', default='grammarinator.model.DefaultModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
-    parser.add_argument('-t', '--tree-transformer', metavar='NAME', action='append', default=[],
+    parser.add_argument('-t', '--transformer', metavar='NAME', action='append', default=[],
                         help='reference to a transformer (in package.module.function format) to postprocess the generated tree '
                              '(the result of these transformers will be saved into the serialized tree, e.g., variable matching).')
-    parser.add_argument('--test-transformer', metavar='NAME', action='append', default=[],
-                        help='reference to a transformer (in package.module.function format) to postprocess the generated tree '
-                             '(the result of these transformers will only affect test serialization but won\'t be saved to the '
-                             'tree representation, e.g., space insertion).')
+    parser.add_argument('-s', '--serializer', metavar='NAME',
+                        help='reference to a seralizer (in package.module.function format) that takes a tree and produces a string from it.')
     parser.add_argument('-d', '--max-depth', default=inf, type=int, metavar='NUM',
                         help='maximum recursion depth during generation (default: %(default)f).')
     parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
@@ -276,7 +268,7 @@ def execute():
     with Generator(generator=args.generator, rule=args.rule, out_format=args.out,
                    model=args.model, max_depth=args.max_depth, cooldown=args.cooldown,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
-                   tree_transformers=args.tree_transformer, test_transformers=args.test_transformer,
+                   transformers=args.transformer, serializer=args.serializer,
                    cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:

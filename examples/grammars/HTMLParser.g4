@@ -27,8 +27,8 @@
 */
 
 // TEST-PROCESS: {grammar}Parser.g4 {grammar}Lexer.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r htmlDocument -t {grammar}Generator.html_space_transformer -n 5 -o {tmpdir}/{grammar}G%d.html
-// TEST-GENERATE: {grammar}CustomGenerator.{grammar}CustomGenerator -r htmlDocument -t {grammar}Generator.html_space_transformer -n 5 -o {tmpdir}/{grammar}C%d.html --sys-path ../fuzzer/
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r htmlDocument -s {grammar}Generator.html_space_serializer -n 5 -o {tmpdir}/{grammar}G%d.html
+// TEST-GENERATE: {grammar}CustomGenerator.{grammar}CustomGenerator -r htmlDocument -s {grammar}Generator.html_space_serializer -n 5 -o {tmpdir}/{grammar}C%d.html --sys-path ../fuzzer/
 
 parser grammar HTMLParser;
 
@@ -36,22 +36,24 @@ options { tokenVocab=HTMLLexer;
           dot=any_unicode_char;}
 
 @header {
-def html_space_transformer(node):
+def html_space_serializer(root):
 
-    for child in node.children:
-        html_space_transformer(child)
-
-    if isinstance(node, UnparserRule):
-        new_children = []
+    def _walk(node):
+        nonlocal src
         for child in node.children:
-            new_children.append(child)
-            if child.name == 'htmlTagName' and child.right_sibling and child.right_sibling.name == 'htmlAttribute' \
-                    or child.name == 'htmlAttribute' \
-                    or isinstance(child, UnlexerRule) and child.src and child.src.endswith(('<script', '<style', '<?xml')):
-                new_children.append(UnlexerRule(src=' '))
-        node.children = new_children
+            _walk(child)
 
-    return node
+        if isinstance(node, UnlexerRule) and node.src:
+            src += node.src
+
+        if (isinstance(node, UnparserRule) and
+            node.name == 'htmlTagName' and node.right_sibling and node.right_sibling.name == 'htmlAttribute' or node.name == 'htmlAttribute') \
+                or isinstance(node, UnlexerRule) and node.src and node.src.endswith(('<script', '<style', '<?xml')):
+            src += ' '
+
+    src = ''
+    _walk(root)
+    return src
 
 }
 

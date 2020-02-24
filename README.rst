@@ -95,10 +95,17 @@ language that can be placed basically anywhere without breaking the syntax. The
 most common examples are comments or whitespaces. However, when using these
 grammars - which don't define explicitly where whitespace may or may not appear
 in rules - to generate test cases, we have to insert the missing spaces
-manually. This can be done by applying various transformers (with the ``-t``
-option) to the tree representation of the output tests. A simple transformer -
+manually. This can be done by applying a serializer (with the ``-s``
+option) to the tree representation of the output tests. A simple serializer -
 that inserts a space after every unparser rule - is provided by grammarinator
-(``grammarinator.runtime.simple_space_transformer``).
+(``grammarinator.runtime.simple_space_serializer``).
+
+In some cases, we may want to postprocess the output tree itself (without
+serializing it). For example, to enforce some logic that cannot be
+expressed by a context-free grammar. For this purpose the transformer mechanism
+can be used (with the ``-t`` option). Similarly to the serializers, it will
+take a tree as input, but instead of creating a string representation, it is
+expected to return the modified (transformed) tree object.
 
 As a final thought, one must not forget that the original purpose of grammars
 is the syntax-wise validation of various inputs. As a consequence, these
@@ -123,7 +130,7 @@ a try, run the processor first::
 Then, use the generator to produce test cases::
 
     grammarinator-generate HTMLCustomGenerator.HTMLCustomGenerator -r htmlDocument \
-    -o examples/tests/test_%d.html -t HTMLGenerator.html_space_transformer -n 100 -d 20 --sys-path examples/fuzzer/
+    -o examples/tests/test_%d.html -s HTMLGenerator.html_space_serializer -n 100 -d 20 --sys-path examples/fuzzer/
 
 .. _example: examples/
 

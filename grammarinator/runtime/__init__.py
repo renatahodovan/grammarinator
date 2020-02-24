@@ -6,7 +6,7 @@
 # according to those terms.
 
 from .generator import depthcontrol, Generator, multirange_diff, printable_ascii_ranges, printable_unicode_ranges
-from .transformer import *
+from .serializer import *
 from .tree import BaseRule, Tree, UnlexerRule, UnparserRule
 
 __all__ = [
@@ -16,7 +16,7 @@ __all__ = [
     'multirange_diff',
     'printable_ascii_ranges',
     'printable_unicode_ranges',
-    'simple_space_transformer',
+    'simple_space_serializer',
     'Tree',
     'UnlexerRule',
     'UnparserRule',
