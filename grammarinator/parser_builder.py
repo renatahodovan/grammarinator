@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -6,6 +6,7 @@
 # according to those terms.
 
 import logging
+import sys
 
 from os import listdir
 from os.path import basename, commonprefix, split, splitext
@@ -70,6 +71,10 @@ def build_grammars(in_files, out, antlr):
         parser = file_endswith('Parser.{ext}'.format(ext=languages['python']['ext']))
         # The name of the generated listeners differs if Python or other language target is used.
         listener = file_endswith('{listener_format}.{ext}'.format(listener_format=languages['python']['listener_format'], ext=languages['python']['ext']))
+
+        # Add the path of the built lexer and parser to the Python path to be available for importing.
+        if out not in sys.path:
+            sys.path.append(out)
 
         return (getattr(__import__(x, globals(), locals(), [x], 0), x) for x in [lexer, parser, listener])
     except Exception as e:

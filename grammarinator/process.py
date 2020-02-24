@@ -6,7 +6,6 @@
 # according to those terms.
 
 import re
-import sys
 
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -550,9 +549,6 @@ class FuzzerFactory(object):
 
         antlr_dir = join(self.work_dir, 'antlr')
         makedirs(antlr_dir, exist_ok=True)
-        # Add the path of the built grammars to the Python path to be available at parsing.
-        if antlr_dir not in sys.path:
-            sys.path.append(antlr_dir)
 
         # Copy the grammars from the package to the given working directory.
         antlr_resources = ['ANTLRv4Lexer.g4', 'ANTLRv4Parser.g4', 'LexBasic.g4', 'LexerAdaptor.py']

@@ -9,7 +9,6 @@ import importlib
 import json
 import os
 import shutil
-import sys
 
 from argparse import ArgumentParser
 from math import inf
@@ -54,9 +53,6 @@ class ParserFactory(object):
 
         self.parser_dir = parser_dir
         os.makedirs(self.parser_dir, exist_ok=True)
-
-        if self.parser_dir not in sys.path:
-            sys.path.append(self.parser_dir)
 
         grammars = grammars if isinstance(grammars, list) else json.loads(grammars)
         for i, grammar in enumerate(grammars):
