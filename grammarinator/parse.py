@@ -7,7 +7,6 @@
 
 import importlib
 import json
-import logging
 import os
 import shutil
 import sys
@@ -17,15 +16,12 @@ from math import inf
 from multiprocessing import Pool
 from os.path import basename, exists, join
 
-import antlerinator
-
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
 
+from .cli import add_antlr_argument, add_disable_cleanup_argument, add_jobs_argument, add_log_level_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_antlr_argument, process_log_level_argument, process_sys_recursion_limit_argument
 from .parser_builder import build_grammars
-from .pkgdata import __version__, default_antlr_path
+from .pkgdata import default_antlr_path
 from .runtime import Tree, UnlexerRule, UnparserRule
-
-logger = logging.getLogger('grammarinator')
 
 
 # Override ConsoleErrorListener to suppress parse issues in non-verbose mode.
@@ -170,25 +166,20 @@ def execute():
                         help='list of transformers (in package.module.function format) to postprocess the parsed tree.')
     parser.add_argument('--hidden', nargs='+', metavar='NAME',
                         help='list of hidden tokens to be built into the parsed tree.')
-    parser.add_argument('--antlr', metavar='FILE', default=default_antlr_path,
-                        help='path of the ANTLR jar file (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='input file encoding (default: %(default)s).')
-    parser.add_argument('--disable-cleanup', dest='cleanup', default=True, action='store_false',
-                        help='disable the removal of intermediate files.')
-    parser.add_argument('-j', '--jobs', default=os.cpu_count(), type=int, metavar='NUM',
-                        help='parsing parallelization level (default: number of cpu cores (%(default)d)).')
     parser.add_argument('--max-depth', type=int, default=inf,
                         help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
                         help='directory to save the trees (default: %(default)s).')
     parser.add_argument('--parser-dir', metavar='DIR',
                         help='directory to save the parser grammars (default: <OUTDIR>/grammars).')
-    parser.add_argument('--sys-recursion-limit', metavar='NUM', type=int, default=sys.getrecursionlimit(),
-                        help='override maximum depth of the Python interpreter stack (default: %(default)d)')
-    parser.add_argument('--log-level', default='INFO', metavar='LEVEL',
-                        help='verbosity level of diagnostic messages (default: %(default)s).')
-    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
+    add_disable_cleanup_argument(parser)
+    add_jobs_argument(parser)
+    add_antlr_argument(parser)
+    add_sys_recursion_limit_argument(parser)
+    add_log_level_argument(parser)
+    add_version_argument(parser)
     args = parser.parse_args()
 
     for grammar in args.grammars:
@@ -198,12 +189,9 @@ def execute():
     if not args.parser_dir:
         args.parser_dir = join(args.out, 'grammars')
 
-    logging.basicConfig(format='%(message)s')
-    logger.setLevel(args.log_level)
-    sys.setrecursionlimit(int(args.sys_recursion_limit))
-
-    if args.antlr == default_antlr_path:
-        antlerinator.install(lazy=True)
+    process_log_level_argument(args)
+    process_sys_recursion_limit_argument(args)
+    process_antlr_argument(args)
 
     with ParserFactory(grammars=args.grammars, hidden=args.hidden, transformers=args.transformers, parser_dir=args.parser_dir, antlr=args.antlr,
                        max_depth=args.max_depth, cleanup=args.cleanup) as factory:

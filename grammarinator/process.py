@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import logging
 import re
 import sys
 
@@ -18,16 +17,14 @@ from os.path import dirname, exists, join
 from pkgutil import get_data
 from shutil import rmtree
 
-import antlerinator
 import autopep8
 
 from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 
+from .cli import add_antlr_argument, add_disable_cleanup_argument, add_log_level_argument, add_version_argument, process_antlr_argument, process_log_level_argument
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
 from .runtime import UnlexerRule, UnparserRule
-
-logger = logging.getLogger('grammarinator')
 
 
 class Node(object):
@@ -639,34 +636,28 @@ def execute():
         """)
     parser.add_argument('grammars', nargs='+', metavar='FILE',
                         help='ANTLR grammar files describing the expected format to generate.')
-    parser.add_argument('--antlr', metavar='FILE', default=default_antlr_path,
-                        help='path of the ANTLR jar file (default: %(default)s).')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='grammar file encoding (default: %(default)s).')
     parser.add_argument('--lib', metavar='DIR',
                         help='alternative location of import grammars.')
-    parser.add_argument('--disable-cleanup', dest='cleanup', default=True, action='store_false',
-                        help='disable the removal of intermediate files.')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
-    parser.add_argument('--log-level', metavar='LEVEL', default='INFO',
-                        help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
                         help='temporary working directory (default: %(default)s).')
-    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
+    add_disable_cleanup_argument(parser)
+    add_antlr_argument(parser)
+    add_log_level_argument(parser)
+    add_version_argument(parser)
     args = parser.parse_args()
-
-    logging.basicConfig(format='%(message)s')
-    logger.setLevel(args.log_level)
 
     for grammar in args.grammars:
         if not exists(grammar):
             parser.error('{grammar} does not exist.'.format(grammar=grammar))
 
-    if args.antlr == default_antlr_path:
-        antlerinator.install(lazy=True)
+    process_log_level_argument(args)
+    process_antlr_argument(args)
 
     FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammars, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 

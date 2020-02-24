@@ -9,7 +9,6 @@ import codecs
 import glob
 import importlib
 import json
-import logging
 import os
 import random
 import sys
@@ -20,11 +19,9 @@ from multiprocessing import Pool
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
+from .cli import add_jobs_argument, add_log_level_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_log_level_argument, process_sys_recursion_limit_argument
 from .model import CooldownModel
-from .pkgdata import __version__
 from .runtime import Tree
-
-logger = logging.getLogger('grammarinator')
 
 
 class Population(object):
@@ -253,29 +250,25 @@ def execute():
                         help='keep generated tests to participate in further mutations or recombinations (default: %(default)d).')
 
     # Auxiliary settings.
-    parser.add_argument('-j', '--jobs', default=os.cpu_count(), type=int, metavar='NUM',
-                        help='test generation parallelization level (default: number of cpu cores (%(default)d)).')
     parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', 'test_%d'),
                         help='output file name pattern (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='output file encoding (default: %(default)s).')
-    parser.add_argument('--log-level', default='INFO', metavar='LEVEL',
-                        help='verbosity level of diagnostic messages (default: %(default)s).')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
                         help='number of tests to generate (default: %(default)s).')
-    parser.add_argument('--sys-recursion-limit', metavar='NUM', type=int, default=sys.getrecursionlimit(),
-                        help='override maximum depth of the Python interpreter stack')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
-    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
+    add_jobs_argument(parser)
+    add_sys_recursion_limit_argument(parser)
+    add_log_level_argument(parser)
+    add_version_argument(parser)
     args = parser.parse_args()
 
     if args.jobs == 1 and args.random_seed:
         random.seed(args.random_seed)
 
-    logging.basicConfig(format='%(message)s')
-    logger.setLevel(args.log_level)
-    sys.setrecursionlimit(args.sys_recursion_limit)
+    process_log_level_argument(args)
+    process_sys_recursion_limit_argument(args)
 
     if args.population:
         if not isdir(args.population):
