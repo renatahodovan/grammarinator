@@ -9,7 +9,6 @@ import re
 
 from argparse import ArgumentParser
 from collections import defaultdict
-from contextlib import contextmanager
 from math import inf
 from os import getcwd, makedirs
 from os.path import dirname, exists, join
@@ -19,11 +18,11 @@ from shutil import rmtree
 import autopep8
 
 from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
+from jinja2 import Environment
 
 from .cli import add_antlr_argument, add_disable_cleanup_argument, add_log_level_argument, add_version_argument, process_antlr_argument, process_log_level_argument
 from .parser_builder import build_grammars
 from .pkgdata import __version__, default_antlr_path
-from .runtime import UnlexerRule, UnparserRule
 
 
 class Node(object):
@@ -31,14 +30,53 @@ class Node(object):
     def __init__(self, id):
         self.id = id
         self.out_neighbours = []
+        self.min_depth = inf
 
 
 class RuleNode(Node):
+
+    def __init__(self, id, type):
+        super().__init__(id)
+        self.type = type
+        self.has_var = False
+
+
+class UnlexerRuleNode(RuleNode):
+
+    def __init__(self, id):
+        super().__init__(id, 'UnlexerRule')
+
+
+class UnparserRuleNode(RuleNode):
+
+    def __init__(self, id):
+        super().__init__(id, 'UnparserRule')
+
+
+class ImagRuleNode(Node):
+    pass
+
+
+class LiteralNode(Node):
+
+    def __init__(self, id, src=None, charset=None, range=None, any=False):
+        super().__init__(id)
+        self.src = src
+        self.charset = charset
+        self.range = range
+        self.any_char = any
+
+
+class LambdaNode(Node):
     pass
 
 
 class AlternationNode(Node):
-    pass
+
+    def __init__(self, id, idx, conditions):
+        super().__init__(id)
+        self.idx = idx
+        self.conditions = conditions
 
 
 class AlternativeNode(Node):
@@ -46,13 +84,58 @@ class AlternativeNode(Node):
 
 
 class QuantifierNode(Node):
-    pass
+
+    def __init__(self, id, idx, min, max):
+        super().__init__(id)
+        self.idx = idx
+        self.min = min
+        self.max = max
+
+
+class ActionNode(Node):
+
+    def __init__(self, id, src):
+        super().__init__(id)
+        self.src = src
+
+
+class VariableNode(Node):
+
+    def __init__(self, id, name):
+        super().__init__(id)
+        self.name = name
+
+
+class Charset(object):
+
+    def __init__(self, name, ranges, invert=False):
+        self.name = name
+        self.ranges = ranges
+        self.invert = invert
 
 
 class GrammarGraph(object):
 
     def __init__(self):
-        self.vertices = dict()
+        self.name = None
+        self.vertices = dict(lambda_0=LambdaNode(id='lambda_0'))
+        self.options = dict()
+        self.charsets = []
+        self.header = ''
+        self.member = ''
+        self.default_rule = None
+
+    @property
+    def superclass(self):
+        return self.options.get('superClass', 'Generator')
+
+    @property
+    def rules(self):
+        return (vertex for vertex in self.vertices.values() if isinstance(vertex, RuleNode) and vertex.id != 'EOF')
+
+    @property
+    def imag_rules(self):
+        return (vertex for vertex in self.vertices.values() if isinstance(vertex, ImagRuleNode))
 
     def add_node(self, node):
         self.vertices[node.id] = node
@@ -71,7 +154,7 @@ class GrammarGraph(object):
             for ident in self.vertices:
                 selector = min if isinstance(self.vertices[ident], AlternationNode) else max
                 min_depth = selector([min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode))
-                                      for node in self.vertices[ident].out_neighbours if not isinstance(node, QuantifierNode)], default=0)
+                                      for node in self.vertices[ident].out_neighbours if not isinstance(node, QuantifierNode) or node.min >= 1], default=0)
 
                 if min_depth < min_depths[ident]:
                     min_depths[ident] = min_depth
@@ -90,7 +173,8 @@ class GrammarGraph(object):
             else:
                 assert min_depths[ident] != inf, 'Rule with infinite derivation: %s' % ident
 
-        return min_depths
+        for ident, min_depth in min_depths.items():
+            self.vertices[ident].min_depth = min_depth
 
 
 class FuzzerGenerator(object):
@@ -99,32 +183,18 @@ class FuzzerGenerator(object):
         self.antlr_parser_cls = antlr_parser_cls
         self.actions = actions
 
-        self.indent_level = 0
         self.charset_idx = 0
         self.code_id = 0
-        self.alt_id = 0
-        self.quant_id = 0
+        self.alt_idx = 0
+        self.quant_idx = 0
+        self.rule_name = None
 
         self.graph = GrammarGraph()
 
         self.current_start_range = None
         self.token_start_ranges = dict()
 
-        self.generator_header = ''
-        self.generator_body = ''
-        self.generator_name = None
-        self.options = dict()
-        self.code_chunks = dict()
         self.labeled_alts = []
-
-    @contextmanager
-    def indent(self):
-        self.indent_level += 4
-        yield
-        self.indent_level -= 4
-
-    def line(self, src=None):
-        return (' ' * self.indent_level) + src + '\n' if src else '\n'
 
     def new_code_id(self, code_type):
         code_name = '{type}_{idx}'.format(type=code_type, idx=self.code_id)
@@ -135,39 +205,6 @@ class FuzzerGenerator(object):
         charset_name = 'charset_{idx}'.format(idx=self.charset_idx)
         self.charset_idx += 1
         return charset_name
-
-    def generate_prefixes(self):
-        header_prefix = self.line('# Generated by Grammarinator {version}\n'.format(version=__version__))
-        header_prefix += self.line('from itertools import chain')
-        header_prefix += self.line('from math import inf')
-        header_prefix += self.line('from grammarinator.runtime import *\n')
-
-        superclass = self.options.get('superClass', 'Generator')
-        if superclass != 'Generator':
-            header_prefix += self.line('if __name__ is not None and \'.\' in __name__:')
-            with self.indent():
-                header_prefix += self.line('from .{superclass} import {superclass}'.format(superclass=superclass))
-            header_prefix += self.line('else:')
-            with self.indent():
-                header_prefix += self.line('from {superclass} import {superclass}\n'.format(superclass=superclass))
-
-        body_prefix = self.line('class {generator_name}({superclass}):\n'.format(generator_name=self.generator_name,
-                                                                                 superclass=superclass))
-        with self.indent():
-            body_prefix += self.line('def __init__(self, **kwargs):')
-
-            with self.indent():
-                body_prefix += self.line('super().__init__(**kwargs)')
-                if self.options.get('dot'):
-                    body_prefix += self.line('self.any_char = self.{dot}'.format(dot=self.options['dot']))
-                body_prefix += self.line()
-
-        with self.indent():
-            body_prefix += self.line('def EOF(self, *args, **kwargs):')
-            with self.indent():
-                body_prefix += self.line('pass\n')
-
-        return header_prefix, body_prefix
 
     def find_conditions(self, node):
         if not self.actions:
@@ -248,13 +285,14 @@ class FuzzerGenerator(object):
             if root:
                 self.generate_grammar(root)
 
-        self.code_chunks.update(self.graph.calc_min_depths())
-        header_prefix, body_prefix = self.generate_prefixes()
-
-        return (header_prefix + self.generator_header + '\n\n' + body_prefix + self.generator_body).format_map(self.code_chunks)
+        self.graph.calc_min_depths()
+        return self.graph
 
     def generate_grammar(self, node):
         assert isinstance(node, self.antlr_parser_cls.GrammarSpecContext)
+
+        if not self.graph.name:
+            self.graph.name = re.sub(r'^(.+?)(Lexer|Parser)?$', r'\1Generator', str(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()))
 
         if node.prequelConstruct():
             for prequelConstruct in node.prequelConstruct():
@@ -262,170 +300,107 @@ class FuzzerGenerator(object):
                     for option in prequelConstruct.optionsSpec().option():
                         ident = option.identifier()
                         ident = str(ident.RULE_REF() or ident.TOKEN_REF())
-                        self.options[ident] = option.optionValue().getText()
+                        self.graph.options[ident] = option.optionValue().getText()
 
-        if not self.generator_name:
-            self.generator_name = re.sub(r'^(.+?)(Lexer|Parser)?$', r'\1Generator', str(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()))
-
-        if node.prequelConstruct():
-            for prequelConstruct in node.prequelConstruct():
                 if prequelConstruct.tokensSpec():
                     id_list = prequelConstruct.tokensSpec().idList()
                     if id_list:
                         for identifier in id_list.identifier():
                             assert identifier.TOKEN_REF() is not None, 'Token names must start with uppercase letter.'
-                            rule_name = str(identifier.TOKEN_REF())
-                            self.graph.add_node(RuleNode(id=rule_name))
+                            self.graph.add_node(ImagRuleNode(id=str(identifier.TOKEN_REF())))
 
-                            with self.indent():
-                                self.generator_body += self.line('def {rule_name}(self, parent=None):'.format(rule_name=rule_name))
-                                with self.indent():
-                                    self.generator_body += self.line('return UnlexerRule(name={rule_name!r}, parent=parent)\n'.format(rule_name=rule_name))
-
-            for prequelConstruct in node.prequelConstruct():
                 if prequelConstruct.action() and self.actions:
                     action = prequelConstruct.action()
-
                     action_ident = action.identifier()
                     action_type = str(action_ident.RULE_REF() or action_ident.TOKEN_REF())
                     raw_action_src = ''.join([str(child) for child in action.actionBlock().ACTION_CONTENT()])
 
-                    if action_type == 'header':
-                        action_src = raw_action_src
-                    else:
-                        with self.indent():
-                            action_src = ''.join([self.line(line) for line in raw_action_src.splitlines()])
-
-                    code_id = self.new_code_id('action')
-                    self.code_chunks[code_id] = action_src
-                    code_pattern = '{{{code_id}}}'.format(code_id=code_id)
                     # We simply append both member and header code chunks to the generated source.
                     # It's the user's responsibility to define them in order.
                     # Both 'member' and 'members' keywords are accepted.
-                    if action_type.startswith('member'):
-                        self.generator_body += code_pattern
+                    if action_type in ('member', 'members'):
+                        self.graph.member += raw_action_src
                     elif action_type == 'header':
-                        self.generator_header += code_pattern
+                        self.graph.header += raw_action_src
 
-        rules = node.rules().ruleSpec()
         generator_rules = []
-        self.graph.add_node(RuleNode(id='EOF'))
-        for rule in rules:
+        self.graph.add_node(UnlexerRuleNode(id='EOF'))
+        for rule in node.rules().ruleSpec():
             if rule.parserRuleSpec():
-                self.graph.add_node(RuleNode(id=str(rule.parserRuleSpec().RULE_REF())))
+                self.graph.add_node(UnparserRuleNode(id=str(rule.parserRuleSpec().RULE_REF())))
                 generator_rules.append(rule.parserRuleSpec())
             elif rule.lexerRuleSpec():
-                self.graph.add_node(RuleNode(id=str(rule.lexerRuleSpec().TOKEN_REF())))
+                self.graph.add_node(UnlexerRuleNode(id=str(rule.lexerRuleSpec().TOKEN_REF())))
                 generator_rules.append(rule.lexerRuleSpec())
             else:
                 assert False, 'Should not get here.'
 
         for mode_spec in node.modeSpec():
             for lexer_rule in mode_spec.lexerRuleSpec():
-                self.graph.add_node(RuleNode(id=str(lexer_rule.TOKEN_REF())))
+                self.graph.add_node(UnlexerRuleNode(id=str(lexer_rule.TOKEN_REF())))
                 generator_rules.append(lexer_rule)
 
-        with self.indent():
-            for rule in generator_rules:
-                self.generator_body += self.generate_single(rule)
+        for rule in generator_rules:
+            self.generate_single(rule)
 
         if node.grammarType().PARSER() or not (node.grammarType().LEXER() or node.grammarType().PARSER()):
-            with self.indent():
-                self.generator_body += self.line('default_rule = {name}\n'.format(name=generator_rules[0].RULE_REF()))
+            self.graph.default_rule = generator_rules[0].RULE_REF()
 
     def generate_single(self, node, parent_id=None):
         if isinstance(node, (self.antlr_parser_cls.ParserRuleSpecContext, self.antlr_parser_cls.LexerRuleSpecContext)):
-            self.alt_id, self.quant_id = 0, 0
+            self.alt_idx, self.quant_idx = 0, 0
             parser_rule = isinstance(node, self.antlr_parser_cls.ParserRuleSpecContext)
-            node_type = UnparserRule if parser_rule else UnlexerRule
-            rule_name = str(node.RULE_REF() if parser_rule else node.TOKEN_REF())
+            self.rule_name = str(node.RULE_REF() if parser_rule else node.TOKEN_REF())
 
             # Mark that the next lexerAtom has to be saved as start range.
             if not parser_rule:
                 self.current_start_range = []
 
-            rule_header = self.line('@depthcontrol')
-            rule_header += self.line('def {rule_name}(self, parent=None):'.format(rule_name=rule_name))
-            with self.indent():
-                local_ctx = self.line('local_ctx = dict()')
-                rule_code = self.line('current = {node_type}(name={rule_name!r}, parent=parent)'.format(node_type=node_type.__name__,
-                                                                                                        rule_name=rule_name))
-                rule_code += self.line('self.enter_rule(current)')
-                rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
-                rule_code += self.generate_single(rule_block, rule_name)
-                rule_code += self.line('self.exit_rule(current)')
-                rule_code += self.line('return current')
-            rule_code += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=rule_name))
+            rule_block = node.ruleBlock() if parser_rule else node.lexerRuleBlock()
+            self.generate_single(rule_block, self.rule_name)
 
-            # local_ctx only has to be initialized if we have variable assignment.
-            rule_code = rule_header + (local_ctx if 'local_ctx' in rule_code else '') + rule_code
-
-            if self.labeled_alts:
-                for _ in range(len(self.labeled_alts)):
-                    name, children = self.labeled_alts.pop(0)
-                    labeled_header = self.line('@depthcontrol')
-                    labeled_header += self.line('def {name}(self, parent=None):'.format(name=name))
-                    with self.indent():
-                        local_ctx = self.line('local_ctx = dict()')
-                        labeled_code = self.line('current = UnparserRule(name={name!r}, parent=parent)'.format(name=name))
-                        labeled_code += self.line('self.enter_rule(current)')
-                        for child in children:
-                            labeled_code += self.generate_single(child, name)
-                        labeled_code += self.line('self.exit_rule(current)')
-                        labeled_code += self.line('return current')
-                    labeled_code += self.line('{rule_name}.min_depth = {{{rule_name}}}\n'.format(rule_name=name))
-
-                    labeled_code = labeled_header + (local_ctx if 'local_ctx' in labeled_code else '') + labeled_code
-                    rule_code += labeled_code
+            # Process top-level labeled alternatives of the current rule.
+            while self.labeled_alts:
+                self.rule_name, children = self.labeled_alts.pop(0)
+                for child in children:
+                    self.generate_single(child, self.rule_name)
 
             if not parser_rule:
-                self.token_start_ranges[rule_name] = self.current_start_range
+                self.token_start_ranges[self.rule_name] = self.current_start_range
                 self.current_start_range = None
 
-            return rule_code
-
-        if isinstance(node, (self.antlr_parser_cls.RuleAltListContext, self.antlr_parser_cls.AltListContext, self.antlr_parser_cls.LexerAltListContext)):
+        elif isinstance(node, (self.antlr_parser_cls.RuleAltListContext, self.antlr_parser_cls.AltListContext, self.antlr_parser_cls.LexerAltListContext)):
             children = [child for child in node.children if isinstance(child, ParserRuleContext)]
             if len(children) == 1:
-                return self.generate_single(children[0], parent_id)
+                self.generate_single(children[0], parent_id)
+                return
 
-            alt_name = self.new_code_id('alt')
-            self.graph.add_node(AlternationNode(id=alt_name))
-            self.graph.add_edge(frm=parent_id, to=alt_name)
-
-            conditions = [(self.new_code_id('cond'), self.find_conditions(child)) for child in children]
-            self.code_chunks.update(conditions)
-
-            result = self.line('choice = self.model.choice(current, {idx}, [0 if {{{alt_name}}}[i] > self.max_depth else w for i, w in enumerate([{weights}])])'
-                               .format(alt_name=alt_name,
-                                       idx=self.alt_id,
-                                       weights=', '.join('{{{cond_id}}}'.format(cond_id=cond_id) for cond_id, _ in conditions)))
-            self.alt_id += 1
+            alt_id = self.rule_name + '_' + str(self.alt_idx)
+            self.graph.add_node(AlternationNode(id=alt_id, idx=self.alt_idx, conditions=[self.find_conditions(child) for child in children]))
+            self.alt_idx += 1
+            self.graph.add_edge(frm=parent_id, to=alt_id)
 
             for i, child in enumerate(children):
-                alternative_name = '{alt_name}_{idx}'.format(alt_name=alt_name, idx=i)
-                self.graph.add_node(AlternativeNode(id=alternative_name))
-                self.graph.add_edge(frm=alt_name, to=alternative_name)
+                alternative_id = '{alt_id}_{idx}'.format(alt_id=alt_id, idx=i)
+                self.graph.add_node(AlternativeNode(id=alternative_id))
+                self.graph.add_edge(frm=alt_id, to=alternative_id)
+                self.generate_single(child, alternative_id)
 
-                result += self.line('{if_kw} choice == {idx}:'.format(if_kw='if' if i == 0 else 'elif', idx=i))
-                with self.indent():
-                    result += self.generate_single(child, alternative_name) or self.line('pass')
-
-            return result
-
-        if isinstance(node, self.antlr_parser_cls.LabeledAltContext) and node.identifier():
-            rule_name = node.parentCtx.parentCtx.parentCtx.RULE_REF().symbol.text
-            name = '{rule_name}_{label_name}'.format(rule_name=rule_name,
+        elif isinstance(node, self.antlr_parser_cls.LabeledAltContext) and node.identifier():
+            name = '{rule_name}_{label_name}'.format(rule_name=self.rule_name,
                                                      label_name=(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()).symbol.text)
-            self.graph.add_node(RuleNode(id=name))
+            self.graph.add_node(UnparserRuleNode(id=name))
             self.graph.add_edge(frm=parent_id, to=name)
             # Notify the alternative that it's a labeled one and should be processed later.
-            return self.generate_single(node.alternative(), '#' + name)
+            self.generate_single(node.alternative(), '#' + name)
 
         # Sequences.
-        if isinstance(node, (self.antlr_parser_cls.AlternativeContext, self.antlr_parser_cls.LexerAltContext)):
+        elif isinstance(node, (self.antlr_parser_cls.AlternativeContext, self.antlr_parser_cls.LexerAltContext)):
             if not node.children:
-                return self.line('UnlexerRule(src=\'\', parent=current)')
+                lit_id = self.new_code_id('lit')
+                self.graph.add_node(LiteralNode(id=lit_id, src=''))
+                self.graph.add_edge(parent_id, lit_id)
+                return
 
             if isinstance(node, self.antlr_parser_cls.AlternativeContext):
                 children = node.element()
@@ -437,24 +412,23 @@ class FuzzerGenerator(object):
             if parent_id.startswith('#'):
                 # If the current alternative is labeled then it will be processed
                 # later since its content goes to a separate method.
-                parent_id = parent_id[1:]
-                self.labeled_alts.append((parent_id, children))
-                return self.line('current = self.{name}(parent=parent)'.format(name=parent_id))
+                self.labeled_alts.append((parent_id[1:], children))
+                return
 
-            return ''.join([self.generate_single(child, parent_id) for child in children])
+            for child in children:
+                self.generate_single(child, parent_id)
 
-        if isinstance(node, (self.antlr_parser_cls.ElementContext, self.antlr_parser_cls.LexerElementContext)):
-            if self.actions and node.actionBlock():
+        elif isinstance(node, (self.antlr_parser_cls.ElementContext, self.antlr_parser_cls.LexerElementContext)):
+            if node.actionBlock():
                 # Conditions are handled at alternative processing.
-                if node.QUESTION():
-                    return ''
-
-                action_src = ''.join([str(child) for child in node.actionBlock().ACTION_CONTENT()])
-                action_src = re.sub(r'\$(?P<var_name>\w+)', 'local_ctx[\'\\g<var_name>\']', action_src)
+                if not self.actions or node.QUESTION():
+                    self.graph.add_edge(parent_id, 'lambda_0')
+                    return
 
                 action_id = self.new_code_id('action')
-                self.code_chunks[action_id] = ''.join([self.line(line) for line in action_src.splitlines()])
-                return '{{{action_id}}}'.format(action_id=action_id)
+                self.graph.add_node(ActionNode(id=action_id, src=''.join([str(child) for child in node.actionBlock().ACTION_CONTENT()])))
+                self.graph.add_edge(parent_id, action_id)
+                return
 
             suffix = None
             if node.ebnfSuffix():
@@ -463,41 +437,36 @@ class FuzzerGenerator(object):
                 suffix = node.ebnf().blockSuffix().ebnfSuffix()
 
             if not suffix:
-                return self.generate_single(node.children[0], parent_id)
+                self.generate_single(node.children[0], parent_id)
+                return
 
             suffix = str(suffix.children[0])
-            if suffix in ['?', '*']:
-                quant_name = self.new_code_id('quant')
-                self.graph.add_node(QuantifierNode(id=quant_name))
-                self.graph.add_edge(frm=parent_id, to=quant_name)
-                parent_id = quant_name
+            quant_id = self.new_code_id('quant')
+            quant_ranges = {'?': {'min': 0, 'max': 1}, '*': {'min': 0, 'max': 'inf'}, '+': {'min': 1, 'max': 'inf'}}
+            self.graph.add_node(QuantifierNode(id=quant_id, idx=self.quant_idx, **quant_ranges[suffix]))
+            self.quant_idx += 1
+            self.graph.add_edge(frm=parent_id, to=quant_id)
+            self.generate_single(node.children[0], quant_id)
 
-            quant_args = {'?': 'min=0, max=1', '*': 'min=0, max=inf', '+': 'min=1, max=inf'}[suffix]
-            result = self.line('if self.max_depth >= {min_depth}:'.format(min_depth='0' if suffix == '+' else '{{{name}}}'.format(name=parent_id)))
-            with self.indent():
-                result += self.line('for _ in self.model.quantify(current, {idx}, {args}):'.format(idx=self.quant_id, args=quant_args))
-                self.quant_id += 1
-                with self.indent():
-                    result += self.generate_single(node.children[0], parent_id)
-                result += '\n'
-            return result
-
-        if isinstance(node, self.antlr_parser_cls.LabeledElementContext):
+        elif isinstance(node, self.antlr_parser_cls.LabeledElementContext):
+            self.generate_single(node.atom() or node.block(), parent_id)
             ident = node.identifier()
             name = str(ident.RULE_REF() or ident.TOKEN_REF())
-            result = self.generate_single(node.atom() or node.block(), parent_id)
-            result += self.line('local_ctx[{name!r}] = current.last_child'.format(name=name))
-            return result
+            var_id = self.new_code_id('var')
+            self.graph.add_node(VariableNode(var_id, name))
+            self.graph.add_edge(parent_id, var_id)
+            self.graph.vertices[self.rule_name].has_var = True
 
-        if isinstance(node, self.antlr_parser_cls.RulerefContext):
+        elif isinstance(node, self.antlr_parser_cls.RulerefContext):
             self.graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
-            return self.line('self.{rule_name}(parent=current)'.format(rule_name=node.RULE_REF()))
 
-        if isinstance(node, (self.antlr_parser_cls.LexerAtomContext, self.antlr_parser_cls.AtomContext)):
+        elif isinstance(node, (self.antlr_parser_cls.LexerAtomContext, self.antlr_parser_cls.AtomContext)):
             if node.DOT():
-                return self.line('UnlexerRule(src=self.any_char(), parent=current)')
+                lit_id = self.new_code_id('lit')
+                self.graph.add_node(LiteralNode(lit_id, any=True))
+                self.graph.add_edge(parent_id, lit_id)
 
-            if node.notSet():
+            elif node.notSet():
                 if node.notSet().setElement():
                     options = self.chars_from_set(node.notSet().setElement())
                 else:
@@ -505,57 +474,69 @@ class FuzzerGenerator(object):
                     for set_element in node.notSet().blockSet().setElement():
                         options.extend(self.chars_from_set(set_element))
 
-                charset_name = self.new_charset_name()
-                self.generator_header += '{charset_name} = list(chain(*multirange_diff(printable_unicode_ranges, [{charset}])))\n'.format(charset_name=charset_name, charset=', '.join(['({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in sorted(options, key=lambda x: x[0])]))
-                return self.line('UnlexerRule(src=self.char_from_list({charset_name}), parent=current)'.format(charset_name=charset_name))
+                charset_id = self.new_charset_name()
+                lit_id = self.new_code_id('lit')
+                self.graph.charsets.append(Charset(name=charset_id, ranges=sorted(options, key=lambda x: x[0]), invert=True))
+                self.graph.add_node(LiteralNode(lit_id, charset=charset_id))
+                self.graph.add_edge(parent_id, lit_id)
 
-            if isinstance(node, self.antlr_parser_cls.LexerAtomContext):
-                if node.characterRange():
-                    start, end = self.character_range_interval(node)
-                    if self.current_start_range is not None:
-                        self.current_start_range.append((start, end))
-                    return self.line('UnlexerRule(src=self.char_from_list(range({start}, {end})), parent=current)'.format(start=start, end=end))
+            elif isinstance(node, self.antlr_parser_cls.LexerAtomContext) and node.characterRange():
+                start, end = self.character_range_interval(node)
+                if self.current_start_range is not None:
+                    self.current_start_range.append((start, end))
 
-                if node.LEXER_CHAR_SET():
-                    ranges = self.lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
+                lit_id = self.new_code_id('lit')
+                self.graph.add_node(LiteralNode(lit_id, range=[start, end]))
+                self.graph.add_edge(parent_id, lit_id)
 
-                    if self.current_start_range is not None:
-                        self.current_start_range.extend(ranges)
+            elif isinstance(node, self.antlr_parser_cls.LexerAtomContext) and node.LEXER_CHAR_SET():
+                ranges = self.lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
 
-                    charset_name = self.new_charset_name()
-                    self.generator_header += '{charset_name} = list(chain({charset}))\n'.format(charset_name=charset_name, charset=', '.join(['range({start}, {end})'.format(start=chr_range[0], end=chr_range[1]) for chr_range in ranges]))
-                    return self.line('UnlexerRule(src=self.char_from_list({charset_name}), parent=current)'.format(charset_name=charset_name))
+                if self.current_start_range is not None:
+                    self.current_start_range.extend(ranges)
 
-            return ''.join([self.generate_single(child, parent_id) for child in node.children])
+                charset_id = self.new_charset_name()
+                lit_id = self.new_code_id('lit')
+                self.graph.charsets.append(Charset(name=charset_id, ranges=sorted(ranges, key=lambda x: x[0])))
+                self.graph.add_node(LiteralNode(lit_id, charset=charset_id))
+                self.graph.add_edge(parent_id, lit_id)
 
-        if isinstance(node, self.antlr_parser_cls.TerminalContext):
+            for child in node.children:
+                self.generate_single(child, parent_id)
+
+        elif isinstance(node, self.antlr_parser_cls.TerminalContext):
             if node.TOKEN_REF():
                 self.graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
-                return self.line('self.{rule_name}(parent=current)'.format(rule_name=node.TOKEN_REF()))
 
-            if node.STRING_LITERAL():
+            elif node.STRING_LITERAL():
                 src = str(node.STRING_LITERAL())[1:-1]
                 if self.current_start_range is not None:
                     self.current_start_range.append((ord(src[0]), ord(src[0]) + 1))
-                code_id = self.new_code_id('lit')
-                self.code_chunks[code_id] = src
-                return self.line('UnlexerRule(src=\'{{{code_id}}}\', parent=current)'.format(code_id=code_id))
+                lit_id = self.new_code_id('lit')
+                self.graph.add_node(LiteralNode(lit_id, src=src))
+                self.graph.add_edge(parent_id, lit_id)
 
-        if isinstance(node, ParserRuleContext) and node.getChildCount():
-            return ''.join([self.generate_single(child, parent_id) for child in node.children])
-
-        return ''
+        elif isinstance(node, ParserRuleContext) and node.getChildCount():
+            for child in node.children:
+                self.generate_single(child, parent_id)
 
 
 class FuzzerFactory(object):
     """
     Class that generates fuzzers from grammars.
     """
-    def __init__(self, work_dir=None, antlr=default_antlr_path):
+    def __init__(self, lang, work_dir=None, antlr=default_antlr_path):
         """
+        :param lang: Language of the generated code.
         :param work_dir: Directory to generate fuzzers into.
         :param antlr: Path to the ANTLR jar.
         """
+        self.lang = lang
+        env = Environment(trim_blocks=True,
+                          lstrip_blocks=True,
+                          keep_trailing_newline=False)
+        env.filters['substitute'] = lambda s, frm, to: re.sub(frm, to, str(s))
+        self.template = env.from_string(get_data(__package__, join('resources', 'codegen', 'GeneratorTemplate.' + lang + '.jinja')).decode('utf-8'))
         self.work_dir = work_dir or getcwd()
 
         antlr_dir = join(self.work_dir, 'antlr')
@@ -589,9 +570,9 @@ class FuzzerFactory(object):
             else:
                 parser_root = root
 
-        fuzzer_generator = FuzzerGenerator(self.antlr_parser_cls, actions)
-        src = fuzzer_generator.generate(lexer_root, parser_root)
-        with open(join(self.work_dir, fuzzer_generator.generator_name + '.py'), 'w') as f:
+        graph = FuzzerGenerator(self.antlr_parser_cls, actions).generate(lexer_root, parser_root)
+        src = self.template.render(graph=graph, version=__version__).lstrip()
+        with open(join(self.work_dir, graph.name + '.' + self.lang), 'w') as f:
             if pep8:
                 src = autopep8.fix_code(src)
             f.write(src)
@@ -643,6 +624,8 @@ def execute():
         """)
     parser.add_argument('grammar', metavar='FILE', nargs='+',
                         help='ANTLR grammar files describing the expected format to generate.')
+    parser.add_argument('--language', choices=['py'], default='py',
+                        help='language of the generated code (choices: %(choices)s; default: %(default)s)')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
@@ -666,7 +649,7 @@ def execute():
     process_log_level_argument(args)
     process_antlr_argument(args)
 
-    FuzzerFactory(args.out, args.antlr).generate_fuzzer(args.grammar, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.language, args.out, args.antlr).generate_fuzzer(args.grammar, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
     if args.cleanup:
         rmtree(join(args.out, 'antlr'), ignore_errors=True)
