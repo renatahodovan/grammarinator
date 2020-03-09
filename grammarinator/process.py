@@ -397,9 +397,7 @@ class FuzzerGenerator(object):
         # Sequences.
         elif isinstance(node, (self.antlr_parser_cls.AlternativeContext, self.antlr_parser_cls.LexerAltContext)):
             if not node.children:
-                lit_id = self.new_code_id('lit')
-                self.graph.add_node(LiteralNode(id=lit_id, src=''))
-                self.graph.add_edge(parent_id, lit_id)
+                self.graph.add_edge(parent_id, 'lambda_0')
                 return
 
             if isinstance(node, self.antlr_parser_cls.AlternativeContext):
