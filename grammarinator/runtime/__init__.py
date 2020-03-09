@@ -8,20 +8,5 @@
 from .default_listener import DefaultListener
 from .dispatching_listener import DispatchingListener
 from .generator import depthcontrol, Generator, multirange_diff, printable_ascii_ranges, printable_unicode_ranges
-from .serializer import *
+from .serializer import simple_space_serializer
 from .tree import BaseRule, Tree, UnlexerRule, UnparserRule
-
-__all__ = [
-    'BaseRule',
-    'DefaultListener',
-    'depthcontrol',
-    'DispatchingListener',
-    'Generator',
-    'multirange_diff',
-    'printable_ascii_ranges',
-    'printable_unicode_ranges',
-    'simple_space_serializer',
-    'Tree',
-    'UnlexerRule',
-    'UnparserRule',
-]
