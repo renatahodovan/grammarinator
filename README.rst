@@ -7,8 +7,6 @@ Grammarinator
    :target: https://badge.fury.io/py/grammarinator
 .. image:: https://travis-ci.org/renatahodovan/grammarinator.svg?branch=master
    :target: https://travis-ci.org/renatahodovan/grammarinator
-.. image:: https://ci.appveyor.com/api/projects/status/0f1vm5x9j9j31hpo/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/renatahodovan/grammarinator/branch/master
 .. image:: https://coveralls.io/repos/github/renatahodovan/grammarinator/badge.svg
    :target: https://coveralls.io/github/renatahodovan/grammarinator
 
@@ -141,7 +139,8 @@ Compatibility
 *grammarinator* was tested on:
 
 * Linux (Ubuntu 16.04 / 18.04)
-* Mac OS X (Sierra 10.12 / High Sierra 10.13 / Mojave 10.14)
+* Mac OS X (Sierra 10.12 / High Sierra 10.13 / Mojave 10.14 / Catalina 10.15)
+* Windows (Server 2012 R2 / Server version 1809 / Windows 10)
 
 
 Citations
@@ -156,4 +155,4 @@ Copyright and Licensing
 
 Licensed under the BSD 3-Clause License_.
 
-.. _LICENSE: LICENSE.rst
+.. _License: LICENSE.rst
