@@ -195,9 +195,9 @@ def execute():
                        max_depth=args.max_depth, cleanup=args.cleanup) as factory:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
-                pool.starmap(factory.tree_from_file, iterate_tests(args.files, args.rule, args.out, args.encoding))
+                pool.starmap(factory.tree_from_file, iterate_tests(args.input, args.rule, args.out, args.encoding))
         else:
-            for create_args in iterate_tests(args.files, args.rule, args.out, args.encoding):
+            for create_args in iterate_tests(args.input, args.rule, args.out, args.encoding):
                 factory.tree_from_file(*create_args)
 
 
