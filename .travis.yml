@@ -1,6 +1,7 @@
 language: python
 
 git:
+  depth: false
   autocrlf: input
 
 install: pip install -U tox
