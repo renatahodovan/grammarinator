@@ -72,8 +72,6 @@ class Generator(object):
     def __init__(self, *, model=None, max_depth=inf):
         self.model = model or DefaultModel()
         self.max_depth = max_depth
-        self.options = dict()
-        self.any_char = self.any_ascii_char
         self.listeners = []
 
     @staticmethod
@@ -91,6 +89,8 @@ class Generator(object):
     @staticmethod
     def any_ascii_letter():
         return random.choice(string.ascii_letters)
+
+    any_char = any_ascii_char
 
     def enter_rule(self, node):
         for listener in self.listeners:
