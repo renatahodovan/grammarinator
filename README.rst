@@ -3,11 +3,13 @@ Grammarinator
 =============
 *ANTLRv4 grammar-based test generator*
 
-.. image:: https://badge.fury.io/py/grammarinator.svg
-   :target: https://badge.fury.io/py/grammarinator
-.. image:: https://travis-ci.org/renatahodovan/grammarinator.svg?branch=master
+.. image:: https://img.shields.io/pypi/v/grammarinator?logo=python&logoColor=white
+   :target: https://pypi.org/project/grammarinator/
+.. image:: https://img.shields.io/pypi/l/grammarinator?logo=open-source-initiative&logoColor=white
+   :target: https://pypi.org/project/grammarinator/
+.. image:: https://img.shields.io/travis/renatahodovan/grammarinator/master?logo=travis&logoColor=white
    :target: https://travis-ci.org/renatahodovan/grammarinator
-.. image:: https://coveralls.io/repos/github/renatahodovan/grammarinator/badge.svg
+.. image:: https://img.shields.io/coveralls/github/renatahodovan/grammarinator/master?logo=coveralls&logoColor=white
    :target: https://coveralls.io/github/renatahodovan/grammarinator
 
 *Grammarinator* is a random test generator / fuzzer that creates test cases
