@@ -497,11 +497,12 @@ class FuzzerFactory(object):
 
         self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_resources, antlr_dir, antlr=antlr)
 
-    def generate_fuzzer(self, grammars, *, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
+    def generate_fuzzer(self, grammars, *, options={}, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
         Generates fuzzers from grammars.
 
         :param grammars: List of grammar files to generate from.
+        :param options: Dictionary of options that override/extend those set in the grammar.
         :param encoding: Grammar file encoding.
         :param lib_dir: Alternative directory to look for imports.
         :param actions: Boolean to enable or disable grammar actions.
@@ -518,6 +519,8 @@ class FuzzerFactory(object):
                 parser_root = root
 
         graph = build_graph(self.antlr_parser_cls, actions, lexer_root, parser_root)
+        graph.options.update(options)
+
         src = self.template.render(graph=graph, version=__version__).lstrip()
         with open(join(self.work_dir, graph.name + '.' + self.lang), 'w') as f:
             if pep8:
@@ -571,6 +574,8 @@ def execute():
         """)
     parser.add_argument('grammar', metavar='FILE', nargs='+',
                         help='ANTLR grammar files describing the expected format to generate.')
+    parser.add_argument('-D', metavar='OPT=VAL', dest='options', default=list(), action='append',
+                        help='set/override grammar-level option')
     parser.add_argument('--language', choices=['py'], default='py',
                         help='language of the generated code (choices: %(choices)s; default: %(default)s)')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
@@ -593,10 +598,19 @@ def execute():
         if not exists(grammar):
             parser.error('{grammar} does not exist.'.format(grammar=grammar))
 
+    options = dict()
+    for option in args.options:
+        parts = re.fullmatch('([^=]+)=(.*)', option)
+        if not parts:
+            parser.error('option not in OPT=VAL format: {option}'.format(option=option))
+
+        name, value = parts.group(1, 2)
+        options[name] = value
+
     process_log_level_argument(args)
     process_antlr_argument(args)
 
-    FuzzerFactory(args.language, args.out, args.antlr).generate_fuzzer(args.grammar, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.language, args.out, args.antlr).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
     if args.cleanup:
         rmtree(join(args.out, 'antlr'), ignore_errors=True)

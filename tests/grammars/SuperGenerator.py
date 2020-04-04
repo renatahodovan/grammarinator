@@ -5,7 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-# This custom unparser is used by SuperClass.g4
+# This custom superclass is used by SuperClass.g4 and SuperClassOption.g4
 
 from grammarinator.runtime import *
 
