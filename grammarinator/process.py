@@ -8,7 +8,7 @@
 import re
 
 from argparse import ArgumentParser
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from math import inf
 from os import getcwd, makedirs
 from os.path import dirname, exists, join
@@ -134,7 +134,7 @@ class GrammarGraph(object):
 
     def __init__(self):
         self.name = None
-        self.vertices = dict()
+        self.vertices = OrderedDict()
         self.options = dict()
         self.charsets = []
         self.header = ''
