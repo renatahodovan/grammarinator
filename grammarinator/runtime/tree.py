@@ -150,7 +150,7 @@ class BaseRule(object):
             self.parent = None
 
     def __str__(self):
-        return ''.join([str(child) for child in self.children])
+        return ''.join(str(child) for child in self.children)
 
     def __getattr__(self, item):
         result = [child for child in self.children if child.name == item]

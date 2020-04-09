@@ -186,7 +186,7 @@ class Generator(object):
         tree_2 = Tree.load(tree_2_fn)
 
         common_types = set(tree_1.node_dict.keys()).intersection(set(tree_2.node_dict.keys()))
-        options = self.default_selector([node for rule_name in common_types for node in tree_1.node_dict[rule_name]])
+        options = self.default_selector(node for rule_name in common_types for node in tree_1.node_dict[rule_name])
         # Shuffle suitable nodes with sample.
         tree_1_iter = random.sample(options, k=len(options))
         for node_1 in tree_1_iter:
@@ -205,7 +205,7 @@ class Generator(object):
         return [node for node in iterable if node.name is not None and node.parent is not None and node.name != 'EOF' and node.level + min_depth(node) < self.max_depth]
 
     def random_node(self, tree):
-        options = self.default_selector([x for name in tree.node_dict for x in tree.node_dict[name]])
+        options = self.default_selector(x for name in tree.node_dict for x in tree.node_dict[name])
         return random.choice(options) if options else None
 
 
