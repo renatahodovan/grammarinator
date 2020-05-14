@@ -497,7 +497,7 @@ class FuzzerFactory(object):
 
         self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_resources, antlr_dir, antlr=antlr)
 
-    def generate_fuzzer(self, grammars, *, options={}, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
+    def generate_fuzzer(self, grammars, *, options=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
         Generates fuzzers from grammars.
 
@@ -519,7 +519,7 @@ class FuzzerFactory(object):
                 parser_root = root
 
         graph = build_graph(self.antlr_parser_cls, actions, lexer_root, parser_root)
-        graph.options.update(options)
+        graph.options.update(options or {})
 
         src = self.template.render(graph=graph, version=__version__).lstrip()
         with open(join(self.work_dir, graph.name + '.' + self.lang), 'w') as f:
