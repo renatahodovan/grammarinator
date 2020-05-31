@@ -10,6 +10,7 @@ import re
 
 from argparse import ArgumentParser
 from collections import defaultdict, OrderedDict
+from itertools import chain
 from math import inf
 from os import getcwd, makedirs
 from os.path import dirname, exists, join
@@ -70,12 +71,17 @@ class ImagRuleNode(Node):
 
 class LiteralNode(Node):
 
-    def __init__(self, src=None, charset=None, range=None, any=False):
+    def __init__(self, src):
         super().__init__()
         self.src = src
+
+
+class CharsetNode(Node):
+
+    def __init__(self, idx, charset):
+        super().__init__()
+        self.idx = idx
         self.charset = charset
-        self.range = range
-        self.any_char = any
 
 
 class LambdaNode(Node):
@@ -121,15 +127,54 @@ class VariableNode(Node):
         self.name = name
 
 
+def printable_ranges(lower_bound, upper_bound):
+    ranges = []
+    range_start = None
+    for c in range(lower_bound, upper_bound):
+        if chr(c).isprintable():
+            if range_start is None:
+                range_start = c
+        else:
+            if range_start is not None:
+                ranges.append((range_start, c))
+                range_start = None
+
+    if range_start is not None:
+        ranges.append((range_start, upper_bound))
+    return ranges
+
+
+def multirange_diff(r1_list, r2_list):
+    def range_diff(r1, r2):
+        s1, e1 = r1
+        s2, e2 = r2
+        endpoints = sorted((s1, s2, e1, e2))
+        result = []
+        if endpoints[0] == s1:
+            result.append((endpoints[0], endpoints[1]))
+        if endpoints[3] == e1:
+            result.append((endpoints[2], endpoints[3]))
+        return result
+
+    for r2 in r2_list:
+        r1_list = list(chain.from_iterable(range_diff(r1, r2) for r1 in r1_list))
+    return r1_list
+
+
 class Charset(object):
+
+    dot = {
+        'any_ascii_letter': [(ord('A'), ord('Z') + 1), (ord('a'), ord('z') + 1)],
+        'any_ascii_char': printable_ranges(0x00, 0x80),
+        'any_unicode_char': printable_ranges(0, maxunicode + 1),
+    }
 
     _cnt = 0
 
-    def __init__(self, ranges, invert=False):
-        self.name = 'charset_{idx}'.format(idx=Charset._cnt)
+    def __init__(self, ranges):
+        self.id = Charset._cnt
         Charset._cnt += 1
         self.ranges = ranges
-        self.invert = invert
 
 
 class GrammarGraph(object):
@@ -146,6 +191,10 @@ class GrammarGraph(object):
     @property
     def superclass(self):
         return self.options.get('superClass', 'Generator')
+
+    @property
+    def dot(self):
+        return self.options.get('dot', 'any_ascii_char')
 
     @property
     def rules(self):
@@ -340,7 +389,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
 
     def build_rule(rule, node):
         lexer_rule = isinstance(rule, UnlexerRuleNode)
-        alt_idx, quant_idx = 0, 0  # pylint: disable=unused-variable
+        alt_idx, quant_idx, chr_idx = 0, 0, 0  # pylint: disable=unused-variable
 
         def build_expr(node, parent_id):
             if isinstance(node, (antlr_parser_cls.RuleAltListContext, antlr_parser_cls.AltListContext, antlr_parser_cls.LexerAltListContext)):
@@ -415,8 +464,11 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                 graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
 
             elif isinstance(node, (antlr_parser_cls.LexerAtomContext, antlr_parser_cls.AtomContext)):
+                nonlocal chr_idx
+
                 if node.DOT():
-                    graph.add_edge(frm=parent_id, to=graph.add_node(LiteralNode(any=True)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=dot_charset.id)))
+                    chr_idx += 1
 
                 elif node.notSet():
                     if node.notSet().setElement():
@@ -426,25 +478,30 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                         for set_element in node.notSet().blockSet().setElement():
                             options.extend(chars_from_set(set_element))
 
-                    charset = Charset(ranges=sorted(options, key=lambda x: x[0]), invert=True)
+                    charset = Charset(multirange_diff(dot_charset.ranges, sorted(options, key=lambda x: x[0])))
                     graph.charsets.append(charset)
-                    graph.add_edge(frm=parent_id, to=graph.add_node(LiteralNode(charset=charset.name)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
+                    chr_idx += 1
 
                 elif isinstance(node, antlr_parser_cls.LexerAtomContext) and node.characterRange():
                     start, end = character_range_interval(node)
                     if lexer_rule:
                         rule.start_ranges.append((start, end))
 
-                    graph.add_edge(frm=parent_id, to=graph.add_node(LiteralNode(range=[start, end])))
+                    charset = Charset([(start, end)])
+                    graph.charsets.append(charset)
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
+                    chr_idx += 1
 
                 elif isinstance(node, antlr_parser_cls.LexerAtomContext) and node.LEXER_CHAR_SET():
                     ranges = lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
                     if lexer_rule:
                         rule.start_ranges.extend(ranges)
 
-                    charset = Charset(ranges=sorted(ranges, key=lambda x: x[0]))
+                    charset = Charset(sorted(ranges, key=lambda x: x[0]))
                     graph.charsets.append(charset)
-                    graph.add_edge(frm=parent_id, to=graph.add_node(LiteralNode(charset=charset.name)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
+                    chr_idx += 1
 
                 for child in node.children:
                     build_expr(child, parent_id)
@@ -469,7 +526,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
 
         build_expr(node, rule.id)
 
-    def build_grammar(node):
+    def build_prequel(node):
         assert isinstance(node, antlr_parser_cls.GrammarSpecContext)
 
         if not graph.name:
@@ -499,6 +556,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                 elif action_type == 'header':
                     graph.header += raw_action_src
 
+    def build_rules(node):
         generator_rules = []
         for rule in node.rules().ruleSpec():
             if rule.parserRuleSpec():
@@ -532,7 +590,14 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
 
     for root in [lexer_root, parser_root]:
         if root:
-            build_grammar(root)
+            build_prequel(root)
+
+    dot_charset = Charset(Charset.dot[graph.dot])
+    graph.charsets.append(dot_charset)
+
+    for root in [lexer_root, parser_root]:
+        if root:
+            build_rules(root)
 
     graph.calc_min_depths()
     return graph

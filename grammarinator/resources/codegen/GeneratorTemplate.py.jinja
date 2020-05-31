@@ -27,16 +27,13 @@ self.{{ node.id }}(parent=current)
 {% endmacro %}
 
 
+{% macro processCharsetNode(node) %}
+UnlexerRule(src=self.model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}]), parent=current)
+{% endmacro %}
+
+
 {% macro processLiteralNode(node) %}
-{% if node.any_char %}
-UnlexerRule(src=self.any_char(), parent=current)
-{% elif node.charset %}
-UnlexerRule(src=self.char_from_list({{ node.charset }}), parent=current)
-{% elif node.range %}
-UnlexerRule(src=self.char_from_list(range({{ node.range[0] }}, {{ node.range[1] }})), parent=current)
-{% else %}
 UnlexerRule(src='{{ node.src }}', parent=current)
-{% endif %}
 {% endmacro %}
 
 
@@ -71,6 +68,7 @@ choice = self.model.choice(current, {{ node.idx }}, [0 if [{{ node.min_depth | j
     'UnlexerRuleNode': processRuleNode,
     'UnparserRuleNode': processRuleNode,
     'ImagRuleNode': processRuleNode,
+    'CharsetNode': processCharsetNode,
     'LiteralNode': processLiteralNode,
     'AlternationNode': processAlternationNode,
     'AlternativeNode': processAlternativeNode,
@@ -88,14 +86,6 @@ choice = self.model.choice(current, {{ node.idx }}, [0 if [{{ node.min_depth | j
 from itertools import chain
 from math import inf
 from grammarinator.runtime import *
-
-{% for charset in graph.charsets %}
-{% if charset.invert %}
-{{ charset.name }} = list(chain(*multirange_diff(printable_unicode_ranges, {{ charset.ranges }})))
-{% else %}
-{{ charset.name }} = list(chain({{ charset.ranges | substitute('(\(.*?\))', 'range\\1') | replace('[', '') | replace(']', '') }}))
-{% endif %}
-{% endfor %}
 
 {% if graph.superclass != 'Generator' %}
 if __name__ is not None and '.' in __name__:
@@ -115,9 +105,6 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        {% if 'dot' in graph.options %}
-        self.any_char = self.{{ graph.options['dot'] }}
-        {% endif %}
 
     {% for rule in graph.imag_rules %}
     def {{ rule.id }}(self, parent=None):
@@ -150,3 +137,9 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endfor %}
     default_rule = {{ graph.default_rule }}
 
+    _charsets = {
+        {% for charset in graph.charsets %}
+        {{ charset.id }}: list(chain.from_iterable({{ charset.ranges | substitute('(\(.*?\))', 'range\\1') }})),
+        {% endfor %}
+    }
+{# Ensure newline at end of file #}

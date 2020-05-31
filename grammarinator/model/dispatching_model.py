@@ -17,3 +17,7 @@ class DispatchingModel(DefaultModel):
     def quantify(self, node, idx, min, max):
         name = 'quantify_' + node.name
         yield from (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, min, max)
+
+    def charset(self, node, idx, chars):
+        name = 'charset_' + node.name
+        return (getattr(self, name) if hasattr(self, name) else super().charset)(node, idx, chars)

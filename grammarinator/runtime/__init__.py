@@ -7,6 +7,6 @@
 
 from .default_listener import DefaultListener
 from .dispatching_listener import DispatchingListener
-from .generator import depthcontrol, Generator, multirange_diff, printable_ascii_ranges, printable_unicode_ranges
+from .generator import depthcontrol, Generator
 from .serializer import simple_space_serializer
 from .tree import BaseRule, Tree, UnlexerRule, UnparserRule

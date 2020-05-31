@@ -30,3 +30,6 @@ class DefaultModel(object):
         while cnt < max and bool(random.getrandbits(1)):
             yield
             cnt += 1
+
+    def charset(self, node, idx, chars):
+        return chr(random.choice(chars))

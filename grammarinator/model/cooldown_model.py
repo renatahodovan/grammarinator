@@ -20,3 +20,6 @@ class CooldownModel(object):
 
     def quantify(self, node, idx, min, max):
         yield from self._model.quantify(node, idx, min, max)
+
+    def charset(self, node, idx, chars):
+        return self._model.charset(node, idx, chars)
