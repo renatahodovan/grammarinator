@@ -119,30 +119,30 @@ class BaseRule(object):
         self.children.pop()
         self.add_child(node)
 
-    def insert_child(self, idx, child):
-        if not child:
+    def insert_child(self, idx, node):
+        if not node:
             return
 
-        child.parent = self
-        self.children.insert(idx, child)
+        node.parent = self
+        self.children.insert(idx, node)
 
-    def add_child(self, child):
-        if child is None:
+    def add_child(self, node):
+        if node is None:
             return
 
-        self.children.append(child)
-        child.parent = self
+        self.children.append(node)
+        node.parent = self
 
-    def add_children(self, children):
-        for child in children:
-            self.add_child(child)
+    def add_children(self, nodes):
+        for node in nodes:
+            self.add_child(node)
 
-    def replace(self, other):
+    def replace(self, node):
         if self.parent:
-            self.parent.children[self.parent.children.index(self)] = other
-            other.parent = self.parent
+            self.parent.children[self.parent.children.index(self)] = node
+            node.parent = self.parent
             self.parent = None
-        return other
+        return node
 
     def delete(self):
         if self.parent:

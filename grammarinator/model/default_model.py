@@ -10,14 +10,10 @@ import random
 
 class DefaultModel(object):
 
-    @staticmethod
-    def random_decision():
-        return bool(random.getrandbits(1))
-
     def choice(self, node, idx, choices):
         # assert sum(choices) > 0, 'Sum of choices is zero.'
         max_item = max(choices)
-        choices = [i / max_item for i in choices]
+        choices = [w / max_item for w in choices]
         r = random.uniform(0, sum(choices))
         upto = 0
         for i, w in enumerate(choices):
@@ -31,6 +27,6 @@ class DefaultModel(object):
         for _ in range(min):
             yield
             cnt += 1
-        while cnt < max and self.random_decision():
+        while cnt < max and bool(random.getrandbits(1)):
             yield
             cnt += 1
