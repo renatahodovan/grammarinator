@@ -116,7 +116,7 @@ class BaseRule(object):
 
     @last_child.setter
     def last_child(self, node):
-        self.children.pop()
+        self.children.pop().parent = None
         self.add_child(node)
 
     def insert_child(self, idx, node):
@@ -138,7 +138,7 @@ class BaseRule(object):
             self.add_child(node)
 
     def replace(self, node):
-        if self.parent:
+        if self.parent and node is not self:
             self.parent.children[self.parent.children.index(self)] = node
             node.parent = self.parent
             self.parent = None
