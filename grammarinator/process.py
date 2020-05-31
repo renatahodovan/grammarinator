@@ -147,7 +147,7 @@ class GrammarGraph(object):
 
     @property
     def rules(self):
-        return (vertex for vertex in self.vertices.values() if isinstance(vertex, RuleNode) and vertex.id != 'EOF')
+        return (vertex for vertex in self.vertices.values() if isinstance(vertex, RuleNode))
 
     @property
     def imag_rules(self):
@@ -430,7 +430,6 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                     graph.header += raw_action_src
 
         generator_rules = []
-        graph.add_node(UnlexerRuleNode(name='EOF'))
         for rule in node.rules().ruleSpec():
             if rule.parserRuleSpec():
                 rule_spec = rule.parserRuleSpec()
@@ -459,6 +458,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
 
     graph = GrammarGraph()
     lambda_id = graph.add_node(LambdaNode())
+    graph.add_node(UnlexerRuleNode(name='EOF'))
 
     for root in [lexer_root, parser_root]:
         if root:
