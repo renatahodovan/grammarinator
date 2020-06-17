@@ -21,6 +21,7 @@ jobs:
         - python --version
         - pip --version
         - java -version
+        - pip install -U certifi
       env: TOXENV=py3
     - os: osx
       language: shell
