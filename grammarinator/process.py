@@ -1,4 +1,5 @@
 # Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -14,6 +15,7 @@ from os import getcwd, makedirs
 from os.path import dirname, exists, join
 from pkgutil import get_data
 from shutil import rmtree
+from sys import maxunicode
 
 import autopep8
 
@@ -230,23 +232,91 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
         return (int(start.replace('\\u', '0x'), 16) if '\\u' in start else ord(start),
                 int(end.replace('\\u', '0x'), 16) if '\\u' in end else ord(end) + 1)
 
-    def lexer_charset_interval(src):
-        elements = re.split(r'(\w-\w)', src)
-        ranges = []
-        for element in elements:
-            if not element:
-                continue
+    def lexer_charset_char(s, offset):
+        # To be kept in sync with org.antlr.v4.misc.EscapeSequenceParsing.parseEscape
 
-            # Convert character sequences like \n, \t, etc. into a single character.
-            element = bytes(element, 'utf-8').decode('unicode_escape')
-            if len(element) > 1:
-                if element[1] == '-' and len(element) == 3:
-                    ranges.append((ord(element[0]), ord(element[2]) + 1))
-                else:
-                    for char in element:
-                        ranges.append((ord(char), ord(char) + 1))
-            elif len(element) == 1:
-                ranges.append((ord(element), ord(element) + 1))
+        # Original Java code has to handle unicode codepoints which consist of more than one character,
+        # however in Python 3.3+, we don't have to worry about this: https://stackoverflow.com/a/42262842
+
+        if s[offset] != '\\':
+            return ord(s[offset]), offset + 1
+
+        if offset + 2 > len(s):
+            raise ValueError('Escape must have at least two characters')
+
+        escaped = s[offset + 1]
+        offset += 2  # Move past backslash and escaped character
+
+        if escaped == 'u':
+            if s[offset] == '{':
+                # \u{...}
+                hex_start_offset = offset + 1
+                hex_end_offset = s.find('}', hex_start_offset)
+                if hex_end_offset == -1:
+                    raise ValueError('Missing closing bracket for unicode escape')
+                if hex_start_offset == hex_end_offset:
+                    raise ValueError('Missing codepoint for unicode escape')
+
+                offset = hex_end_offset + 1  # Skip over last bracket
+            else:
+                # \uXXXX
+                hex_start_offset = offset
+                hex_end_offset = hex_start_offset + 4
+                if hex_end_offset > len(s):
+                    raise ValueError('Non-bracketed unicode escape must be of form \\uXXXX')
+
+                offset = hex_end_offset
+
+            try:
+                codepoint = int(s[hex_start_offset:hex_end_offset], 16)
+            except ValueError:
+                raise ValueError('Invalid hex value')
+
+            if codepoint < 0 or codepoint > maxunicode:
+                raise ValueError('Invalid unicode codepoint')
+
+            return codepoint, offset
+
+        if escaped in ('p', 'P'):
+            raise ValueError('Unicode properties (\\p{...}) are not supported')
+
+        # To be kept in sync with org.antlr.v4.misc.CharSupport.ANTLRLiteralEscapedCharValue
+        escaped_values = {
+            'n': '\n',
+            'r': '\r',
+            'b': '\b',
+            't': '\t',
+            'f': '\f',
+            '\\': '\\',
+            # Additional escape sequences defined by org.antlr.v4.misc.EscapeSequenceParsing.parseEscape
+            '-': '-',
+            ']': ']'
+        }
+
+        if escaped in escaped_values:
+            return ord(escaped_values[escaped]), offset
+
+        raise ValueError('Invalid escaped value')
+
+    def lexer_charset_interval(s):
+        # To be kept in sync with org.antlr.v4.automata.LexerATNFactory.getSetFromCharSetLiteral
+        assert len(s) > 0, 'Charset cannot be empty'
+
+        ranges = []
+
+        offset = 0
+        while offset < len(s):
+            in_range = s[offset] == '-' and offset != 0 and offset != len(s) - 1
+            if in_range:
+                offset += 1
+
+            codepoint, offset = lexer_charset_char(s, offset)
+
+            if in_range:
+                ranges[-1] = (ranges[-1][0], codepoint + 1)
+            else:
+                ranges.append((codepoint, codepoint + 1))
+
         return ranges
 
     def chars_from_set(node):
