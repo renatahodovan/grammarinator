@@ -51,7 +51,7 @@ def range_diff(r1, r2):
 def multirange_diff(r1_list, r2_list):
     for r2 in r2_list:
         r1_list = list(chain(*[range_diff(r1, r2) for r1 in r1_list]))
-    return r1_list
+    return [range(*r1) for r1 in r1_list]
 
 
 def depthcontrol(fn):
