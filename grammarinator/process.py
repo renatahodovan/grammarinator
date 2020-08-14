@@ -41,6 +41,26 @@ class Node(object):
         self.out_neighbours = []
         self.min_depth = inf
 
+    def print_tree(self):
+        def _walk(node):
+            nonlocal indent
+            print(f'{"  " * indent}{str(node)}{"" if node not in visited else " (...recursion)"}')
+            if node in visited:
+                return
+
+            visited.add(node)
+            indent += 1
+            for child in node.out_neighbours:
+                _walk(child)
+            indent -= 1
+
+        visited = set()
+        indent = 0
+        _walk(self)
+
+    def __str__(self):
+        return f'cls: {self.__class__.__name__}'
+
 
 class RuleNode(Node):
 
@@ -49,6 +69,9 @@ class RuleNode(Node):
         self.name = name
         self.type = type
         self.has_var = False
+
+    def __str__(self):
+        return f'{super().__str__()}; name: {self.name}; var: {self.has_var}'
 
 
 class UnlexerRuleNode(RuleNode):
@@ -76,13 +99,20 @@ class LiteralNode(Node):
         super().__init__()
         self.src = src
 
+    def __str__(self):
+        return f'{super().__str__()}; src: {self.src!r}'
+
 
 class CharsetNode(Node):
 
-    def __init__(self, idx, charset):
+    def __init__(self, rule_id, idx, charset):
         super().__init__()
-        self.idx = idx
-        self.charset = charset
+        self.rule_id = rule_id  # Identifier of the container rule.
+        self.idx = idx  # Index of the charset inside the current rule.
+        self.charset = charset  # Global identifier of the charset.
+
+    def __str__(self):
+        return f'{super().__str__()}; idx: {self.idx}; charset: {self.charset}'
 
 
 class LambdaNode(Node):
@@ -93,9 +123,10 @@ class LambdaNode(Node):
 
 class AlternationNode(Node):
 
-    def __init__(self, idx, conditions):
+    def __init__(self, rule_id, idx, conditions):
         super().__init__()
-        self.idx = idx
+        self.rule_id = rule_id  # Identifier of the container rule.
+        self.idx = idx  # Index of the alternation in the container rule.
         self.conditions = conditions
 
     def simple_alternatives(self):
@@ -122,20 +153,33 @@ class AlternationNode(Node):
 
         return simple_lits, simple_rules
 
+    def __str__(self):
+        return f'{super().__str__()}; idx: {self.idx}; cond: {", ".join(self.conditions)}'
+
 
 class AlternativeNode(Node):
 
-    def __init__(self):
+    def __init__(self, rule_id, alt_idx, idx):
         super().__init__()
+        self.rule_id = rule_id  # Identifier of the container rule.
+        self.alt_idx = alt_idx  # Index of the container alternation inside the container rule.
+        self.idx = idx  # Index of the alternative in the container alternation.
+
+    def __str__(self):
+        return f'{super().__str__()}; idx: {self.idx}'
 
 
 class QuantifierNode(Node):
 
-    def __init__(self, idx, min, max):
+    def __init__(self, rule_id, idx, min, max):
         super().__init__()
-        self.idx = idx
+        self.rule_id = rule_id  # Identifier of the container rule.
+        self.idx = idx  # Index of the quantifier in the container rule.
         self.min = min
         self.max = max
+
+    def __str__(self):
+        return f'{super().__str__()}; idx: {self.idx}; min: {self.min}; max: {self.max}'
 
 
 class ActionNode(Node):
@@ -144,12 +188,18 @@ class ActionNode(Node):
         super().__init__()
         self.src = src
 
+    def __str__(self):
+        return f'{super().__str__()}; src: {self.src}'
+
 
 class VariableNode(Node):
 
     def __init__(self, name):
         super().__init__()
         self.name = name
+
+    def __str__(self):
+        return f'{super().__str__()}; name: {self.name}'
 
 
 def printable_ranges(lower_bound, upper_bound):
@@ -229,6 +279,11 @@ class GrammarGraph(object):
     def imag_rules(self):
         return (vertex for vertex in self.vertices.values() if isinstance(vertex, ImagRuleNode))
 
+    def print_tree(self, root=None):
+        if not root and not self.default_rule:
+            raise ValueError('Either `root` must be defined or `print` should be called after `default_rule` is set.')
+        (root or self.vertices[self.default_rule]).print_tree()
+
     def add_node(self, node):
         self.vertices[node.id] = node
         return node.id
@@ -244,33 +299,69 @@ class GrammarGraph(object):
 
         while changed:
             changed = False
-            for ident in self.vertices:
-                selector = min if isinstance(self.vertices[ident], AlternationNode) else max
-                min_depth = selector((min_depths[node.id] + int(isinstance(self.vertices[node.id], RuleNode))
-                                      for node in self.vertices[ident].out_neighbours if not isinstance(node, QuantifierNode) or node.min >= 1), default=0)
+            for ident, node in self.vertices.items():
+                selector = min if isinstance(node, AlternationNode) else max
+                min_depth = selector((min_depths[out_node.id] + int(isinstance(out_node, RuleNode))
+                                      for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.min >= 1), default=0)
 
                 if min_depth < min_depths[ident]:
                     min_depths[ident] = min_depth
                     changed = True
 
         # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
+        inf_alt = []
         for ident in min_depths:
             if isinstance(self.vertices[ident], AlternationNode):
-                assert all(min_depths[node.id] < inf for node in self.vertices[ident].out_neighbours), f'{ident!r} has an alternative that is not reachable.'
+                for node in self.vertices[ident].out_neighbours:
+                    if min_depths[node.id] == inf:
+                        # Generate human-readable description for an alternative in the graph. The output is a
+                        # (rule node, alternation node, alternative node) string, where `rule` defines the container
+                        # rule and the (alternation node, alternative node) sequence defines a derivation reaching the alternative.
+                        inf_alt.append(', '.join(map(str, [self.vertices[node.rule_id], self.vertices[ident], node])))
                 min_depths[ident] = [min_depths[node.id] for node in self.vertices[ident].out_neighbours]
+        if inf_alt:
+            logger.warning('Alternative(s) with infinite derivation (rule node, alternation node, alternative node):\n\t%s', ',\n\t'.join(inf_alt))
 
         # Remove the lifted Alternatives and check for infinite derivations.
+        inf_rule = []
         for ident in list(min_depths.keys()):
             if isinstance(self.vertices[ident], AlternativeNode):
                 del min_depths[ident]
-            else:
-                assert min_depths[ident] != inf, f'Rule with infinite derivation {ident!r}'
+            elif min_depths[ident] == inf and isinstance(self.vertices[ident], RuleNode):
+                inf_rule.append(ident)
+        if inf_rule:
+            logger.warning('Rule(s) with infinite derivation (possible cycles): %s', ', '.join(map(repr, inf_rule)))
 
         for ident, min_depth in min_depths.items():
             self.vertices[ident].min_depth = min_depth
 
+    # Calculates the distance of every rule node from the start node. As a result, it can
+    # point out to rules, that are not available from there, furthermore it can give a hint
+    # about the farthest node/rule to help to determine a max_depth that has the chance to
+    # reach every rule.
+    def analyze(self, root=None):
+        root = root or self.default_rule
+        min_distances = defaultdict(lambda: inf)
+        min_distances[root] = 0
 
-def build_graph(actions, lexer_root, parser_root):
+        work_list = [root]
+        while work_list:
+            v = work_list.pop(0)
+            for out_v in self.vertices[v].out_neighbours:
+                d = min_distances[v] + int(isinstance(out_v, RuleNode))
+                if d < min_distances[out_v.id]:
+                    min_distances[out_v.id] = d
+                    work_list.append(out_v.id)
+
+        farthest_ident, max_distance = max(((v_id, d) for v_id, d in min_distances.items() if (isinstance(self.vertices[v_id], RuleNode) and d != inf)), key=lambda item: item[1])
+        unreachable_rules = [v_id for v_id, v in self.vertices.items() if isinstance(v, RuleNode) and min_distances[v_id] == inf]
+
+        logger.info('\tThe farthest rule from %r is %r (%d steps).', root, farthest_ident, max_distance)
+        if unreachable_rules:
+            logger.warning('\t%d rule(s) unreachable from %r: %s', len(unreachable_rules), root, ', '.join(map(repr, unreachable_rules)))
+
+
+def build_graph(actions, lexer_root, parser_root, default_rule):
 
     def find_conditions(node):
         if not actions:
@@ -440,12 +531,12 @@ def build_graph(actions, lexer_root, parser_root):
                     return
 
                 nonlocal alt_idx
-                alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=[find_conditions(child) for child in children]))
+                alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=[find_conditions(child) for child in children], rule_id=rule.name))
                 alt_idx += 1
                 graph.add_edge(frm=parent_id, to=alt_id)
 
-                for child in children:
-                    alternative_id = graph.add_node(AlternativeNode())
+                for i, child in enumerate(children):
+                    alternative_id = graph.add_node(AlternativeNode(rule_id=rule.name, alt_idx=graph.vertices[alt_id].idx, idx=i))
                     graph.add_edge(frm=alt_id, to=alternative_id)
                     build_expr(child, alternative_id)
 
@@ -488,7 +579,7 @@ def build_graph(actions, lexer_root, parser_root):
                 nonlocal quant_idx
                 suffix = str(suffix.children[0])
                 quant_ranges = {'?': {'min': 0, 'max': 1}, '*': {'min': 0, 'max': 'inf'}, '+': {'min': 1, 'max': 'inf'}}
-                quant_id = graph.add_node(QuantifierNode(idx=quant_idx, **quant_ranges[suffix]))
+                quant_id = graph.add_node(QuantifierNode(rule_id=rule.name, idx=quant_idx, **quant_ranges[suffix]))
                 quant_idx += 1
                 graph.add_edge(frm=parent_id, to=quant_id)
                 build_expr(node.children[0], quant_id)
@@ -507,7 +598,7 @@ def build_graph(actions, lexer_root, parser_root):
                 nonlocal chr_idx
 
                 if node.DOT():
-                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=dot_charset.id)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=dot_charset.id)))
                     chr_idx += 1
 
                 elif node.notSet():
@@ -520,7 +611,7 @@ def build_graph(actions, lexer_root, parser_root):
 
                     charset = Charset(multirange_diff(dot_charset.ranges, sorted(options, key=lambda x: x[0])))
                     graph.charsets.append(charset)
-                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
                     chr_idx += 1
 
                 elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.characterRange():
@@ -530,7 +621,7 @@ def build_graph(actions, lexer_root, parser_root):
 
                     charset = Charset([(start, end)])
                     graph.charsets.append(charset)
-                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
                     chr_idx += 1
 
                 elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.LEXER_CHAR_SET():
@@ -540,7 +631,7 @@ def build_graph(actions, lexer_root, parser_root):
 
                     charset = Charset(sorted(ranges, key=lambda x: x[0]))
                     graph.charsets.append(charset)
-                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
+                    graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
                     chr_idx += 1
 
                 for child in node.children:
@@ -632,7 +723,9 @@ def build_graph(actions, lexer_root, parser_root):
         for rule_args in generator_rules:
             build_rule(*rule_args)
 
-        if node.grammarDecl().grammarType().PARSER() or not (node.grammarDecl().grammarType().LEXER() or node.grammarDecl().grammarType().PARSER()):
+        if default_rule:
+            graph.default_rule = default_rule
+        elif node.grammarDecl().grammarType().PARSER() or not (node.grammarDecl().grammarType().LEXER() or node.grammarDecl().grammarType().PARSER()):
             graph.default_rule = generator_rules[0][0].name
 
     graph = GrammarGraph()
@@ -704,12 +797,13 @@ class FuzzerFactory(object):
         self.template = env.from_string(get_data(__package__, 'resources/codegen/GeneratorTemplate.' + lang + '.jinja').decode('utf-8'))
         self.work_dir = work_dir or getcwd()
 
-    def generate_fuzzer(self, grammars, *, options=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
+    def generate_fuzzer(self, grammars, *, options=None, default_rule=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
         Generates fuzzers from grammars.
 
         :param grammars: List of grammar files to generate from.
         :param options: Dictionary of options that override/extend those set in the grammar.
+        :param default_rule: Name of the default rule to start generation from.
         :param encoding: Grammar file encoding.
         :param lib_dir: Alternative directory to look for imports.
         :param actions: Boolean to enable or disable grammar actions.
@@ -728,8 +822,9 @@ class FuzzerFactory(object):
             else:
                 copy(grammar, self.work_dir)
 
-        graph = build_graph(actions, lexer_root, parser_root)
+        graph = build_graph(actions, lexer_root, parser_root, default_rule)
         graph.options.update(options or {})
+        graph.analyze()
 
         src = self.template.render(graph=graph, version=__version__).lstrip()
         with open(join(self.work_dir, graph.name + '.' + self.lang), 'w') as f:
@@ -790,6 +885,8 @@ def execute():
                         help='language of the generated code (choices: %(choices)s; default: %(default)s)')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')
+    parser.add_argument('--rule', '-r', metavar='NAME',
+                        help='default rule to start generation from (default: the first parser rule)')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='grammar file encoding (default: %(default)s).')
     parser.add_argument('--lib', metavar='DIR',
@@ -818,7 +915,7 @@ def execute():
     init_logging()
     process_log_level_argument(args, logger)
 
-    FuzzerFactory(args.language, args.out).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.language, args.out).generate_fuzzer(args.grammar, options=options, default_rule=args.rule, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
 
 if __name__ == '__main__':

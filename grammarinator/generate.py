@@ -227,7 +227,7 @@ def execute():
     parser.add_argument('generator', metavar='NAME',
                         help='reference to the generator created by grammarinator-process (in package.module.class format).')
     parser.add_argument('-r', '--rule', metavar='NAME',
-                        help='name of the rule to start generation from (default: first parser rule).')
+                        help='name of the rule to start generation from (default: the parser rule set by grammarinator-process).')
     parser.add_argument('-m', '--model', metavar='NAME', default='grammarinator.runtime.DefaultModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
     parser.add_argument('-l', '--listener', metavar='NAME', action='append', default=[],
