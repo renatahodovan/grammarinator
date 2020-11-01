@@ -63,6 +63,19 @@ class Tree(object):
             with open(fn, 'wb') as f:
                 pickle.dump(self, f)
 
+    def print(self):
+        def _walk(node):
+            nonlocal indent
+            print('%s%s' % ('  ' * indent, node.name or getattr(node, 'src', None)))
+            if isinstance(node, UnparserRule):
+                indent += 1
+                for child in node.children:
+                    _walk(child)
+                indent -= 1
+
+        indent = 0
+        _walk(self.root)
+
     def __str__(self):
         return str(self.root)
 
