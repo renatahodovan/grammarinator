@@ -87,6 +87,25 @@ Basic command-line syntax of ``grammarinator-generate``::
       -o <output-pattern> -n <number-of-tests> \
       -t <transformer1> -t <transformer2>
 
+Beside generating test cases from scratch based on the ANTLR grammar,
+Grammarinator is also able to recombine existing inputs or mutate only a small
+portion of them. To use these additional generation approaches, a population of
+selected test cases has to be prepared. The preparation happens with the
+``grammarinator-parse`` tool, which processes the input files with an ANTLR
+grammar (possibly with the same one as the generator grammar) and builds
+grammarinator tree representations from them (with .grt extension). Having a
+population of such .grt files, ``grammarinator-generate`` can make use of them
+with the ``--population`` cli option. If the ``--population`` option is set,
+then Grammarinator will choose a strategy (generation, mutation, or
+recombination) randomly at the creation of every new test case. If any of the
+strategies is unwanted, they can be disabled with the ``--no-generate``,
+``--no-mutate`` or ``--no-recombine`` options.
+
+Basic command line syntax of ``grammarinator-parse``::
+
+  grammarinator-parse <grammar-file(s)> -r <start-rule>\
+    -i <input_file> -o <output-directory>
+
 ..
 
     **Notes**
