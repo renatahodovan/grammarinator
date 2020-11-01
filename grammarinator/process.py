@@ -530,7 +530,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
         assert isinstance(node, antlr_parser_cls.GrammarSpecContext)
 
         if not graph.name:
-            graph.name = re.sub(r'^(.+?)(Lexer|Parser)?$', r'\1Generator', str(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()))
+            graph.name = re.sub(r'^(.+?)(Lexer|Parser)?$', r'\1Generator', str(node.grammarDecl().identifier().TOKEN_REF() or node.grammarDecl().identifier().RULE_REF()))
 
         for prequelConstruct in node.prequelConstruct() if node.prequelConstruct() else ():
             for option in prequelConstruct.optionsSpec().option() if prequelConstruct.optionsSpec() else ():
@@ -542,8 +542,8 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                 assert identifier.TOKEN_REF() is not None, 'Token names must start with uppercase letter.'
                 graph.add_node(ImagRuleNode(id=str(identifier.TOKEN_REF())))
 
-            if prequelConstruct.action() and actions:
-                action = prequelConstruct.action()
+            if prequelConstruct.action_() and actions:
+                action = prequelConstruct.action_()
                 action_ident = action.identifier()
                 action_type = str(action_ident.RULE_REF() or action_ident.TOKEN_REF())
                 raw_action_src = ''.join(str(child) for child in action.actionBlock().ACTION_CONTENT())
@@ -581,7 +581,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
         for rule_args in generator_rules:
             build_rule(*rule_args)
 
-        if node.grammarType().PARSER() or not (node.grammarType().LEXER() or node.grammarType().PARSER()):
+        if node.grammarDecl().grammarType().PARSER() or not (node.grammarDecl().grammarType().LEXER() or node.grammarDecl().grammarType().PARSER()):
             graph.default_rule = generator_rules[0][0].name
 
     graph = GrammarGraph()
@@ -648,7 +648,7 @@ class FuzzerFactory(object):
         for grammar in grammars:
             root = self._parse(grammar, encoding, lib_dir)
             # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
-            if root.grammarType().LEXER() or not root.grammarType().PARSER():
+            if root.grammarDecl().grammarType().LEXER() or not root.grammarDecl().grammarType().PARSER():
                 lexer_root = root
             else:
                 parser_root = root
