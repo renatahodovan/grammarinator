@@ -172,4 +172,4 @@ class UnlexerRule(BaseRule):
         self.src = src
 
     def __str__(self):
-        return self.src or super(UnlexerRule, self).__str__()
+        return self.src or super().__str__()

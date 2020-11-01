@@ -318,8 +318,8 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
 
             try:
                 codepoint = int(s[hex_start_offset:hex_end_offset], 16)
-            except ValueError:
-                raise ValueError('Invalid hex value')
+            except ValueError as exc:
+                raise ValueError('Invalid hex value') from exc
 
             if codepoint < 0 or codepoint > maxunicode:
                 raise ValueError('Invalid unicode codepoint')
