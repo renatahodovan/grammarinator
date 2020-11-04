@@ -75,7 +75,9 @@ class Generator(object):
         out_dir = abspath(dirname(out_format))
         os.makedirs(out_dir, exist_ok=True)
 
-        if '%d' not in out_format:
+        if out_format == 'stdout':
+            self.out_format = None
+        elif '%d' not in out_format:
             base, ext = splitext(out_format)
             self.out_format = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
         else:
@@ -121,7 +123,9 @@ class Generator(object):
             logger.warning('Test generation failed.', exc_info=e)
             return self.create_new_test(index)
 
-        test_fn = self.out_format % index
+        test_fn = None
+        if self.out_format is not None:
+            test_fn = self.out_format % index
         tree.root = Generator.transform(tree.root, self.transformers)
 
         tree_fn = None
@@ -130,8 +134,11 @@ class Generator(object):
             self.population.add_tree(tree_fn)
             tree.save(tree_fn)
 
-        with codecs.open(test_fn, 'w', self.encoding) as f:
-            f.write(self.serializer(tree.root))
+        if test_fn:
+            with codecs.open(test_fn, 'w', self.encoding) as f:
+                f.write(self.serializer(tree.root))
+        else:
+            print(self.serializer(tree.root))
 
         return test_fn, tree_fn
 
@@ -261,6 +268,8 @@ def execute():
                         help='number of tests to generate (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
+    parser.add_argument('--infinite', default=False, action='store_true',
+                        help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
     add_jobs_argument(parser)
     add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
@@ -289,8 +298,12 @@ def execute():
             with Pool(args.jobs) as pool:
                 pool.map(generator, range(args.n))
         else:
-            for i in range(args.n):
-                generator(i)
+            if args.infinite:
+                while True:
+                    generator()
+            else:
+                for i in range(args.n):
+                    generator(i)
 
 
 if __name__ == '__main__':
