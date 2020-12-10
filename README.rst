@@ -7,8 +7,8 @@ Grammarinator
    :target: https://pypi.org/project/grammarinator/
 .. image:: https://img.shields.io/pypi/l/grammarinator?logo=open-source-initiative&logoColor=white
    :target: https://pypi.org/project/grammarinator/
-.. image:: https://img.shields.io/travis/renatahodovan/grammarinator/master?logo=travis&logoColor=white
-   :target: https://travis-ci.org/renatahodovan/grammarinator
+.. image:: https://img.shields.io/github/workflow/status/renatahodovan/grammarinator/main/master?logo=github&logoColor=white
+   :target: https://github.com/renatahodovan/grammarinator/actions
 .. image:: https://img.shields.io/coveralls/github/renatahodovan/grammarinator/master?logo=coveralls&logoColor=white
    :target: https://coveralls.io/github/renatahodovan/grammarinator
 
