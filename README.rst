@@ -178,8 +178,14 @@ Compatibility
 Citations
 =========
 
-Background on *Grammarinator* is published in (R. Hodovan, A. Kiss, T. Gyimothy:
-"Grammarinator: A Grammar-Based Open Source Fuzzer", A-TEST 2018).
+Background on *Grammarinator* is published in:
+
+* Renata Hodovan, Akos Kiss, and Tibor Gyimothy. Grammarinator: A Grammar-Based
+  Open Source Fuzzer.
+  In Proceedings of the 9th ACM SIGSOFT International Workshop on Automating
+  Test Case Design, Selection, and Evaluation (A-TEST 2018), pages 45-48, Lake
+  Buena Vista, Florida, USA, November 2018. ACM.
+  https://doi.org/10.1145/3278186.3278193
 
 
 Copyright and Licensing
