@@ -1,5 +1,5 @@
 {#
- # Copyright (c) 2020-2021 Renata Hodovan, Akos Kiss.
+ # Copyright (c) 2020-2022 Renata Hodovan, Akos Kiss.
  #
  # Licensed under the BSD 3-Clause License
  # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -48,10 +48,15 @@ if self._max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
 
 {% macro processAlternationNode(node) %}
 choice = self._model.choice(current, {{ node.idx }}, [0 if [{{ node.min_depth | join(', ') }}][i] > self._max_depth else w for i, w in enumerate([{{ node.conditions | join(', ') }}])])
+{% set literal_alts = node.literal_alternatives() %}
+{% if literal_alts %}
+UnlexerRule(src=[{{ literal_alts | join(', ')}}][choice], parent=current)
+{% else %}
 {% for child in node.out_neighbours %}
 {{ 'if' if loop.index0 == 0 else 'elif' }} choice == {{ loop.index0 }}:
     {{ processNode(child) | indent -}}
 {% endfor %}
+{% endif %}
 {% endmacro %}
 
 

@@ -98,6 +98,11 @@ class AlternationNode(Node):
         self.idx = idx
         self.conditions = conditions
 
+    def literal_alternatives(self):
+        if self.out_neighbours and all(len(alt.out_neighbours) == 1 and isinstance(alt.out_neighbours[0], LiteralNode) for alt in self.out_neighbours):
+            return [repr(alt.out_neighbours[0].src) for alt in self.out_neighbours]
+        return None
+
 
 class AlternativeNode(Node):
 
