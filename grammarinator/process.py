@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -15,7 +15,7 @@ from math import inf
 from os import getcwd, makedirs
 from os.path import dirname, exists, join
 from pkgutil import get_data
-from shutil import rmtree
+from shutil import copy, rmtree
 from sys import maxunicode
 
 import autopep8
@@ -646,12 +646,15 @@ class FuzzerFactory(object):
         lexer_root, parser_root = None, None
 
         for grammar in grammars:
-            root = self._parse(grammar, encoding, lib_dir)
-            # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
-            if root.grammarDecl().grammarType().LEXER() or not root.grammarDecl().grammarType().PARSER():
-                lexer_root = root
+            if grammar.endswith('.g4'):
+                root = self._parse(grammar, encoding, lib_dir)
+                # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
+                if root.grammarDecl().grammarType().LEXER() or not root.grammarDecl().grammarType().PARSER():
+                    lexer_root = root
+                else:
+                    parser_root = root
             else:
-                parser_root = root
+                copy(grammar, self.work_dir)
 
         graph = build_graph(self.antlr_parser_cls, actions, lexer_root, parser_root)
         graph.options.update(options or {})
