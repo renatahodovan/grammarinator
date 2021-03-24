@@ -39,7 +39,7 @@ jobs:
           python-version: '3.x'
       - run: pip install --upgrade tox coveralls
       - run: tox -v -e cov
-      - run: coveralls
+      - run: coveralls --service=github
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
