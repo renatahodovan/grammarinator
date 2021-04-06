@@ -12,9 +12,10 @@ import json
 import os
 import random
 
-from argparse import ArgumentParser, ArgumentTypeError
+from argparse import ArgumentParser, ArgumentTypeError, SUPPRESS
 from math import inf
-from multiprocessing import Pool
+from itertools import count
+from multiprocessing import Pool, Lock
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
@@ -75,7 +76,7 @@ class Generator(object):
         out_dir = abspath(dirname(out_format))
         os.makedirs(out_dir, exist_ok=True)
 
-        if '%d' not in out_format:
+        if out_format and '%d' not in out_format:
             base, ext = splitext(out_format)
             self.out_format = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
         else:
@@ -91,6 +92,7 @@ class Generator(object):
         self.keep_trees = get_boolean(keep_trees)
         self.cleanup = get_boolean(cleanup)
         self.encoding = encoding
+        self.lock = None
 
     def __enter__(self):
         return self
@@ -101,6 +103,9 @@ class Generator(object):
 
     def __call__(self, index, *args, **kwargs):
         return self.create_new_test(index)[0]
+
+    def set_lock(self, shared_lock):
+        self.lock = shared_lock
 
     def create_new_test(self, index):
         generators = []
@@ -121,7 +126,7 @@ class Generator(object):
             logger.warning('Test generation failed.', exc_info=e)
             return self.create_new_test(index)
 
-        test_fn = self.out_format % index
+        test_fn = self.out_format % index if self.out_format else None
         tree.root = Generator.transform(tree.root, self.transformers)
 
         tree_fn = None
@@ -130,8 +135,15 @@ class Generator(object):
             self.population.add_tree(tree_fn)
             tree.save(tree_fn)
 
-        with codecs.open(test_fn, 'w', self.encoding) as f:
-            f.write(self.serializer(tree.root))
+        if test_fn:
+            with codecs.open(test_fn, 'w', self.encoding) as f:
+                f.write(self.serializer(tree.root))
+        else:
+            if self.lock:
+                self.lock.acquire()
+            print(self.serializer(tree.root))
+            if self.lock:
+                self.lock.release()
 
         return test_fn, tree_fn
 
@@ -216,6 +228,13 @@ def execute():
             raise ArgumentTypeError('{value!r} not in range (0.0, 1.0]'.format(value=value))
         return value
 
+    def extended_int(value):
+        try:
+            value = 'inf' if value == 'inf' else int(value)
+        except ValueError:
+            raise ArgumentTypeError('{value!r} is neither an integer nor \'inf\''.format(value=value)) from ValueError
+        return value
+
     parser = ArgumentParser(description='Grammarinator: Generate', epilog="""
         The tool acts as a default execution harness for generators
         created by Grammarinator:Processor.
@@ -257,8 +276,10 @@ def execute():
                         help='output file name pattern (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='output file encoding (default: %(default)s).')
-    parser.add_argument('-n', default=1, type=int, metavar='NUM',
-                        help='number of tests to generate (default: %(default)s).')
+    parser.add_argument('--stdout', dest='out', action='store_const', const='', default=SUPPRESS,
+                        help='print test cases to stdout (alias for --out=%(const)r)')
+    parser.add_argument('-n', default=1, type=extended_int, metavar='NUM',
+                        help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
     add_jobs_argument(parser)
@@ -286,10 +307,11 @@ def execute():
                    transformers=args.transformer, serializer=args.serializer,
                    cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
-            with Pool(args.jobs) as pool:
-                pool.map(generator, range(args.n))
+            shared_lock = Lock()
+            with Pool(args.jobs, initializer=generator.set_lock, initargs=(shared_lock,)) as pool:
+                pool.map(generator, count(0) if args.n == 'inf' else range(args.n))
         else:
-            for i in range(args.n):
+            for i in count(0) if args.n == 'inf' else range(args.n):
                 generator(i)
 
 
