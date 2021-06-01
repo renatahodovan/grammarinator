@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
-      - run: pip install --upgrade tox
+      - run: pip install --upgrade setuptools tox
       - run: tox -v -e py
 
   lint:
