@@ -12,9 +12,12 @@ import json
 import os
 import random
 
-from argparse import ArgumentParser, ArgumentTypeError
+from argparse import ArgumentParser, ArgumentTypeError, SUPPRESS
+from contextlib import contextmanager
+from functools import partial
+from itertools import count
 from math import inf
-from multiprocessing import Pool
+from multiprocessing import Manager, Pool
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
@@ -40,6 +43,11 @@ class Population(object):
     @property
     def size(self):
         return len(self.obj_list)
+
+
+@contextmanager
+def nullcontext():
+    yield None
 
 
 class Generator(object):
@@ -75,7 +83,7 @@ class Generator(object):
         out_dir = abspath(dirname(out_format))
         os.makedirs(out_dir, exist_ok=True)
 
-        if '%d' not in out_format:
+        if out_format and '%d' not in out_format:
             base, ext = splitext(out_format)
             self.out_format = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
         else:
@@ -99,10 +107,11 @@ class Generator(object):
         if self.cleanup:
             rmtree(dirname(self.out_format))
 
-    def __call__(self, index, *args, **kwargs):
-        return self.create_new_test(index)[0]
+    def __call__(self, index, *args, lock=None, **kwargs):
+        lock = lock or nullcontext()
+        return self.create_new_test(index, lock)[0]
 
-    def create_new_test(self, index):
+    def create_new_test(self, index, lock):
         generators = []
 
         if self.enable_generation:
@@ -119,9 +128,9 @@ class Generator(object):
             tree = generator(self.rule, self.max_depth)
         except Exception as e:
             logger.warning('Test generation failed.', exc_info=e)
-            return self.create_new_test(index)
+            return self.create_new_test(index, lock)
 
-        test_fn = self.out_format % index
+        test_fn = self.out_format % index if self.out_format else None
         tree.root = Generator.transform(tree.root, self.transformers)
 
         tree_fn = None
@@ -130,8 +139,12 @@ class Generator(object):
             self.population.add_tree(tree_fn)
             tree.save(tree_fn)
 
-        with codecs.open(test_fn, 'w', self.encoding) as f:
-            f.write(self.serializer(tree.root))
+        if test_fn:
+            with codecs.open(test_fn, 'w', self.encoding) as f:
+                f.write(self.serializer(tree.root))
+        else:
+            with lock:
+                print(self.serializer(tree.root))
 
         return test_fn, tree_fn
 
@@ -257,8 +270,10 @@ def execute():
                         help='output file name pattern (default: %(default)s).')
     parser.add_argument('--encoding', metavar='ENC', default='utf-8',
                         help='output file encoding (default: %(default)s).')
+    parser.add_argument('--stdout', dest='out', action='store_const', const='', default=SUPPRESS,
+                        help='print test cases to stdout (alias for --out=%(const)r)')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
-                        help='number of tests to generate (default: %(default)s).')
+                        help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
     add_jobs_argument(parser)
@@ -286,10 +301,14 @@ def execute():
                    transformers=args.transformer, serializer=args.serializer,
                    cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
-            with Pool(args.jobs) as pool:
-                pool.map(generator, range(args.n))
+            with Manager() if not args.out else nullcontext() as manager:
+                if not args.out:
+                    generator = partial(generator, lock=manager.Lock())  # pylint: disable=no-member
+                with Pool(args.jobs) as pool:
+                    for _ in pool.imap_unordered(generator, count(0) if args.n == inf else range(args.n)):
+                        pass
         else:
-            for i in range(args.n):
+            for i in count(0) if args.n == inf else range(args.n):
                 generator(i)
 
 
