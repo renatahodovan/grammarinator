@@ -28,8 +28,7 @@ Requirements
 ============
 
 * Python_ >= 3.5
-* pip_ and setuptools Python packages (the latter is automatically installed by
-  pip).
+* pip_
 * Java_ SE >= 7 JRE or JDK
 
 .. _Python: https://www.python.org
@@ -42,12 +41,12 @@ Install
 
 The quick way (to install the latest official release)::
 
-    pip3 install grammarinator
+    pip install grammarinator
 
-Or clone the project and run setuptools (to install the freshest development
-revision)::
+Or clone the project and perform a local install (to install the freshest
+development revision)::
 
-    python3 setup.py install
+    pip install .
 
 
 Usage
