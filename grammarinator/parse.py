@@ -1,11 +1,10 @@
-# Copyright (c) 2018-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2021 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import importlib
 import json
 import os
 import shutil
@@ -15,11 +14,14 @@ from math import inf
 from multiprocessing import Pool
 from os.path import basename, exists, join
 
+from antlerinator import add_antlr_argument, process_antlr_argument
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
+from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
+from inators.imp import import_object
 
-from .cli import add_antlr_argument, add_disable_cleanup_argument, add_jobs_argument, add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_antlr_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
+from .cli import add_disable_cleanup_argument, add_jobs_argument, init_logging, logger
 from .parser_builder import build_grammars
-from .pkgdata import default_antlr_path
+from .pkgdata import __version__
 from .runtime import Tree, UnlexerRule, UnparserRule
 
 
@@ -32,23 +34,18 @@ class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
-def import_entity(name):
-    steps = name.split('.')
-    return getattr(importlib.import_module('.'.join(steps[0:-1])), steps[-1])
-
-
 class ParserFactory(object):
     """
     Class to parse existing sources and create Grammarinator compatible tree representation
     from them. These trees can be reused later by generation.
     """
 
-    def __init__(self, grammars, parser_dir,
-                 hidden=None, transformers=None, antlr=default_antlr_path, max_depth=inf, cleanup=True):
+    def __init__(self, grammars, parser_dir, antlr,
+                 hidden=None, transformers=None, max_depth=inf, cleanup=True):
         self.max_depth = float(max_depth)
         self.cleanup = cleanup in [True, 1, 'True', 'true']
         transformers = transformers if isinstance(transformers, list) else json.loads(transformers) if transformers else []
-        self.transformers = [import_entity(transformer) if isinstance(transformer, str) else transformer for transformer in transformers]
+        self.transformers = [import_object(transformer) if isinstance(transformer, str) else transformer for transformer in transformers]
         self.hidden = hidden if isinstance(hidden, list) else json.loads(hidden) if hidden else []
 
         self.parser_dir = parser_dir
@@ -175,8 +172,8 @@ def execute():
     add_antlr_argument(parser)
     add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
-    add_log_level_argument(parser)
-    add_version_argument(parser)
+    add_log_level_argument(parser, short_alias=())
+    add_version_argument(parser, __version__)
     args = parser.parse_args()
 
     for grammar in args.grammar:
@@ -186,7 +183,8 @@ def execute():
     if not args.parser_dir:
         args.parser_dir = join(args.out, 'grammars')
 
-    process_log_level_argument(args)
+    init_logging()
+    process_log_level_argument(args, logger)
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
     process_antlr_argument(args)

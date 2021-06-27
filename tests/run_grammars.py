@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -121,10 +121,10 @@ def run_antlr(grammar, commandline, tmpdir):
     :param commandline: command line as specified in the test command.
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
-    antlerinator.install(lazy=True)
+    antlr_jar_path = antlerinator.download(lazy=True)
     run_subprocess(grammar,
                    'java -jar {antlr} -Dlanguage=Python3 {commandline}'
-                   .format(antlr=antlerinator.antlr_jar_path, commandline=commandline),
+                   .format(antlr=antlr_jar_path, commandline=commandline),
                    tmpdir)
 
 

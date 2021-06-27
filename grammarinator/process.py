@@ -20,12 +20,14 @@ from sys import maxunicode
 
 import autopep8
 
+from antlerinator import add_antlr_argument, process_antlr_argument
 from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
+from inators.arg import add_log_level_argument, add_version_argument, process_log_level_argument
 from jinja2 import Environment
 
-from .cli import add_antlr_argument, add_disable_cleanup_argument, add_log_level_argument, add_version_argument, process_antlr_argument, process_log_level_argument
+from .cli import add_disable_cleanup_argument, init_logging, logger
 from .parser_builder import build_grammars
-from .pkgdata import __version__, default_antlr_path
+from .pkgdata import __version__
 
 
 class Node(object):
@@ -607,7 +609,7 @@ class FuzzerFactory(object):
     """
     Class that generates fuzzers from grammars.
     """
-    def __init__(self, lang, work_dir=None, antlr=default_antlr_path):
+    def __init__(self, lang, antlr, work_dir=None):
         """
         :param lang: Language of the generated code.
         :param work_dir: Directory to generate fuzzers into.
@@ -630,7 +632,7 @@ class FuzzerFactory(object):
             with open(join(antlr_dir, resource), 'wb') as f:
                 f.write(get_data(__package__, join('resources', 'antlr', resource)))
 
-        self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_resources, antlr_dir, antlr=antlr)
+        self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_resources, antlr_dir, antlr)
 
     def generate_fuzzer(self, grammars, *, options=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
@@ -728,8 +730,8 @@ def execute():
                         help='temporary working directory (default: %(default)s).')
     add_disable_cleanup_argument(parser)
     add_antlr_argument(parser)
-    add_log_level_argument(parser)
-    add_version_argument(parser)
+    add_log_level_argument(parser, short_alias=())
+    add_version_argument(parser, __version__)
     args = parser.parse_args()
 
     for grammar in args.grammar:
@@ -745,10 +747,11 @@ def execute():
         name, value = parts.group(1, 2)
         options[name] = value
 
-    process_log_level_argument(args)
+    init_logging()
+    process_log_level_argument(args, logger)
     process_antlr_argument(args)
 
-    FuzzerFactory(args.language, args.out, args.antlr).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.language, args.antlr, args.out).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
     if args.cleanup:
         rmtree(join(args.out, 'antlr'), ignore_errors=True)

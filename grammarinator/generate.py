@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -7,7 +7,6 @@
 
 import codecs
 import glob
-import importlib
 import json
 import os
 import random
@@ -21,8 +20,12 @@ from multiprocessing import Manager, Pool
 from os.path import abspath, basename, dirname, isdir, join, splitext
 from shutil import rmtree
 
-from .cli import add_jobs_argument, add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, logger, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
-from .model import CooldownModel
+from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
+from inators.imp import import_object
+
+from .cli import add_jobs_argument, init_logging, logger
+from .model import CooldownModel, DefaultModel
+from .pkgdata import __version__
 from .runtime import Tree
 
 
@@ -58,26 +61,20 @@ class Generator(object):
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8'):
 
-        def import_entity(name):
-            if not name:
-                return None
-            steps = name.split('.')
-            return getattr(importlib.import_module('.'.join(steps[0:-1])), steps[-1])
-
         def import_list(lst):
             lst = lst or []
             if isinstance(lst, str):
                 lst = json.loads(lst)
-            return [import_entity(item) for item in lst]
+            return [import_object(item) for item in lst]
 
         def get_boolean(value):
             return value in ['True', True, 1]
 
-        self.generator_cls = import_entity(generator)
-        self.model_cls = import_entity(model or 'grammarinator.model.DefaultModel')
+        self.generator_cls = import_object(generator) if generator else None
+        self.model_cls = import_object(model) if model else DefaultModel
         self.listener_cls = import_list(listeners)
         self.transformers = import_list(transformers)
-        self.serializer = import_entity(serializer) if serializer else str
+        self.serializer = import_object(serializer) if serializer else str
         self.rule = rule or self.generator_cls.default_rule.__name__
 
         out_dir = abspath(dirname(out_format))
@@ -279,14 +276,15 @@ def execute():
     add_jobs_argument(parser)
     add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
-    add_log_level_argument(parser)
-    add_version_argument(parser)
+    add_log_level_argument(parser, short_alias=())
+    add_version_argument(parser, __version__)
     args = parser.parse_args()
 
     if args.jobs == 1 and args.random_seed:
         random.seed(args.random_seed)
 
-    process_log_level_argument(args)
+    init_logging()
+    process_log_level_argument(args, logger)
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
 
