@@ -716,7 +716,7 @@ def execute():
                         help='ANTLR grammar files describing the expected format to generate.')
     parser.add_argument('-D', metavar='OPT=VAL', dest='options', default=list(), action='append',
                         help='set/override grammar-level option')
-    parser.add_argument('--language', choices=['py'], default='py',
+    parser.add_argument('--language', metavar='LANG', choices=['py'], default='py',
                         help='language of the generated code (choices: %(choices)s; default: %(default)s)')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')
