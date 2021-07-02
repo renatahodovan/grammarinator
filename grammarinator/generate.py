@@ -24,9 +24,8 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 from inators.imp import import_object
 
 from .cli import add_jobs_argument, init_logging, logger
-from .model import CooldownModel, DefaultModel
 from .pkgdata import __version__
-from .runtime import Tree
+from .runtime import CooldownModel, DefaultModel, Tree
 
 
 class Population(object):
@@ -235,7 +234,7 @@ def execute():
                         help='reference to the generator created by grammarinator-process (in package.module.class format).')
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start generation from (default: first parser rule).')
-    parser.add_argument('-m', '--model', metavar='NAME', default='grammarinator.model.DefaultModel',
+    parser.add_argument('-m', '--model', metavar='NAME', default='grammarinator.runtime.DefaultModel',
                         help='reference to the decision model (in package.module.class format) (default: %(default)s).')
     parser.add_argument('-l', '--listener', metavar='NAME', action='append', default=[],
                         help='reference to a listener (in package.module.class format).')

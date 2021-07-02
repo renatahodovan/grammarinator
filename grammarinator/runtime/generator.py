@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -7,7 +7,7 @@
 
 from math import inf
 
-from ..model import DefaultModel
+from .default_model import DefaultModel
 
 
 def depthcontrol(fn):
