@@ -1,5 +1,6 @@
 [build-system]
 requires = [
+    "antlerinator>=1!1.1.0",
     "setuptools",
     "setuptools_scm[toml]",
     "wheel",

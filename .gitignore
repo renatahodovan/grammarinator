@@ -10,3 +10,6 @@ dist
 .pytest_cache
 .tox
 .coverage*
+*.interp
+*.tokens
+grammarinator/parser/ANTLRv4*.py

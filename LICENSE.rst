@@ -29,5 +29,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -----
 
 This software includes components from the "Grammars written for ANTLR v4"
-project under grammarinator/resources/antlr and grammariantor/examples/grammars/,
-which files carry a compatible "BSD license" and their own copyright notices.
+project under grammarinator/resources/antlr, grammarinator/parser, and
+grammariantor/examples/grammars, which files carry a compatible "BSD license"
+and their own copyright notices.

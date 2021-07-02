@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 from collections import defaultdict, OrderedDict
 from itertools import chain
 from math import inf
-from os import getcwd, makedirs
+from os import getcwd
 from os.path import dirname, exists, join
 from pkgutil import get_data
 from shutil import copy, rmtree
@@ -26,7 +26,7 @@ from inators.arg import add_log_level_argument, add_version_argument, process_lo
 from jinja2 import Environment
 
 from .cli import add_disable_cleanup_argument, init_logging, logger
-from .parser_builder import build_grammars
+from .parser import ANTLRv4Lexer, ANTLRv4Parser
 from .pkgdata import __version__
 
 
@@ -247,7 +247,7 @@ class GrammarGraph(object):
             self.vertices[ident].min_depth = min_depth
 
 
-def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
+def build_graph(actions, lexer_root, parser_root):
 
     def find_conditions(node):
         if not actions:
@@ -394,7 +394,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
         alt_idx, quant_idx, chr_idx = 0, 0, 0  # pylint: disable=unused-variable
 
         def build_expr(node, parent_id):
-            if isinstance(node, (antlr_parser_cls.RuleAltListContext, antlr_parser_cls.AltListContext, antlr_parser_cls.LexerAltListContext)):
+            if isinstance(node, (ANTLRv4Parser.RuleAltListContext, ANTLRv4Parser.AltListContext, ANTLRv4Parser.LexerAltListContext)):
                 children = [child for child in node.children if isinstance(child, ParserRuleContext)]
                 if len(children) == 1:
                     build_expr(children[0], parent_id)
@@ -410,7 +410,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                     graph.add_edge(frm=alt_id, to=alternative_id)
                     build_expr(child, alternative_id)
 
-            elif isinstance(node, antlr_parser_cls.LabeledAltContext):
+            elif isinstance(node, ANTLRv4Parser.LabeledAltContext):
                 if not node.identifier():
                     build_expr(node.alternative(), parent_id)
                     return
@@ -419,15 +419,15 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                 graph.add_edge(frm=parent_id, to=graph.add_node(rule_node))
                 build_rule(rule_node, node.alternative())
 
-            elif isinstance(node, (antlr_parser_cls.AlternativeContext, antlr_parser_cls.LexerAltContext)):
+            elif isinstance(node, (ANTLRv4Parser.AlternativeContext, ANTLRv4Parser.LexerAltContext)):
                 if not node.children:
                     graph.add_edge(frm=parent_id, to=lambda_id)
                     return
 
-                for child in node.element() if isinstance(node, antlr_parser_cls.AlternativeContext) else node.lexerElements().lexerElement():
+                for child in node.element() if isinstance(node, ANTLRv4Parser.AlternativeContext) else node.lexerElements().lexerElement():
                     build_expr(child, parent_id)
 
-            elif isinstance(node, (antlr_parser_cls.ElementContext, antlr_parser_cls.LexerElementContext)):
+            elif isinstance(node, (ANTLRv4Parser.ElementContext, ANTLRv4Parser.LexerElementContext)):
                 if node.actionBlock():
                     # Conditions are handled at alternative processing.
                     if not actions or node.QUESTION():
@@ -455,17 +455,17 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                 graph.add_edge(frm=parent_id, to=quant_id)
                 build_expr(node.children[0], quant_id)
 
-            elif isinstance(node, antlr_parser_cls.LabeledElementContext):
+            elif isinstance(node, ANTLRv4Parser.LabeledElementContext):
                 build_expr(node.atom() or node.block(), parent_id)
                 ident = node.identifier()
                 name = str(ident.RULE_REF() or ident.TOKEN_REF())
                 graph.add_edge(frm=parent_id, to=graph.add_node(VariableNode(name=name)))
                 rule.has_var = True
 
-            elif isinstance(node, antlr_parser_cls.RulerefContext):
+            elif isinstance(node, ANTLRv4Parser.RulerefContext):
                 graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
 
-            elif isinstance(node, (antlr_parser_cls.LexerAtomContext, antlr_parser_cls.AtomContext)):
+            elif isinstance(node, (ANTLRv4Parser.LexerAtomContext, ANTLRv4Parser.AtomContext)):
                 nonlocal chr_idx
 
                 if node.DOT():
@@ -485,7 +485,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                     graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
                     chr_idx += 1
 
-                elif isinstance(node, antlr_parser_cls.LexerAtomContext) and node.characterRange():
+                elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.characterRange():
                     start, end = character_range_interval(node)
                     if lexer_rule:
                         rule.start_ranges.append((start, end))
@@ -495,7 +495,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                     graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(idx=chr_idx, charset=charset.id)))
                     chr_idx += 1
 
-                elif isinstance(node, antlr_parser_cls.LexerAtomContext) and node.LEXER_CHAR_SET():
+                elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.LEXER_CHAR_SET():
                     ranges = lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
                     if lexer_rule:
                         rule.start_ranges.extend(ranges)
@@ -508,7 +508,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
                 for child in node.children:
                     build_expr(child, parent_id)
 
-            elif isinstance(node, antlr_parser_cls.TerminalContext):
+            elif isinstance(node, ANTLRv4Parser.TerminalContext):
                 if node.TOKEN_REF():
                     graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
 
@@ -529,7 +529,7 @@ def build_graph(antlr_parser_cls, actions, lexer_root, parser_root):
         build_expr(node, rule.id)
 
     def build_prequel(node):
-        assert isinstance(node, antlr_parser_cls.GrammarSpecContext)
+        assert isinstance(node, ANTLRv4Parser.GrammarSpecContext)
 
         if not graph.name:
             graph.name = re.sub(r'^(.+?)(Lexer|Parser)?$', r'\1Generator', str(node.grammarDecl().identifier().TOKEN_REF() or node.grammarDecl().identifier().RULE_REF()))
@@ -623,17 +623,6 @@ class FuzzerFactory(object):
         self.template = env.from_string(get_data(__package__, join('resources', 'codegen', 'GeneratorTemplate.' + lang + '.jinja')).decode('utf-8'))
         self.work_dir = work_dir or getcwd()
 
-        antlr_dir = join(self.work_dir, 'antlr')
-        makedirs(antlr_dir, exist_ok=True)
-
-        # Copy the grammars from the package to the given working directory.
-        antlr_resources = ['ANTLRv4Lexer.g4', 'ANTLRv4Parser.g4', 'LexBasic.g4', 'LexerAdaptor.py']
-        for resource in antlr_resources:
-            with open(join(antlr_dir, resource), 'wb') as f:
-                f.write(get_data(__package__, join('resources', 'antlr', resource)))
-
-        self.antlr_lexer_cls, self.antlr_parser_cls, _ = build_grammars(antlr_resources, antlr_dir, antlr)
-
     def generate_fuzzer(self, grammars, *, options=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
         Generates fuzzers from grammars.
@@ -658,7 +647,7 @@ class FuzzerFactory(object):
             else:
                 copy(grammar, self.work_dir)
 
-        graph = build_graph(self.antlr_parser_cls, actions, lexer_root, parser_root)
+        graph = build_graph(actions, lexer_root, parser_root)
         graph.options.update(options or {})
 
         src = self.template.render(graph=graph, version=__version__).lstrip()
@@ -688,7 +677,7 @@ class FuzzerFactory(object):
         while work_list:
             grammar = work_list.pop()
 
-            antlr_parser = self.antlr_parser_cls(CommonTokenStream(self.antlr_lexer_cls(FileStream(grammar, encoding=encoding))))
+            antlr_parser = ANTLRv4Parser(CommonTokenStream(ANTLRv4Lexer(FileStream(grammar, encoding=encoding))))
             current_root = antlr_parser.grammarSpec()
             # assert antlr_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
 
