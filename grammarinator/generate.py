@@ -130,7 +130,7 @@ class Generator(object):
         tree.root = Generator.transform(tree.root, self.transformers)
 
         tree_fn = None
-        if self.keep_trees:
+        if self.population and self.keep_trees:
             tree_fn = join(self.population.directory, basename(test_fn) + Tree.extension)
             self.population.add_tree(tree_fn)
             tree.save(tree_fn)
@@ -259,7 +259,7 @@ def execute():
     parser.add_argument('--no-recombine', dest='recombine', default=True, action='store_false',
                         help='disable test generation by recombination (disabled by default if no population is given).')
     parser.add_argument('--keep-trees', default=False, action='store_true',
-                        help='keep generated tests to participate in further mutations or recombinations (default: %(default)d).')
+                        help='keep generated tests to participate in further mutations or recombinations (only if population is given).')
 
     # Auxiliary settings.
     parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', 'test_%d'),
