@@ -28,25 +28,38 @@ Requirements
 ============
 
 * Python_ >= 3.5
-* pip_
-* Java_ SE >= 7 JRE or JDK
+* Java_ SE >= 7 JRE or JDK (the latter is optional)
 
 .. _Python: https://www.python.org
-.. _pip: https://pip.pypa.io
 .. _Java: https://www.oracle.com/java/
 
 
 Install
 =======
 
-The quick way (to install the latest official release)::
+To use *Grammarinator* in another project, it can be added to ``setup.cfg`` as
+an install requirement (if using setuptools_ with declarative config):
+
+.. code-block:: ini
+
+    [options]
+    install_requires =
+        grammarinator
+
+To install *Grammarinator* manually, e.g., into a virtual environment, use
+pip_::
 
     pip install grammarinator
 
-Or clone the project and perform a local install (to install the freshest
-development revision)::
+The above approaches install the latest release of *Grammarinator* from PyPI_.
+Alternatively, for the development version, clone the project and perform a
+local install::
 
     pip install .
+
+.. _setuptools: https://github.com/pypa/setuptools
+.. _pip: https://pip.pypa.io
+.. _PyPI: https://pypi.org/
 
 
 Usage
@@ -169,8 +182,8 @@ Compatibility
 
 *Grammarinator* was tested on:
 
-* Linux (Ubuntu 16.04 / 18.04)
-* Mac OS X (Sierra 10.12 / High Sierra 10.13 / Mojave 10.14 / Catalina 10.15)
+* Linux (Ubuntu 16.04 / 18.04 / 20.04)
+* OS X / macOS (10.12 / 10.13 / 10.14 / 10.15 / 11)
 * Windows (Server 2012 R2 / Server version 1809 / Windows 10)
 
 
