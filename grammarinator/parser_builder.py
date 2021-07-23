@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,7 +10,7 @@ import sys
 
 from os import listdir
 from os.path import basename, commonprefix, split, splitext
-from subprocess import CalledProcessError, PIPE, Popen
+from subprocess import CalledProcessError, PIPE, run
 
 from antlr4 import error
 
@@ -47,17 +47,14 @@ def build_grammars(in_files, out, antlr):
 
         # Generate parser and lexer in the target language and return either with
         # python class ref or the name of java classes.
-        cmd = 'java -jar {antlr} {lang} {grammars}'.format(antlr=antlr,
-                                                           lang=languages['python']['antlr_arg'],
-                                                           grammars=' '.join(grammars))
-
-        with Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, cwd=out) as proc:
-            stdout, stderr = proc.communicate()
-            if proc.returncode:
-                logger.error('Building grammars %r failed!\n%s\n%s\n', grammars,
-                             stdout.decode('utf-8', 'ignore'),
-                             stderr.decode('utf-8', 'ignore'))
-                raise CalledProcessError(returncode=proc.returncode, cmd=cmd, output=stdout + stderr)
+        try:
+            run(('java', '-jar', antlr, languages['python']['antlr_arg']) + grammars,
+                stdout=PIPE, stderr=PIPE, cwd=out, check=True)
+        except CalledProcessError as e:
+            logger.error('Building grammars %r failed!\n%s\n%s\n', grammars,
+                         e.stdout.decode('utf-8', 'ignore'),
+                         e.stderr.decode('utf-8', 'ignore'))
+            raise
 
         files = set(listdir(out)) - set(in_files)
         filename = basename(grammars[0])
@@ -79,4 +76,4 @@ def build_grammars(in_files, out, antlr):
         return (getattr(__import__(x, globals(), locals(), [x], 0), x) for x in [lexer, parser, listener])
     except Exception as e:
         logger.error('Exception while loading parser modules', exc_info=e)
-        raise e
+        raise

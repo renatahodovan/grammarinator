@@ -73,10 +73,8 @@ def run_subprocess(grammar, commandline, tmpdir):
     commandline = commandline.format(grammar=grammar_name, tmpdir=tmpdir)
 
     print('RUN: %s' % commandline)
-    proc = subprocess.Popen(shlex.split(commandline, posix=sys.platform != 'win32'),
-                            cwd=grammar_dir, env=env)
-    proc.communicate()
-    assert proc.returncode == 0
+    subprocess.run(shlex.split(commandline, posix=sys.platform != 'win32'),
+                   cwd=grammar_dir, env=env, check=True)
 
 
 def run_process(grammar, commandline, tmpdir):
