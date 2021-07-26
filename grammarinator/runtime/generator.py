@@ -12,11 +12,11 @@ from .default_model import DefaultModel
 
 def depthcontrol(fn):
     def controlled_fn(obj, *args, **kwargs):
-        obj.max_depth -= 1
+        obj._max_depth -= 1
         try:
             result = fn(obj, *args, **kwargs)
         finally:
-            obj.max_depth += 1
+            obj._max_depth += 1
         return result
 
     controlled_fn.__name__ = fn.__name__
@@ -26,14 +26,14 @@ def depthcontrol(fn):
 class Generator(object):
 
     def __init__(self, *, model=None, max_depth=inf):
-        self.model = model or DefaultModel()
-        self.max_depth = max_depth
-        self.listeners = []
+        self._model = model or DefaultModel()
+        self._max_depth = max_depth
+        self._listeners = []
 
-    def enter_rule(self, node):
-        for listener in self.listeners:
+    def _enter_rule(self, node):
+        for listener in self._listeners:
             listener.enter_rule(node)
 
-    def exit_rule(self, node):
-        for listener in reversed(self.listeners):
+    def _exit_rule(self, node):
+        for listener in reversed(self._listeners):
             listener.exit_rule(node)

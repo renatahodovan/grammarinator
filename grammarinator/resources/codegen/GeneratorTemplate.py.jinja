@@ -1,5 +1,5 @@
 {#
- # Copyright (c) 2020 Renata Hodovan, Akos Kiss.
+ # Copyright (c) 2020-2021 Renata Hodovan, Akos Kiss.
  #
  # Licensed under the BSD 3-Clause License
  # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -28,7 +28,7 @@ self.{{ node.id }}(parent=current)
 
 
 {% macro processCharsetNode(node) %}
-UnlexerRule(src=self.model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}]), parent=current)
+UnlexerRule(src=self._model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}]), parent=current)
 {% endmacro %}
 
 
@@ -38,8 +38,8 @@ UnlexerRule(src='{{ node.src }}', parent=current)
 
 
 {% macro processQuantifierNode(node) %}
-if self.max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
-    for _ in self.model.quantify(current, {{ node.idx }}, min={{ node.min }}, max={{ node.max }}):
+if self._max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
+    for _ in self._model.quantify(current, {{ node.idx }}, min={{ node.min }}, max={{ node.max }}):
     {% for child in node.out_neighbours %}
         {{ processNode(child) | indent | indent -}}
     {% endfor %}
@@ -47,7 +47,7 @@ if self.max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
 
 
 {% macro processAlternationNode(node) %}
-choice = self.model.choice(current, {{ node.idx }}, [0 if [{{ node.min_depth | join(', ') }}][i] > self.max_depth else w for i, w in enumerate([{{ node.conditions | join(', ') }}])])
+choice = self._model.choice(current, {{ node.idx }}, [0 if [{{ node.min_depth | join(', ') }}][i] > self._max_depth else w for i, w in enumerate([{{ node.conditions | join(', ') }}])])
 {% for child in node.out_neighbours %}
 {{ 'if' if loop.index0 == 0 else 'elif' }} choice == {{ loop.index0 }}:
     {{ processNode(child) | indent -}}
@@ -123,11 +123,11 @@ class {{ graph.name }}({{ graph.superclass }}):
         local_ctx = dict()
         {% endif %}
         current = {{ rule.type }}(name='{{ rule.id }}', parent=parent)
-        self.enter_rule(current)
+        self._enter_rule(current)
         {% for child in rule.out_neighbours %}
         {{ processNode(child) | indent | indent -}}
         {% endfor %}
-        self.exit_rule(current)
+        self._exit_rule(current)
         return current
         {% else %}
         pass
@@ -135,7 +135,7 @@ class {{ graph.name }}({{ graph.superclass }}):
     {{ rule.id }}.min_depth = {{ rule.min_depth }}
 
     {% endfor %}
-    default_rule = {{ graph.default_rule }}
+    _default_rule = {{ graph.default_rule }}
 
     _charsets = {
         {% for charset in graph.charsets %}

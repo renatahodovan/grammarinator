@@ -74,7 +74,7 @@ class Generator(object):
         self.listener_cls = import_list(listeners)
         self.transformers = import_list(transformers)
         self.serializer = import_object(serializer) if serializer else str
-        self.rule = rule or self.generator_cls.default_rule.__name__
+        self.rule = rule or self.generator_cls._default_rule.__name__
 
         out_dir = abspath(dirname(out_format))
         os.makedirs(out_dir, exist_ok=True)

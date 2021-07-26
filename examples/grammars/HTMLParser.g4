@@ -58,7 +58,7 @@ def html_space_serializer(root):
 }
 
 @parser::member {
-def endOfHtmlElement(self):
+def _endOfHtmlElement(self):
     pass
 
 }
@@ -72,9 +72,9 @@ htmlElements
     ;
 
 htmlElement
-    : TAG_OPEN open_tag=htmlTagName htmlAttribute* TAG_CLOSE htmlContent TAG_OPEN TAG_SLASH htmlTagName {current.last_child = $open_tag.deepcopy()} TAG_CLOSE {self.endOfHtmlElement()}
-    | TAG_OPEN open_tag=htmlTagName htmlAttribute* TAG_SLASH_CLOSE {self.endOfHtmlElement()}
-    | TAG_OPEN open_tag=htmlTagName htmlAttribute* TAG_CLOSE {self.endOfHtmlElement()}
+    : TAG_OPEN open_tag=htmlTagName htmlAttribute* TAG_CLOSE htmlContent TAG_OPEN TAG_SLASH htmlTagName {current.last_child = $open_tag.deepcopy()} TAG_CLOSE {self._endOfHtmlElement()}
+    | TAG_OPEN open_tag=htmlTagName htmlAttribute* TAG_SLASH_CLOSE {self._endOfHtmlElement()}
+    | TAG_OPEN open_tag=htmlTagName htmlAttribute* TAG_CLOSE {self._endOfHtmlElement()}
     | scriptlet
     | script
     | style
