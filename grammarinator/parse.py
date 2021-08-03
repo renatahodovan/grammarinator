@@ -173,7 +173,7 @@ def execute():
     add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
     add_log_level_argument(parser, short_alias=())
-    add_version_argument(parser, __version__)
+    add_version_argument(parser, version=__version__)
     args = parser.parse_args()
 
     for grammar in args.grammar:

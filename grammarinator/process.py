@@ -720,7 +720,7 @@ def execute():
     add_disable_cleanup_argument(parser)
     add_antlr_argument(parser)
     add_log_level_argument(parser, short_alias=())
-    add_version_argument(parser, __version__)
+    add_version_argument(parser, version=__version__)
     args = parser.parse_args()
 
     for grammar in args.grammar:
