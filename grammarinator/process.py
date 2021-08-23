@@ -184,7 +184,7 @@ class GrammarGraph(object):
     def __init__(self):
         self.name = None
         self.vertices = OrderedDict()
-        self.options = dict()
+        self.options = {}
         self.charsets = []
         self.header = ''
         self.member = ''
@@ -703,7 +703,7 @@ def execute():
         """)
     parser.add_argument('grammar', metavar='FILE', nargs='+',
                         help='ANTLR grammar files describing the expected format to generate.')
-    parser.add_argument('-D', metavar='OPT=VAL', dest='options', default=list(), action='append',
+    parser.add_argument('-D', metavar='OPT=VAL', dest='options', default=[], action='append',
                         help='set/override grammar-level option')
     parser.add_argument('--language', metavar='LANG', choices=['py'], default='py',
                         help='language of the generated code (choices: %(choices)s; default: %(default)s)')
@@ -727,7 +727,7 @@ def execute():
         if not exists(grammar):
             parser.error('{grammar} does not exist.'.format(grammar=grammar))
 
-    options = dict()
+    options = {}
     for option in args.options:
         parts = re.fullmatch('([^=]+)=(.*)', option)
         if not parts:

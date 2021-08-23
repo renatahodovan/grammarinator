@@ -87,7 +87,7 @@ class Generator(object):
 
         self.max_depth = float(max_depth)
         self.cooldown = float(cooldown)
-        self.weights = dict()
+        self.weights = {}
         self.population = Population(population) if population else None
         self.enable_generation = get_boolean(generate)
         self.enable_mutation = get_boolean(mutate)

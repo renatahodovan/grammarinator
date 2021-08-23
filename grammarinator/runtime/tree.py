@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -48,7 +48,7 @@ class Tree(object):
 
             return current.depth
 
-        self.node_dict = dict()
+        self.node_dict = {}
         _annotate(self.root, 0)
 
     @staticmethod
