@@ -620,7 +620,7 @@ class FuzzerFactory(object):
                           lstrip_blocks=True,
                           keep_trailing_newline=False)
         env.filters['substitute'] = lambda s, frm, to: re.sub(frm, to, str(s))
-        self.template = env.from_string(get_data(__package__, join('resources', 'codegen', 'GeneratorTemplate.' + lang + '.jinja')).decode('utf-8'))
+        self.template = env.from_string(get_data(__package__, 'resources/codegen/GeneratorTemplate.' + lang + '.jinja').decode('utf-8'))
         self.work_dir = work_dir or getcwd()
 
     def generate_fuzzer(self, grammars, *, options=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
