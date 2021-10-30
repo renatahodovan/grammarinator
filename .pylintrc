@@ -3,6 +3,11 @@
 # Files or directories to be skipped. They should be base names, not paths.
 ignore=parser
 
+# A comma-separated list of package or module names from where C extensions may
+# be loaded. Extensions are loading into the active Python interpreter and may
+# run arbitrary code
+extension-pkg-allow-list=math
+
 [MESSAGES CONTROL]
 
 # Disable the message, report, category or checker with the given id(s). You
@@ -21,7 +26,8 @@ disable=
     too-many-statements, too-many-return-statements, too-many-branches,
     too-many-instance-attributes, too-few-public-methods,
     redefined-builtin, broad-except, protected-access,
-    useless-object-inheritance, deprecated-module, unspecified-encoding
+    useless-object-inheritance, deprecated-module, unspecified-encoding,
+    consider-using-f-string
 
 [REPORTS]
 
