@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -20,7 +20,6 @@ from sys import maxunicode
 
 import autopep8
 
-from antlerinator import add_antlr_argument, process_antlr_argument
 from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 from inators.arg import add_log_level_argument, add_version_argument, process_log_level_argument
 from jinja2 import Environment
@@ -609,11 +608,10 @@ class FuzzerFactory(object):
     """
     Class that generates fuzzers from grammars.
     """
-    def __init__(self, lang, antlr, work_dir=None):
+    def __init__(self, lang, work_dir=None):
         """
         :param lang: Language of the generated code.
         :param work_dir: Directory to generate fuzzers into.
-        :param antlr: Path to the ANTLR jar.
         """
         self.lang = lang
         env = Environment(trim_blocks=True,
@@ -718,7 +716,6 @@ def execute():
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
                         help='temporary working directory (default: %(default)s).')
     add_disable_cleanup_argument(parser)
-    add_antlr_argument(parser)
     add_log_level_argument(parser, short_alias=())
     add_version_argument(parser, version=__version__)
     args = parser.parse_args()
@@ -738,9 +735,8 @@ def execute():
 
     init_logging()
     process_log_level_argument(args, logger)
-    process_antlr_argument(args)
 
-    FuzzerFactory(args.language, args.antlr, args.out).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    FuzzerFactory(args.language, args.out).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
     if args.cleanup:
         rmtree(join(args.out, 'antlr'), ignore_errors=True)
