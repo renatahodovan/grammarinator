@@ -378,7 +378,12 @@ def build_graph(actions, lexer_root, parser_root):
 
         if node.STRING_LITERAL():
             assert len(str(node.STRING_LITERAL())) > 2, 'Negated string literal must not be empty.'
-            first_char = ord(str(node.STRING_LITERAL())[1])
+            # unescape '
+            c = node.STRING_LITERAL().symbol.text[1:-1].replace("\\'", "'")
+            # decode unicode
+            decode = c.encode()
+            decode = decode.decode("unicode-escape", "strict")
+            first_char = ord(str(decode))
             return [(first_char, first_char + 1)]
 
         if node.TOKEN_REF():
