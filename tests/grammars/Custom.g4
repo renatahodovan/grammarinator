@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -33,6 +33,7 @@
 grammar Custom;
 
 @lexer::header {
+from copy import deepcopy
 from sys import platform as CustomLexerPlatform
 }
 
@@ -56,7 +57,7 @@ start
   ;
 
 tag
-  : '<' remember=tagname '>' CONTENT '</' tagname {current.last_child = $remember.deepcopy()} '>'
+  : '<' remember=tagname '>' CONTENT '</' tagname {current.last_child = deepcopy($remember)} '>'
   ;
 
 tagname

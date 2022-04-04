@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -7,7 +7,7 @@
 
 import pickle
 
-from copy import copy, deepcopy
+from copy import deepcopy
 from math import inf
 
 
@@ -18,6 +18,11 @@ class Tree(object):
     def __init__(self, root):
         self.root = root
         self.node_dict = None
+
+    def __deepcopy__(self, memo):
+        tree = Tree(deepcopy(self.root, memo=memo))
+        tree.annotate()
+        return tree
 
     def annotate(self):
         """
@@ -100,12 +105,6 @@ class BaseRule(object):
         else:
             self.add_child(child)
         return self
-
-    def copy(self):
-        return copy(self)
-
-    def deepcopy(self):
-        return deepcopy(self)
 
     @property
     def left_sibling(self):
