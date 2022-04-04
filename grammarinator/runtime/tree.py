@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -18,6 +18,11 @@ class Tree(object):
     def __init__(self, root):
         self.root = root
         self.node_dict = None
+
+    def deepcopy(self):
+        tree = Tree(self.root.deepcopy())
+        tree.annotate()
+        return tree
 
     def annotate(self):
         """
