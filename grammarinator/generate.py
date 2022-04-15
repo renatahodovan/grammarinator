@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -76,8 +76,8 @@ class Generator(object):
         self.serializer = import_object(serializer) if serializer else str
         self.rule = rule or self.generator_cls._default_rule.__name__
 
-        out_dir = abspath(dirname(out_format))
-        os.makedirs(out_dir, exist_ok=True)
+        if out_format:
+            os.makedirs(abspath(dirname(out_format)), exist_ok=True)
 
         if out_format and '%d' not in out_format:
             base, ext = splitext(out_format)
@@ -100,7 +100,7 @@ class Generator(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.cleanup:
+        if self.cleanup and self.out_format:
             rmtree(dirname(self.out_format))
 
     def __call__(self, index, *args, lock=None, **kwargs):
