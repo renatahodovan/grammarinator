@@ -79,12 +79,7 @@ class Generator(object):
         if out_format:
             os.makedirs(abspath(dirname(out_format)), exist_ok=True)
 
-        if out_format and '%d' not in out_format:
-            base, ext = splitext(out_format)
-            self.out_format = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
-        else:
-            self.out_format = out_format
-
+        self.out_format = out_format
         self.max_depth = float(max_depth)
         self.cooldown = float(cooldown)
         self.weights = {}
@@ -126,12 +121,16 @@ class Generator(object):
             logger.warning('Test generation failed.', exc_info=e)
             return self.create_new_test(index, lock)
 
-        test_fn = self.out_format % index if self.out_format else None
+        test_fn = self.out_format % index if '%d' in self.out_format else self.out_format
         tree.root = Generator.transform(tree.root, self.transformers)
 
         tree_fn = None
         if self.population and self.keep_trees:
-            tree_fn = join(self.population.directory, basename(test_fn) + Tree.extension)
+            tree_basename = basename(self.out_format)
+            if '%d' not in tree_basename:
+                base, ext = splitext(tree_basename)
+                tree_basename = '{base}%d{ext}'.format(base=base, ext=ext)
+            tree_fn = join(self.population.directory, tree_basename % index + Tree.extension)
             self.population.add_tree(tree_fn)
             tree.save(tree_fn)
 
