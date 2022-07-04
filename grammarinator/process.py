@@ -428,7 +428,12 @@ def build_graph(actions, lexer_root, parser_root):
                     graph.add_edge(frm=parent_id, to=lambda_id)
                     return
 
-                for child in node.element() if isinstance(node, ANTLRv4Parser.AlternativeContext) else node.lexerElements().lexerElement():
+                children = node.element() if isinstance(node, ANTLRv4Parser.AlternativeContext) else node.lexerElements().lexerElement()
+                if isinstance(node, ANTLRv4Parser.LexerAltContext) and not children:
+                    graph.add_edge(frm=parent_id, to=lambda_id)
+                    return
+
+                for child in children:
                     build_expr(child, parent_id)
 
             elif isinstance(node, (ANTLRv4Parser.ElementContext, ANTLRv4Parser.LexerElementContext)):
