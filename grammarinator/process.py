@@ -98,10 +98,29 @@ class AlternationNode(Node):
         self.idx = idx
         self.conditions = conditions
 
-    def literal_alternatives(self):
-        if self.out_neighbours and all(len(alt.out_neighbours) == 1 and isinstance(alt.out_neighbours[0], LiteralNode) for alt in self.out_neighbours):
-            return [repr(alt.out_neighbours[0].src) for alt in self.out_neighbours]
-        return None
+    def simple_alternatives(self):
+        # Check if an alternation contains simple alternatives only (simple
+        # literals or rule references), and return a 2-tuple. If the alternation
+        # contains any non-simple alternatives, return None, None. If the
+        # alternation contains simple literals only, the first element of the
+        # tuple is a list of the literal values, while the second element is None.
+        # If the alternation contains rule references only, the first element is
+        # None, while the second element is a list of rule ids. If the alternation
+        # contains both simple literals and rule references, then both elements of
+        # the tuple are lists, which are of identical length, and exactly one of
+        # them contains a non-None value at every index position.
+        if not self.out_neighbours or any(len(alt.out_neighbours) != 1 or not isinstance(alt.out_neighbours[0], (LiteralNode, RuleNode)) for alt in self.out_neighbours):
+            return None, None
+
+        simple_lits = [alt.out_neighbours[0].src if isinstance(alt.out_neighbours[0], LiteralNode) else None for alt in self.out_neighbours]
+        if all(lit is None for lit in simple_lits):
+            simple_lits = None
+
+        simple_rules = [alt.out_neighbours[0].id if isinstance(alt.out_neighbours[0], RuleNode) else None for alt in self.out_neighbours]
+        if all(rule is None for rule in simple_rules):
+            simple_rules = None
+
+        return simple_lits, simple_rules
 
 
 class AlternativeNode(Node):
