@@ -122,19 +122,16 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endif %}
 
     {% for rule in graph.rules %}
-    @depthcontrol
     def {{ rule.id }}(self, parent=None):
         {% if rule.id != 'EOF' %}
         {% if rule.has_var %}
         local_ctx = dict()
         {% endif %}
-        current = {{ rule.type }}(name='{{ rule.id }}', parent=parent)
-        self._enter_rule(current)
-        {% for child in rule.out_neighbours %}
-        {{ processNode(child) | indent | indent -}}
-        {% endfor %}
-        self._exit_rule(current)
-        return current
+        with RuleContext(self, {{ rule.type }}(name='{{ rule.id }}', parent=parent)) as current:
+            {% for child in rule.out_neighbours %}
+            {{ processNode(child) | indent | indent | indent -}}
+            {% endfor %}
+            return current
         {% else %}
         pass
         {% endif %}

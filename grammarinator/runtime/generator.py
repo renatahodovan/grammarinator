@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,17 +10,20 @@ from math import inf
 from .default_model import DefaultModel
 
 
-def depthcontrol(fn):
-    def controlled_fn(obj, *args, **kwargs):
-        obj._max_depth -= 1
-        try:
-            result = fn(obj, *args, **kwargs)
-        finally:
-            obj._max_depth += 1
-        return result
+class RuleContext(object):
 
-    controlled_fn.__name__ = fn.__name__
-    return controlled_fn
+    def __init__(self, gen, node):
+        self._gen = gen
+        self._node = node
+
+    def __enter__(self):
+        self._gen._max_depth -= 1
+        self._gen._enter_rule(self._node)
+        return self._node
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._gen._exit_rule(self._node)
+        self._gen._max_depth += 1
 
 
 class Generator(object):
