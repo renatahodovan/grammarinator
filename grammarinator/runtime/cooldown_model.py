@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -14,8 +14,8 @@ class CooldownModel(object):
         self._cooldown = cooldown
 
     def choice(self, node, idx, choices):
-        i = self._model.choice(node, idx, [w * self._weights.get((node.name, i), 1) for i, w in enumerate(choices)])
-        self._weights[(node.name, i)] = self._weights.get((node.name, i), 1) * self._cooldown
+        i = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(choices)])
+        self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) * self._cooldown
         return i
 
     def quantify(self, node, idx, min, max):
