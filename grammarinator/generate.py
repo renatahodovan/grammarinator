@@ -77,7 +77,6 @@ class Generator(object):
         self.out_format = out_format
         self.max_depth = float(max_depth)
         self.cooldown = float(cooldown)
-        self.weights = {}
         self.population = Population(population) if population else None
         self.enable_generation = get_boolean(generate)
         self.enable_mutation = get_boolean(mutate)
@@ -93,11 +92,12 @@ class Generator(object):
         if self.cleanup and self.out_format:
             rmtree(dirname(self.out_format))
 
-    def __call__(self, index, *args, lock=None, **kwargs):
+    def __call__(self, index, *args, weights=None, lock=None, **kwargs):
+        weights = weights if weights is not None else {}
         lock = lock or nullcontext()
-        return self.create_new_test(index, lock)[0]
+        return self.create_new_test(index, weights, lock)[0]
 
-    def create_new_test(self, index, lock):
+    def create_new_test(self, index, weights, lock):
         generators = []
 
         if self.enable_generation:
@@ -111,7 +111,7 @@ class Generator(object):
 
         try:
             generator = random.choice(generators)
-            tree = generator(self.rule, self.max_depth)
+            tree = generator(rule=self.rule, max_depth=self.max_depth, weights=weights, lock=lock)
         except Exception as e:
             logger.warning('Test generation failed.', exc_info=e)
             return None, None
@@ -144,7 +144,7 @@ class Generator(object):
             root = transformer(root)
         return root
 
-    def generate(self, rule, max_depth):
+    def generate(self, *, rule, max_depth, weights, lock):
         start_rule = getattr(self.generator_cls, rule)
         if not hasattr(start_rule, 'min_depth'):
             logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
@@ -162,7 +162,7 @@ class Generator(object):
 
         model = instantiate(self.model_cls)
         if self.cooldown < 1:
-            model = CooldownModel(model, cooldown=self.cooldown, weights=self.weights)
+            model = CooldownModel(model, cooldown=self.cooldown, weights=weights, lock=lock)
         generator = self.generator_cls(model=model, max_depth=max_depth)
         for listener_cls in self.listener_cls:
             generator._listeners.append(instantiate(listener_cls))
@@ -171,7 +171,7 @@ class Generator(object):
     def random_individuals(self, n):
         return self.population.random_individuals(n=n)
 
-    def mutate(self, *args):
+    def mutate(self, *, weights, lock, **kwargs):
         tree_fn = self.random_individuals(n=1)[0]
         tree = Tree.load(tree_fn)
 
@@ -179,11 +179,11 @@ class Generator(object):
         if node is None:
             raise ValueError('Could not choose node to mutate.')
 
-        new_tree = self.generate(node.name, self.max_depth - node.level)
+        new_tree = self.generate(rule=node.name, max_depth=self.max_depth - node.level, weights=weights, lock=lock)
         node.replace(new_tree.root)
         return tree
 
-    def recombine(self, *args):
+    def recombine(self, **kwargs):
         tree_1_fn, tree_2_fn = self.random_individuals(n=2)
         tree_1 = Tree.load(tree_1_fn)
         tree_2 = Tree.load(tree_2_fn)
@@ -292,15 +292,15 @@ def execute():
                    transformers=args.transformer, serializer=args.serializer,
                    cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
-            with Manager() if not args.out else nullcontext() as manager:
-                if not args.out:
-                    generator = partial(generator, lock=manager.Lock())  # pylint: disable=no-member
+            with Manager() as manager:
+                generator = partial(generator, weights=manager.dict(), lock=manager.Lock())  # pylint: disable=no-member
                 with Pool(args.jobs) as pool:
                     for _ in pool.imap_unordered(generator, count(0) if args.n == inf else range(args.n)):
                         pass
         else:
+            weights = {}
             for i in count(0) if args.n == inf else range(args.n):
-                generator(i)
+                generator(i, weights=weights)
 
 
 if __name__ == '__main__':
