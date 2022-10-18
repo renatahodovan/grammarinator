@@ -119,7 +119,7 @@ class Generator(object):
             tree = generator(self.rule, self.max_depth)
         except Exception as e:
             logger.warning('Test generation failed.', exc_info=e)
-            return self.create_new_test(index, lock)
+            return None, None
 
         test_fn = self.out_format % index if '%d' in self.out_format else self.out_format
         tree.root = Generator.transform(tree.root, self.transformers)
