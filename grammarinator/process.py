@@ -424,23 +424,17 @@ def build_graph(actions, lexer_root, parser_root):
                 build_rule(rule_node, node.alternative())
 
             elif isinstance(node, (ANTLRv4Parser.AlternativeContext, ANTLRv4Parser.LexerAltContext)):
-                if not node.children:
-                    graph.add_edge(frm=parent_id, to=lambda_id)
-                    return
-
                 children = node.element() if isinstance(node, ANTLRv4Parser.AlternativeContext) else node.lexerElements().lexerElement()
-                if isinstance(node, ANTLRv4Parser.LexerAltContext) and not children:
-                    graph.add_edge(frm=parent_id, to=lambda_id)
-                    return
-
                 for child in children:
                     build_expr(child, parent_id)
+
+                if not graph.vertices[parent_id].out_neighbours:
+                    graph.add_edge(frm=parent_id, to=lambda_id)
 
             elif isinstance(node, (ANTLRv4Parser.ElementContext, ANTLRv4Parser.LexerElementContext)):
                 if node.actionBlock():
                     # Conditions are handled at alternative processing.
                     if not actions or node.QUESTION():
-                        graph.add_edge(frm=parent_id, to=lambda_id)
                         return
 
                     graph.add_edge(frm=parent_id, to=graph.add_node(ActionNode(src=''.join(str(child) for child in node.actionBlock().ACTION_CONTENT()))))
