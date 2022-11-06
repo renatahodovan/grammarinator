@@ -14,9 +14,14 @@ class CooldownModel(object):
         self._cooldown = cooldown
 
     def choice(self, node, idx, choices):
-        i = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(choices)])
-        self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) * self._cooldown
-        return i
+        c = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(choices)])
+
+        self._weights[(node.name, idx, c)] = self._weights.get((node.name, idx, c), 1) * self._cooldown
+        wsum = sum(self._weights.get((node.name, idx, i), 1) for i in range(len(choices)))
+        for i in range(len(choices)):
+            self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) / wsum
+
+        return c
 
     def quantify(self, node, idx, min, max):
         yield from self._model.quantify(node, idx, min, max)
