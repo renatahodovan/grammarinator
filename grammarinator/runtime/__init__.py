@@ -10,6 +10,6 @@ from .default_listener import DefaultListener
 from .default_model import DefaultModel
 from .dispatching_listener import DispatchingListener
 from .dispatching_model import DispatchingModel
-from .generator import Generator, RuleContext
+from .generator import AlternationContext, Generator, RuleContext
 from .serializer import simple_space_serializer
 from .tree import BaseRule, Tree, UnlexerRule, UnparserRule
