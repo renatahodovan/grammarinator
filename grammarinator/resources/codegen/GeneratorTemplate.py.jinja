@@ -48,9 +48,18 @@ if self._max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
 
 {% macro processAlternationNode(node) %}
 choice = self._model.choice(current, {{ node.idx }}, [0 if [{{ node.min_depth | join(', ') }}][i] > self._max_depth else w for i, w in enumerate([{{ node.conditions | join(', ') }}])])
-{% set literal_alts = node.literal_alternatives() %}
-{% if literal_alts %}
-UnlexerRule(src=[{{ literal_alts | join(', ')}}][choice], parent=current)
+{% set simple_lits, simple_rules = node.simple_alternatives() %}
+{% if simple_lits and simple_rules %}
+src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice]
+rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice]
+if src is not None:
+    UnlexerRule(src=src, parent=current)
+else:
+    rule(parent=current)
+{% elif simple_lits %}
+UnlexerRule(src=[{% for lit in simple_lits %}'{{ lit }}'{% if not loop.last %}, {% endif %}{% endfor %}][choice], parent=current)
+{% elif simple_rules %}
+[{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][choice](parent=current)
 {% else %}
 {% for child in node.out_neighbours %}
 {{ 'if' if loop.index0 == 0 else 'elif' }} choice == {{ loop.index0 }}:
