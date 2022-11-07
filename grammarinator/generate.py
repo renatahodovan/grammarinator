@@ -129,7 +129,7 @@ class Generator(object):
             tree_basename = basename(self.out_format)
             if '%d' not in tree_basename:
                 base, ext = splitext(tree_basename)
-                tree_basename = '{base}%d{ext}'.format(base=base, ext=ext)
+                tree_basename = f'{base}%d{ext}'
             tree_fn = join(self.population.directory, tree_basename % index + Tree.extension)
             self.population.add_tree(tree_fn)
             tree.save(tree_fn)
@@ -154,7 +154,7 @@ class Generator(object):
         if not hasattr(start_rule, 'min_depth'):
             logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
         elif start_rule.min_depth > max_depth:
-            raise ValueError('{rule} cannot be generated within the given depth: {max_depth} (min needed: {depth}).'.format(rule=rule, max_depth=max_depth, depth=start_rule.min_depth))
+            raise ValueError(f'{rule} cannot be generated within the given depth: {max_depth} (min needed: {start_rule.min_depth}).')
 
         instances = {}
 
@@ -221,7 +221,7 @@ def execute():
     def restricted_float(value):
         value = float(value)
         if value <= 0.0 or value > 1.0:
-            raise ArgumentTypeError('{value!r} not in range (0.0, 1.0]'.format(value=value))
+            raise ArgumentTypeError(f'{value!r} not in range (0.0, 1.0]')
         return value
 
     parser = ArgumentParser(description='Grammarinator: Generate', epilog="""

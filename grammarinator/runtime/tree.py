@@ -71,7 +71,7 @@ class Tree(object):
     def print(self):
         def _walk(node):
             nonlocal indent
-            print('%s%s' % ('  ' * indent, node.name or getattr(node, 'src', None)))
+            print(f'{"  " * indent}{node.name or getattr(node, "src", None)}')
             if isinstance(node, UnparserRule):
                 indent += 1
                 for child in node.children:
@@ -168,7 +168,7 @@ class BaseRule(object):
         result = [child for child in self.children if child.name == item]
 
         if not result:
-            raise AttributeError('No child with name \'{name}\'.'.format(name=item))
+            raise AttributeError(f'No child with name {item!r}.')
 
         return result[0] if len(result) == 1 else result
 
