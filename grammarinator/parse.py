@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -76,18 +76,16 @@ class ParserFactory(object):
             # Check if the rule is a labeled alternative.
             if not class_name.lower().startswith(rule_name.lower()):
                 alt_name = class_name[:-len('Context')] if class_name.endswith('Context') else class_name
-                rule_name = '{rule_name}_{alternative}'.format(
-                    rule_name=rule_name,
-                    alternative=alt_name[0].upper() + alt_name[1:])
+                rule_name = f'{rule_name}_{alt_name[0].upper()}{alt_name[1:]}'
 
             node = UnparserRule(name=rule_name)
             assert node.name, 'Node name of a parser rule is empty or None.'
             for child in (antlr_node.children or []):
                 node += self.antlr_to_grammarinator_tree(child, parser, visited)
         else:
-            assert isinstance(antlr_node, TerminalNode), 'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {node_cls} was found.'.format(node_cls=antlr_node.__class__.__name__)
+            assert isinstance(antlr_node, TerminalNode), f'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {antlr_node.__class__.__name__} was found.'
             name, text = (parser.symbolicNames[antlr_node.symbol.type], antlr_node.symbol.text) if antlr_node.symbol.type != Token.EOF else ('EOF', '')
-            assert name, '{name} is None or empty'.format(name=name)
+            assert name, f'{name} is None or empty'
 
             if not self.hidden:
                 node = UnlexerRule(name=name, src=text)
@@ -122,9 +120,9 @@ class ParserFactory(object):
 
                 return tree
 
-            logger.warning('%s syntax errors detected%s.', parser._syntaxErrors, ' in {fn}'.format(fn=fn) if fn else '')
+            logger.warning('%s syntax errors detected%s.', parser._syntaxErrors, f' in {fn}' if fn else '')
         except Exception as e:
-            logger.warning('Exception while parsing%s.', ' {fn}'.format(fn=fn) if fn else '', exc_info=e)
+            logger.warning('Exception while parsing%s.', f' {fn}' if fn else '', exc_info=e)
         return None
 
     def tree_from_file(self, fn, rule, out, encoding):
@@ -178,7 +176,7 @@ def execute():
 
     for grammar in args.grammar:
         if not exists(grammar):
-            parser.error('{grammar} does not exist.'.format(grammar=grammar))
+            parser.error(f'{grammar} does not exist.')
 
     if not args.parser_dir:
         args.parser_dir = join(args.out, 'grammars')

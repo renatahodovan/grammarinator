@@ -12,13 +12,7 @@ class DefaultModel(object):
 
     def choice(self, node, idx, weights):
         # assert sum(weights) > 0, 'Sum of weights is zero.'
-        r = random.uniform(0, sum(weights))
-        upto = 0
-        for i, w in enumerate(weights):
-            if upto + w >= r:
-                return i
-            upto += w
-        raise AssertionError('Shouldn\'t get here.')
+        return random.choices(range(len(weights)), weights=weights)[0]
 
     def quantify(self, node, idx, min, max):
         cnt = 0

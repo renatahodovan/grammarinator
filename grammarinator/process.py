@@ -234,8 +234,8 @@ class GrammarGraph(object):
         return node.id
 
     def add_edge(self, frm, to):
-        assert frm in self.vertices, '{frm} not in vertices.'.format(frm=frm)
-        assert to in self.vertices, '{to} not in vertices.'.format(to=to)
+        assert frm in self.vertices, f'{frm} not in vertices.'
+        assert to in self.vertices, f'{to} not in vertices.'
         self.vertices[frm].out_neighbours.append(self.vertices[to])
 
     def calc_min_depths(self):
@@ -256,7 +256,7 @@ class GrammarGraph(object):
         # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
         for ident in min_depths:
             if isinstance(self.vertices[ident], AlternationNode):
-                assert all(min_depths[node.id] < inf for node in self.vertices[ident].out_neighbours), '{ident} has an alternative that isn\'t reachable.'.format(ident=ident)
+                assert all(min_depths[node.id] < inf for node in self.vertices[ident].out_neighbours), f'{ident!r} has an alternative that is not reachable.'
                 min_depths[ident] = [min_depths[node.id] for node in self.vertices[ident].out_neighbours]
 
         # Remove the lifted Alternatives and check for infinite derivations.
@@ -264,7 +264,7 @@ class GrammarGraph(object):
             if isinstance(self.vertices[ident], AlternativeNode):
                 del min_depths[ident]
             else:
-                assert min_depths[ident] != inf, 'Rule with infinite derivation: %s' % ident
+                assert min_depths[ident] != inf, f'Rule with infinite derivation {ident!r}'
 
         for ident, min_depth in min_depths.items():
             self.vertices[ident].min_depth = min_depth
@@ -407,7 +407,7 @@ def build_graph(actions, lexer_root, parser_root):
 
         if node.TOKEN_REF():
             src = str(node.TOKEN_REF())
-            assert graph.vertices[src].start_ranges is not None, '{src} has no character start ranges.'.format(src=src)
+            assert graph.vertices[src].start_ranges is not None, f'{src} has no character start ranges.'
             return graph.vertices[src].start_ranges
 
         return []
@@ -745,13 +745,13 @@ def execute():
 
     for grammar in args.grammar:
         if not exists(grammar):
-            parser.error('{grammar} does not exist.'.format(grammar=grammar))
+            parser.error(f'{grammar} does not exist.')
 
     options = {}
     for option in args.options:
         parts = re.fullmatch('([^=]+)=(.*)', option)
         if not parts:
-            parser.error('option not in OPT=VAL format: {option}'.format(option=option))
+            parser.error(f'option not in OPT=VAL format: {option}')
 
         name, value = parts.group(1, 2)
         options[name] = value

@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -20,13 +20,13 @@ logger = logging.getLogger('grammarinator')
 
 
 def parse(lexer_cls, parser_cls, rule, infile, encoding):
-    logger.info('Parsing {infile}'.format(infile=infile))
+    logger.info('Parsing %s', infile)
 
     parser = parser_cls(CommonTokenStream(lexer_cls(FileStream(infile, encoding=encoding))))
     getattr(parser, rule)()
 
     if parser._syntaxErrors > 0:
-        logger.error('Parse error in {infile}'.format(infile=infile))
+        logger.error('Parse error in %s', infile)
     return parser._syntaxErrors
 
 
@@ -59,7 +59,7 @@ def execute():
 
     if '%d' not in args.infile:
         base, ext = splitext(args.infile)
-        args.infile = '{base}%d{ext}'.format(base=base, ext=ext) if ext else join(base, '%d')
+        args.infile = f'{base}%d{ext}' if ext else join(base, '%d')
 
     args.infile = args.infile.replace('%d', '*')
 
@@ -77,7 +77,7 @@ def execute():
         errors += parse(lexer_cls, parser_cls, args.rule, infile, args.encoding)
 
     if not parsed:
-        logger.error('No input file found for pattern {infile}'.format(infile=args.infile))
+        logger.error('No input file found for pattern %s', args.infile)
         errors += 1
 
     if errors > 0:

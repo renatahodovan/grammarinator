@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -64,10 +64,10 @@ def build_grammars(in_files, out, antlr):
                 filter(lambda x: len(commonprefix([filename, x])) > 0 and x.endswith(end_pattern), files))[0])[1])[0]
 
         # Extract the name of lexer and parser from their path.
-        lexer = file_endswith('Lexer.{ext}'.format(ext=languages['python']['ext']))
-        parser = file_endswith('Parser.{ext}'.format(ext=languages['python']['ext']))
+        lexer = file_endswith(f'Lexer.{languages["python"]["ext"]}')
+        parser = file_endswith(f'Parser.{languages["python"]["ext"]}')
         # The name of the generated listeners differs if Python or other language target is used.
-        listener = file_endswith('{listener_format}.{ext}'.format(listener_format=languages['python']['listener_format'], ext=languages['python']['ext']))
+        listener = file_endswith(f'{languages["python"]["listener_format"]}.{languages["python"]["ext"]}')
 
         # Add the path of the built lexer and parser to the Python path to be available for importing.
         if out not in sys.path:

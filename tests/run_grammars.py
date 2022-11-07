@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -72,7 +72,7 @@ def run_subprocess(grammar, commandline, tmpdir):
 
     commandline = commandline.format(grammar=grammar_name, tmpdir=tmpdir)
 
-    print('RUN: %s' % commandline)
+    print(f'RUN: {commandline}')
     subprocess.run(shlex.split(commandline, posix=sys.platform != 'win32'),
                    cwd=grammar_dir, env=env, check=True)
 
@@ -87,10 +87,7 @@ def run_process(grammar, commandline, tmpdir):
     :param commandline: command line as specified in the test command.
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
-    run_subprocess(grammar,
-                   '{python} -m grammarinator.process {commandline}'
-                   .format(python=sys.executable, commandline=commandline),
-                   tmpdir)
+    run_subprocess(grammar, f'{sys.executable} -m grammarinator.process {commandline}', tmpdir)
 
 
 def run_generate(grammar, commandline, tmpdir):
@@ -103,10 +100,7 @@ def run_generate(grammar, commandline, tmpdir):
     :param commandline: command line as specified in the test command.
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
-    run_subprocess(grammar,
-                   '{python} -m grammarinator.generate {commandline}'
-                   .format(python=sys.executable, commandline=commandline),
-                   tmpdir)
+    run_subprocess(grammar, f'{sys.executable} -m grammarinator.generate {commandline}', tmpdir)
 
 
 def run_antlr(grammar, commandline, tmpdir):
@@ -120,10 +114,7 @@ def run_antlr(grammar, commandline, tmpdir):
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
     antlr_jar_path = antlerinator.download(lazy=True)
-    run_subprocess(grammar,
-                   'java -jar {antlr} -Dlanguage=Python3 {commandline}'
-                   .format(antlr=antlr_jar_path, commandline=commandline),
-                   tmpdir)
+    run_subprocess(grammar, f'java -jar {antlr_jar_path} -Dlanguage=Python3 {commandline}', tmpdir)
 
 
 def run_parse(grammar, commandline, tmpdir):
@@ -136,10 +127,7 @@ def run_parse(grammar, commandline, tmpdir):
     :param commandline: command line as specified in the test command.
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
-    run_subprocess(grammar,
-                   '{python} {parser} {commandline}'
-                   .format(python=sys.executable, parser=os.path.join(tool_dir, 'parse.py'), commandline=commandline),
-                   tmpdir)
+    run_subprocess(grammar, f'{sys.executable} {os.path.join(tool_dir, "parse.py")} {commandline}', tmpdir)
 
 
 command_runner = {
