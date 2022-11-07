@@ -13,12 +13,12 @@ class CooldownModel(object):
         self._weights = weights or {}
         self._cooldown = cooldown
 
-    def choice(self, node, idx, choices):
-        c = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(choices)])
+    def choice(self, node, idx, weights):
+        c = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(weights)])
 
         self._weights[(node.name, idx, c)] = self._weights.get((node.name, idx, c), 1) * self._cooldown
-        wsum = sum(self._weights.get((node.name, idx, i), 1) for i in range(len(choices)))
-        for i in range(len(choices)):
+        wsum = sum(self._weights.get((node.name, idx, i), 1) for i in range(len(weights)))
+        for i in range(len(weights)):
             self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) / wsum
 
         return c

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2022 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,9 +10,9 @@ from .default_model import DefaultModel
 
 class DispatchingModel(DefaultModel):
 
-    def choice(self, node, idx, choices):
+    def choice(self, node, idx, weights):
         name = 'choice_' + node.name
-        return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, choices)
+        return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, weights)
 
     def quantify(self, node, idx, min, max):
         name = 'quantify_' + node.name
