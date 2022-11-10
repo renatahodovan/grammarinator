@@ -27,7 +27,6 @@ disable=
     too-many-instance-attributes, too-few-public-methods,
     redefined-builtin, broad-except, protected-access,
     useless-object-inheritance, deprecated-module, unspecified-encoding,
-    consider-using-f-string
 
 [REPORTS]
 
