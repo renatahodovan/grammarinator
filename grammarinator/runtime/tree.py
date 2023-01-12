@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -69,14 +69,30 @@ class Tree(object):
                 pickle.dump(self, f)
 
     def print(self):
+
         def _walk(node):
             nonlocal indent
-            print(f'{"  " * indent}{node.name or getattr(node, "src", None)}')
+
             if isinstance(node, UnparserRule):
+                print(f'{"  " * indent}{node.name}')
                 indent += 1
                 for child in node.children:
                     _walk(child)
                 indent -= 1
+
+            else:
+                toplevel_unlexerrule = not node.parent or isinstance(node.parent, UnparserRule)
+                if toplevel_unlexerrule:
+                    print(f'{"  " * indent}{node.name or ""}{":" if node.name else ""}"', end='')
+
+                if node.src is not None:
+                    print(node.src, end='')
+                else:
+                    for child in node.children:
+                        _walk(child)
+
+                if toplevel_unlexerrule:
+                    print('"')
 
         indent = 0
         _walk(self.root)
@@ -168,7 +184,7 @@ class BaseRule(object):
         result = [child for child in self.children if child.name == item]
 
         if not result:
-            raise AttributeError(f'No child with name {item!r}.')
+            raise AttributeError(f'[{self.parent.name}] No child with name {item!r} {[child.name for child in self.children]}.')
 
         return result[0] if len(result) == 1 else result
 
