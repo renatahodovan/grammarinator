@@ -16,25 +16,26 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - run: git config --global core.autocrlf input
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/setup-java@v1
+      - uses: actions/setup-java@v3
         with:
-          java-version: 8
+          java-version: 17
+          distribution: temurin
       - run: pip install --upgrade tox
       - run: tox -v -e py
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
       - run: pip install --upgrade tox
@@ -43,15 +44,16 @@ jobs:
   cov:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-      - uses: actions/setup-java@v1
+      - uses: actions/setup-java@v3
         with:
-          java-version: 8
+          java-version: 17
+          distribution: microsoft
       - run: pip install --upgrade tox coveralls
       - run: tox -v -e cov
       - run: coveralls --service=github
@@ -62,10 +64,10 @@ jobs:
     needs: [test, lint]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
       - run: pip install --upgrade tox
