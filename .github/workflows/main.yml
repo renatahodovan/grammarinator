@@ -53,7 +53,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           java-version: 17
-          distribution: microsoft
+          distribution: temurin
       - run: pip install --upgrade tox coveralls
       - run: tox -v -e cov
       - run: coveralls --service=github
