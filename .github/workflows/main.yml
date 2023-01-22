@@ -54,8 +54,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: pip install --upgrade tox
+      - run: tox -v -e docs
+
   publish:
-    needs: [test, lint]
+    needs: [test, lint, docs]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

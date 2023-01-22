@@ -12,6 +12,8 @@ Grammarinator
 .. image:: https://img.shields.io/coveralls/github/renatahodovan/grammarinator/master?logo=coveralls&logoColor=white
    :target: https://coveralls.io/github/renatahodovan/grammarinator
 
+.. start included documentation
+
 *Grammarinator* is a random test generator / fuzzer that creates test cases
 according to an input ANTLR_ v4 grammar. The motivation behind this
 grammar-based approach is to leverage the large variety of publicly
@@ -115,8 +117,8 @@ strategies is unwanted, they can be disabled with the ``--no-generate``,
 
 Basic command line syntax of ``grammarinator-parse``::
 
-  grammarinator-parse <grammar-file(s)> -r <start-rule>\
-    -i <input_file> -o <output-directory>
+  grammarinator-parse <grammar-file(s)> -r <start-rule> \
+    -i <input_file(s)> -o <output-directory>
 
 ..
 
@@ -199,6 +201,7 @@ Background on *Grammarinator* is published in:
   Buena Vista, Florida, USA, November 2018. ACM.
   https://doi.org/10.1145/3278186.3278193
 
+.. end included documentation
 
 Copyright and Licensing
 =======================
