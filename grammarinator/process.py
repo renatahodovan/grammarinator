@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -581,20 +581,27 @@ def build_graph(actions, lexer_root, parser_root):
                     graph.header += raw_action_src
 
     def build_rules(node):
-        generator_rules = []
+        generator_rules, duplicate_rules = [], []
         for rule in node.rules().ruleSpec():
             if rule.parserRuleSpec():
                 rule_spec = rule.parserRuleSpec()
                 rule_node = UnparserRuleNode(name=str(rule_spec.RULE_REF()))
-                graph.add_node(rule_node)
-                generator_rules.append((rule_node, rule_spec.ruleBlock()))
+                antlr_node = rule_spec.ruleBlock()
             elif rule.lexerRuleSpec():
                 rule_spec = rule.lexerRuleSpec()
                 rule_node = UnlexerRuleNode(name=str(rule_spec.TOKEN_REF()))
-                graph.add_node(rule_node)
-                generator_rules.append((rule_node, rule_spec.lexerRuleBlock()))
+                antlr_node = rule_spec.lexerRuleBlock()
             else:
                 assert False, 'Should not get here.'
+
+            if rule_node.id not in graph.vertices:
+                graph.add_node(rule_node)
+                generator_rules.append((rule_node, antlr_node))
+            else:
+                duplicate_rules.append(rule_node.id)
+
+        if duplicate_rules:
+            raise ValueError(f'Rule redefinition(s): {", ".join(duplicate_rules)}')
 
         for mode_spec in node.modeSpec():
             for rule_spec in mode_spec.lexerRuleSpec():
