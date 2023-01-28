@@ -70,8 +70,10 @@ Usage
 =====
 
 As a first step, *Grammarinator* takes an `ANTLR v4 grammar`_ and creates a test
-generator script in Python3. Such a generator can be subclassed later to
-customize it further if needed.
+generator script in Python3. Grammarinator supports a subset of the features
+of the ANTLR grammar which is introduced in the Grammar overview section of the
+documentation. The produced generator can be subclassed later to customize it
+further if needed.
 
 Basic command-line syntax of test generator creation::
 
