@@ -600,14 +600,17 @@ def build_graph(actions, lexer_root, parser_root):
             else:
                 duplicate_rules.append(rule_node.id)
 
-        if duplicate_rules:
-            raise ValueError(f'Rule redefinition(s): {", ".join(duplicate_rules)}')
-
         for mode_spec in node.modeSpec():
             for rule_spec in mode_spec.lexerRuleSpec():
                 rule_node = UnlexerRuleNode(name=str(rule_spec.TOKEN_REF()))
-                graph.add_node(rule_node)
-                generator_rules.append((rule_node, rule_spec.lexerRuleBlock()))
+                if rule_node.id not in graph.vertices:
+                    graph.add_node(rule_node)
+                    generator_rules.append((rule_node, rule_spec.lexerRuleBlock()))
+                else:
+                    duplicate_rules.append(rule_node.id)
+
+        if duplicate_rules:
+            raise ValueError(f'Rule redefinition(s): {", ".join(duplicate_rules)}')
 
         for rule_args in generator_rules:
             build_rule(*rule_args)
