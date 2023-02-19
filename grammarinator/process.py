@@ -15,7 +15,7 @@ from math import inf
 from os import getcwd
 from os.path import dirname, exists, join
 from pkgutil import get_data
-from shutil import copy, rmtree
+from shutil import copy
 from sys import maxunicode
 
 import autopep8
@@ -24,7 +24,7 @@ from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 from inators.arg import add_log_level_argument, add_version_argument, process_log_level_argument
 from jinja2 import Environment
 
-from .cli import add_disable_cleanup_argument, init_logging, logger
+from .cli import init_logging, logger
 from .parser import ANTLRv4Lexer, ANTLRv4Parser
 from .pkgdata import __version__
 
@@ -748,7 +748,6 @@ def execute():
                         help='enable autopep8 to format the generated fuzzer.')
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
                         help='temporary working directory (default: %(default)s).')
-    add_disable_cleanup_argument(parser)
     add_log_level_argument(parser, short_alias=())
     add_version_argument(parser, version=__version__)
     args = parser.parse_args()
@@ -770,9 +769,6 @@ def execute():
     process_log_level_argument(args, logger)
 
     FuzzerFactory(args.language, args.out).generate_fuzzer(args.grammar, options=options, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
-
-    if args.cleanup:
-        rmtree(join(args.out, 'antlr'), ignore_errors=True)
 
 
 if __name__ == '__main__':
