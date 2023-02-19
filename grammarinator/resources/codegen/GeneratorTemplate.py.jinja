@@ -33,7 +33,7 @@ UnlexerRule(src=self._model.charset(current, {{ node.idx }}, self._charsets[{{ n
 
 
 {% macro processLiteralNode(node) %}
-UnlexerRule(src='{{ node.src }}', parent=current)
+UnlexerRule(src='{{ node.src | escape_string }}', parent=current)
 {% endmacro %}
 
 
