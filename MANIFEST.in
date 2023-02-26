@@ -1,0 +1,1 @@
+exclude grammarinator/parser/ANTLRv4*.py
