@@ -181,10 +181,24 @@ class BaseRule(object):
         return ''.join(str(child) for child in self.children)
 
     def __getattr__(self, item):
+        # This check is needed to avoid infinite recursions when loading a tree
+        # with pickle. In such cases, the loaded instance is prepared by
+        # creating an empty object with the expected ``__class__`` and by
+        # restoring the saved attributes (without calling ``__init__``).
+        # During this operation, the ``__set_state__`` method of the target
+        # class is tried to be called, if it exists. Otherwise, ``__getattr__``
+        # throws an ``AttributeError``. However, if the instantiation of this
+        # error object tries to access any field that is not yet added by
+        # pickle, then it throws another ``AttributeError``, causing an
+        # infinite recursion. Filtering for the field names, that are used
+        # later in this method, eliminates the issue.
+        if item in ['name', 'children']:
+            raise AttributeError()
+
         result = [child for child in self.children if child.name == item]
 
         if not result:
-            raise AttributeError(f'[{self.parent.name}] No child with name {item!r} {[child.name for child in self.children]}.')
+            raise AttributeError(f'[{self.name}] No child with name {item!r} {[child.name for child in self.children]}.')
 
         return result[0] if len(result) == 1 else result
 
