@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2022 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -210,7 +210,7 @@ class Generator(object):
         def min_depth(node):
             return getattr(getattr(self.generator_cls, node.name), 'min_depth', 0)
 
-        return [node for node in iterable if node.name is not None and node.parent is not None and node.name != 'EOF' and node.level + min_depth(node) < self.max_depth]
+        return [node for node in iterable if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and node.level + min_depth(node) < self.max_depth]
 
     def random_node(self, tree):
         options = self.default_selector(x for name in tree.node_dict for x in tree.node_dict[name])
