@@ -302,11 +302,15 @@ def build_graph(actions, lexer_root, parser_root):
     def character_range_interval(node):
         start = str(node.characterRange().STRING_LITERAL(0))[1:-1]
         end = str(node.characterRange().STRING_LITERAL(1))[1:-1]
+        start_cp, start_offset = process_lexer_char(start, 0)
+        end_cp, end_offset = process_lexer_char(end, 0)
 
-        return (int(start.replace('\\u', '0x'), 16) if '\\u' in start else ord(start),
-                int(end.replace('\\u', '0x'), 16) if '\\u' in end else ord(end) + 1)
+        if start_offset < len(start) or end_offset < len(end):
+            raise ValueError(f'Only single characters are allowed in character ranges ({start!r}..{end!r})')
 
-    def lexer_charset_char(s, offset):
+        return start_cp, end_cp + 1
+
+    def process_lexer_char(s, offset):
         # To be kept in sync with org.antlr.v4.misc.EscapeSequenceParsing.parseEscape
 
         # Original Java code has to handle unicode codepoints which consist of more than one character,
@@ -364,7 +368,8 @@ def build_graph(actions, lexer_root, parser_root):
             '\\': '\\',
             # Additional escape sequences defined by org.antlr.v4.misc.EscapeSequenceParsing.parseEscape
             '-': '-',
-            ']': ']'
+            ']': ']',
+            '\'': '\''
         }
 
         if escaped in escaped_values:
@@ -384,7 +389,7 @@ def build_graph(actions, lexer_root, parser_root):
             if in_range:
                 offset += 1
 
-            codepoint, offset = lexer_charset_char(s, offset)
+            codepoint, offset = process_lexer_char(s, offset)
 
             if in_range:
                 ranges[-1] = (ranges[-1][0], codepoint + 1)
@@ -401,9 +406,11 @@ def build_graph(actions, lexer_root, parser_root):
             return lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
 
         if node.STRING_LITERAL():
-            assert len(str(node.STRING_LITERAL())) > 2, 'Negated string literal must not be empty.'
-            first_char = ord(str(node.STRING_LITERAL())[1])
-            return [(first_char, first_char + 1)]
+            char = str(node.STRING_LITERAL())[1:-1]
+            char_cp, char_offset = process_lexer_char(char, 0)
+            if char_offset < len(char):
+                raise ValueError(f'Zero or multi-character literals are not allowed in lexer sets: {char!r}')
+            return [(char_cp, char_cp + 1)]
 
         if node.TOKEN_REF():
             src = str(node.TOKEN_REF())
@@ -411,6 +418,15 @@ def build_graph(actions, lexer_root, parser_root):
             return graph.vertices[src].start_ranges
 
         return []
+
+    def unescape_string(s):
+        def _iter_unescaped_chars(s):
+            offset = 0
+            while offset < len(s):
+                codepoint, offset = process_lexer_char(s, offset)
+                yield chr(codepoint)
+
+        return ''.join(c for c in _iter_unescaped_chars(s))
 
     def build_rule(rule, node):
         lexer_rule = isinstance(rule, UnlexerRuleNode)
@@ -535,7 +551,8 @@ def build_graph(actions, lexer_root, parser_root):
                     graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
 
                 elif node.STRING_LITERAL():
-                    src = str(node.STRING_LITERAL())[1:-1]
+                    src = unescape_string(str(node.STRING_LITERAL())[1:-1])
+
                     if lexer_rule:
                         rule.start_ranges.append((ord(src[0]), ord(src[0]) + 1))
 
@@ -637,6 +654,38 @@ def build_graph(actions, lexer_root, parser_root):
     return graph
 
 
+def escape_string(s):
+    # To be kept in sync with Python's unicode_escape encoding at CPython's
+    # Objects/unicodeobject.c:PyUnicode_AsUnicodeEscapeString, with the addition
+    # of also escaping quotes.
+    escapes = {
+        '\t': '\\t',
+        '\n': '\\n',
+        '\r': '\\r',
+        '\\': '\\\\',
+        '\'': '\\\''
+    }
+
+    def _iter_escaped_chars(si):
+        for ch in si:
+            esc = escapes.get(ch)
+            if esc is not None:
+                yield esc
+
+            else:
+                cp = ord(ch)
+                if 0x20 <= cp < 0x7f:
+                    yield ch
+                elif cp < 0x100:
+                    yield f'\\x{cp:02x}'
+                elif cp < 0x10000:
+                    yield f'\\u{cp:04x}'
+                else:
+                    yield f'\\U{cp:08x}'
+
+    return ''.join(c for c in _iter_escaped_chars(s))
+
+
 class FuzzerFactory(object):
     """
     Class that generates fuzzers from grammars.
@@ -651,6 +700,7 @@ class FuzzerFactory(object):
                           lstrip_blocks=True,
                           keep_trailing_newline=False)
         env.filters['substitute'] = lambda s, frm, to: re.sub(frm, to, str(s))
+        env.filters['escape_string'] = escape_string
         self.template = env.from_string(get_data(__package__, 'resources/codegen/GeneratorTemplate.' + lang + '.jinja').decode('utf-8'))
         self.work_dir = work_dir or getcwd()
 
