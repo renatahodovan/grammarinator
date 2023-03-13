@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -23,8 +23,8 @@
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 -d 5 -o {tmpdir}/{grammar}S%d.txt
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 -d 5 -o {tmpdir}/{grammar}M%d.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
-// TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}S%d.txt
-// TEST-PARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}M%d.txt
+// TEST-REPARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}S%d.txt
+// TEST-REPARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}M%d.txt
 
 grammar Recursive;
 
