@@ -12,7 +12,7 @@ import os
 import random
 
 from argparse import ArgumentParser, ArgumentTypeError, SUPPRESS
-from contextlib import contextmanager
+from contextlib import nullcontext
 from functools import partial
 from itertools import count
 from math import inf
@@ -45,11 +45,6 @@ class Population(object):
     @property
     def size(self):
         return len(self.obj_list)
-
-
-@contextmanager
-def nullcontext():
-    yield None
 
 
 class Generator(object):
