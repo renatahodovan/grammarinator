@@ -8,11 +8,13 @@
  */
 
 /*
- * This test checks whether DispatchingModel works as expected.
+ * This test checks whether DispatchingModel and ConstantWeightsModel
+ * work as expected.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --model {grammar}Generator.CustomModel -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --model {grammar}Generator.CustomModel -o {tmpdir}/{grammar}A%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r weight -j 1 -n 5 --weights custom_weights.json -o {tmpdir}/{grammar}B%d.txt
 
 grammar Models;
 
@@ -39,6 +41,7 @@ class CustomModel(DispatchingModel):
 
 
 start : (a | b | c)+ {assert str(current) == 'ccc', str(current)};
+weight : (a | b | c) {assert str(current) == 'b', str(current)};
 a : A ;
 b : B ;
 c : C ;
