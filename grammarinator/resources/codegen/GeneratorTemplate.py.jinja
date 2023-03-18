@@ -63,7 +63,7 @@ with AlternationContext(self, [{{ node.min_depth | join(', ') }}], [{{ node.cond
     [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}](parent=current)
     {% else %}
     {% for child in node.out_neighbours %}
-    {{ 'if' if loop.index0 == 0 else 'elif' }} choice{{ node.idx }} == {{ loop.index0 }}:
+    {{ 'if' if loop.index0 == 0 else 'elif' }} choice{{ node.idx }} == {{ child.idx }}:
         {{ processNode(child) | indent | indent -}}
     {% endfor %}
     {% endif %}
