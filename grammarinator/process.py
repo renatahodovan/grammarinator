@@ -29,6 +29,13 @@ from .parser import ANTLRv4Lexer, ANTLRv4Parser
 from .pkgdata import __version__
 
 
+class Edge(object):
+
+    def __init__(self, dst, args=None):
+        self.dst = dst
+        self.args = args
+
+
 class Node(object):
 
     _cnt = 0
@@ -38,8 +45,12 @@ class Node(object):
             id = Node._cnt
             Node._cnt += 1
         self.id = id
-        self.out_neighbours = []
+        self.out_edges = []
         self.min_depth = inf
+
+    @property
+    def out_neighbours(self):
+        return [edge.dst for edge in self.out_edges]
 
     def print_tree(self):
         def _walk(node):
@@ -68,7 +79,19 @@ class RuleNode(Node):
         super().__init__(name if label is None else '_'.join((name, label)))
         self.name = name
         self.type = type
-        self.has_var = False
+
+        self.labels = {}
+        self.args = {}
+        self.locals = {}
+        self.returns = {}
+
+    @property
+    def has_var(self):
+        return self.labels or self.attributes
+
+    @property
+    def attributes(self):
+        return dict(self.args, **self.locals, **self.returns)
 
     def __str__(self):
         return f'{super().__str__()}; name: {self.name}; var: {self.has_var}'
@@ -194,12 +217,13 @@ class ActionNode(Node):
 
 class VariableNode(Node):
 
-    def __init__(self, name):
+    def __init__(self, name, is_list):
         super().__init__()
         self.name = name
+        self.is_list = is_list
 
     def __str__(self):
-        return f'{super().__str__()}; name: {self.name}'
+        return f'{super().__str__()}; name: {self.name}; list: {self.is_list}'
 
 
 def printable_ranges(lower_bound, upper_bound):
@@ -288,10 +312,10 @@ class GrammarGraph(object):
         self.vertices[node.id] = node
         return node.id
 
-    def add_edge(self, frm, to):
+    def add_edge(self, frm, to, args=None):
         assert frm in self.vertices, f'{frm} not in vertices.'
         assert to in self.vertices, f'{to} not in vertices.'
-        self.vertices[frm].out_neighbours.append(self.vertices[to])
+        self.vertices[frm].out_edges.append(Edge(dst=self.vertices[to], args=args))
 
     def calc_min_depths(self):
         min_depths = defaultdict(lambda: inf)
@@ -519,12 +543,29 @@ def build_graph(actions, lexer_root, parser_root, default_rule):
 
         return ''.join(c for c in _iter_unescaped_chars(s))
 
+    def argActionBlock(node):
+        args = {}
+        if node and node.argActionBlock():
+            for arg in ''.join(str(chr_arg) for chr_arg in node.argActionBlock().ARGUMENT_CONTENT()).split(','):
+                arg_name, arg_value = arg, None
+                if '=' in arg_name:
+                    arg_name, arg_value = arg_name.split('=')
+                args[arg_name.strip()] = arg_value.strip() if arg_value else arg_value
+        return args
+
     def build_rule(rule, node):
         lexer_rule = isinstance(rule, UnlexerRuleNode)
         alt_idx, quant_idx, chr_idx = 0, 0, 0  # pylint: disable=unused-variable
 
         def build_expr(node, parent_id):
-            if isinstance(node, (ANTLRv4Parser.RuleAltListContext, ANTLRv4Parser.AltListContext, ANTLRv4Parser.LexerAltListContext)):
+            if isinstance(node, ANTLRv4Parser.ParserRuleSpecContext):
+                if actions:
+                    rule.args = argActionBlock(node)
+                    rule.locals = argActionBlock(node.localsSpec())
+                    rule.returns = argActionBlock(node.ruleReturns())
+                build_expr(node.ruleBlock(), parent_id)
+
+            elif isinstance(node, (ANTLRv4Parser.RuleAltListContext, ANTLRv4Parser.AltListContext, ANTLRv4Parser.LexerAltListContext)):
                 children = [child for child in node.children if isinstance(child, ParserRuleContext)]
                 if len(children) == 1:
                     build_expr(children[0], parent_id)
@@ -588,11 +629,12 @@ def build_graph(actions, lexer_root, parser_root, default_rule):
                 build_expr(node.atom() or node.block(), parent_id)
                 ident = node.identifier()
                 name = str(ident.RULE_REF() or ident.TOKEN_REF())
-                graph.add_edge(frm=parent_id, to=graph.add_node(VariableNode(name=name)))
-                rule.has_var = True
+                is_list = node.PLUS_ASSIGN() is not None
+                graph.add_edge(frm=parent_id, to=graph.add_node(VariableNode(name=name, is_list=is_list)))
+                rule.labels[name] = is_list
 
             elif isinstance(node, ANTLRv4Parser.RulerefContext):
-                graph.add_edge(frm=parent_id, to=str(node.RULE_REF()))
+                graph.add_edge(frm=parent_id, to=str(node.RULE_REF()), args=argActionBlock(node) if actions else None)
 
             elif isinstance(node, (ANTLRv4Parser.LexerAtomContext, ANTLRv4Parser.AtomContext)):
                 nonlocal chr_idx
@@ -694,7 +736,7 @@ def build_graph(actions, lexer_root, parser_root, default_rule):
             if rule.parserRuleSpec():
                 rule_spec = rule.parserRuleSpec()
                 rule_node = UnparserRuleNode(name=str(rule_spec.RULE_REF()))
-                antlr_node = rule_spec.ruleBlock()
+                antlr_node = rule_spec
             elif rule.lexerRuleSpec():
                 rule_spec = rule.lexerRuleSpec()
                 rule_node = UnlexerRuleNode(name=str(rule_spec.TOKEN_REF()))
