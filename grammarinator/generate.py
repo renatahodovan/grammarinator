@@ -17,7 +17,7 @@ from functools import partial
 from itertools import count
 from math import inf
 from multiprocessing import Manager, Pool
-from os.path import abspath, basename, dirname, isdir, join, splitext
+from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 from shutil import rmtree
 
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
@@ -25,7 +25,7 @@ from inators.imp import import_object
 
 from .cli import add_jobs_argument, init_logging, logger
 from .pkgdata import __version__
-from .runtime import CooldownModel, DefaultModel, Tree
+from .runtime import ConstantWeightsModel, CooldownModel, DefaultModel, Tree
 
 
 class Population(object):
@@ -50,7 +50,7 @@ class Population(object):
 class Generator(object):
 
     def __init__(self, generator, rule, out_format,
-                 model=None, listeners=None, max_depth=inf, cooldown=1.0,
+                 model=None, listeners=None, max_depth=inf, cooldown=1.0, weights=None,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8'):
@@ -77,6 +77,7 @@ class Generator(object):
         self.out_format = out_format
         self.max_depth = float(max_depth)
         self.cooldown = float(cooldown)
+        self.weights = weights
         self.population = Population(population) if population else None
         self.enable_generation = get_boolean(generate)
         self.enable_mutation = get_boolean(mutate)
@@ -161,6 +162,8 @@ class Generator(object):
             return obj
 
         model = instantiate(self.model_cls)
+        if self.weights:
+            model = ConstantWeightsModel(model, self.weights)
         if self.cooldown < 1:
             model = CooldownModel(model, cooldown=self.cooldown, weights=weights, lock=lock)
         generator = self.generator_cls(model=model, max_depth=max_depth)
@@ -219,6 +222,14 @@ def execute():
             raise ArgumentTypeError(f'{value!r} not in range (0.0, 1.0]')
         return value
 
+    def convert_weights(dct):
+        weights = {}
+        for rule, alts in dct.items():
+            for alternation_idx, alternatives in alts.items():
+                for alternative_idx, w in alternatives.items():
+                    weights[(rule, int(alternation_idx), int(alternative_idx))] = w
+        return weights
+
     parser = ArgumentParser(description='Grammarinator: Generate', epilog="""
         The tool acts as a default execution harness for generators
         created by Grammarinator:Processor.
@@ -242,6 +253,8 @@ def execute():
     parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
                         help='cool-down factor defines how much the probability of an alternative should decrease '
                              'after it has been chosen (interval: (0, 1]; default: %(default)f).')
+    parser.add_argument('-w', '--weights', metavar='FILE',
+                        help='JSON file defining custom weights for the chosen alternatives.')
 
     # Evolutionary settings.
     parser.add_argument('--population', metavar='DIR',
@@ -281,13 +294,19 @@ def execute():
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
 
+    if args.weights:
+        if not exists(args.weights):
+            parser.error('Custom weights should point to an existing JSON file.')
+        with open(args.weights, 'r') as f:
+            args.weights = convert_weights(json.load(f))
+
     if args.population:
         if not isdir(args.population):
             parser.error('Population must point to an existing directory.')
         args.population = abspath(args.population)
 
     with Generator(generator=args.generator, rule=args.rule, out_format=args.out,
-                   model=args.model, listeners=args.listener, max_depth=args.max_depth, cooldown=args.cooldown,
+                   model=args.model, listeners=args.listener, max_depth=args.max_depth, cooldown=args.cooldown, weights=args.weights,
                    population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                    transformers=args.transformer, serializer=args.serializer,
                    cleanup=False, encoding=args.encoding) as generator:
