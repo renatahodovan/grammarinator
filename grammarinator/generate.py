@@ -92,7 +92,9 @@ class Generator(object):
         if self.cleanup and self.out_format:
             rmtree(dirname(self.out_format))
 
-    def __call__(self, index, *args, weights=None, lock=None, **kwargs):
+    def __call__(self, index, *args, seed=None, weights=None, lock=None, **kwargs):
+        if seed:
+            random.seed(seed + index)
         weights = weights if weights is not None else {}
         lock = lock or nullcontext()
         return self.create_new_test(index, weights, lock)[0]
@@ -265,16 +267,13 @@ def execute():
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
                         help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
-                        help='initialize random number generator with fixed seed (not set by default; noneffective if parallelization is enabled).')
+                        help='initialize random number generator with fixed seed (not set by default).')
     add_jobs_argument(parser)
     add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
     add_log_level_argument(parser, short_alias=())
     add_version_argument(parser, version=__version__)
     args = parser.parse_args()
-
-    if args.jobs == 1 and args.random_seed:
-        random.seed(args.random_seed)
 
     init_logging()
     process_log_level_argument(args, logger)
@@ -293,14 +292,14 @@ def execute():
                    cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
             with Manager() as manager:
-                generator = partial(generator, weights=manager.dict(), lock=manager.Lock())  # pylint: disable=no-member
+                generator = partial(generator, seed=args.random_seed, weights=manager.dict(), lock=manager.Lock())  # pylint: disable=no-member
                 with Pool(args.jobs) as pool:
                     for _ in pool.imap_unordered(generator, count(0) if args.n == inf else range(args.n)):
                         pass
         else:
             weights = {}
             for i in count(0) if args.n == inf else range(args.n):
-                generator(i, weights=weights)
+                generator(i, seed=args.random_seed, weights=weights)
 
 
 if __name__ == '__main__':
