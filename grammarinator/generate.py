@@ -111,13 +111,8 @@ class Generator(object):
             if self.enable_recombination and self.population.size > 1:
                 generators.append(self.recombine)
 
-        try:
-            generator = random.choice(generators)
-            tree = generator(rule=self.rule, max_depth=self.max_depth, weights=weights, lock=lock)
-        except Exception as e:
-            logger.warning('Test generation failed.', exc_info=e)
-            return None, None
-
+        generator = random.choice(generators)
+        tree = generator(rule=self.rule, max_depth=self.max_depth, weights=weights, lock=lock)
         test_fn = self.out_format % index if '%d' in self.out_format else self.out_format
         tree.root = Generator.transform(tree.root, self.transformers)
 
@@ -179,7 +174,8 @@ class Generator(object):
 
         node = self.random_node(tree)
         if node is None:
-            raise ValueError('Could not choose node to mutate.')
+            logger.debug('Could not choose node to mutate.')
+            return tree
 
         new_tree = self.generate(rule=node.name, max_depth=self.max_depth - node.level, weights=weights, lock=lock)
         node.replace(new_tree.root)
@@ -195,13 +191,14 @@ class Generator(object):
         # Shuffle suitable nodes with sample.
         tree_1_iter = random.sample(options, k=len(options))
         for node_1 in tree_1_iter:
-            for node_2 in random.sample(tree_2.node_dict[node_1.name], k=len(tree_2.node_dict[node_1.name])):
+            for node_2 in random.sample(tuple(tree_2.node_dict[node_1.name]), k=len(tree_2.node_dict[node_1.name])):
                 # Make sure that the output tree won't exceed the depth limit.
                 if node_1.level + node_2.depth <= self.max_depth:
                     node_1.replace(node_2)
                     return tree_1
 
-        raise ValueError('Could not find node pairs to recombine.')
+        logger.debug('Could not find node pairs to recombine.')
+        return tree_1
 
     def default_selector(self, iterable):
         def min_depth(node):
