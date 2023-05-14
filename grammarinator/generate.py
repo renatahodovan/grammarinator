@@ -165,7 +165,7 @@ class Generator(object):
             model = CooldownModel(model, cooldown=self.cooldown, weights=weights, lock=lock)
         generator = self.generator_cls(model=model, max_depth=max_depth)
         for listener_cls in self.listener_cls:
-            generator._listeners.append(instantiate(listener_cls))
+            generator.add_listener(instantiate(listener_cls))
         return Tree(getattr(generator, rule)())
 
     def random_individuals(self, n):
