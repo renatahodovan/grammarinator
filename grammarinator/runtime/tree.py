@@ -67,6 +67,8 @@ class Tree(object):
         if self.root.depth <= max_depth:
             with open(fn, 'wb') as f:
                 pickle.dump(self, f)
+            return True
+        return False
 
     def print(self):
 
