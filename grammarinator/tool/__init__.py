@@ -7,4 +7,4 @@
 
 from .generate import Generator
 from .parse import ParserFactory
-from .process import FuzzerFactory
+from .processor import ProcessorTool
