@@ -11,6 +11,8 @@ Grammarinator
    :target: https://github.com/renatahodovan/grammarinator/actions
 .. image:: https://img.shields.io/coveralls/github/renatahodovan/grammarinator/master?logo=coveralls&logoColor=white
    :target: https://coveralls.io/github/renatahodovan/grammarinator
+.. image:: https://img.shields.io/readthedocs/grammarinator?logo=read-the-docs&logoColor=white
+   :target: http://grammarinator.readthedocs.io/en/latest/
 
 .. start included documentation
 
