@@ -823,12 +823,14 @@ def escape_string(s):
 
 class FuzzerFactory(object):
     """
-    Class that generates fuzzers from grammars.
+    Class to process ANTLRv4 grammar files, build an internal representation
+    from them and create a generator class that is able to produce textual data
+    according to the grammar files.
     """
     def __init__(self, lang, work_dir=None):
         """
-        :param lang: Language of the generated code.
-        :param work_dir: Directory to generate fuzzers into.
+        :param str lang: Language of the generated code (currently, only ``'py'`` is accepted as Python is the only supported language).
+        :param str work_dir: Directory to generate fuzzers into (default: the current working directory).
         """
         self.lang = lang
         env = Environment(trim_blocks=True,
@@ -841,15 +843,33 @@ class FuzzerFactory(object):
 
     def generate_fuzzer(self, grammars, *, options=None, default_rule=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
         """
-        Generates fuzzers from grammars.
+        Perform the four main steps:
 
-        :param grammars: List of grammar files to generate from.
-        :param options: Dictionary of options that override/extend those set in the grammar.
-        :param default_rule: Name of the default rule to start generation from.
-        :param encoding: Grammar file encoding.
-        :param lib_dir: Alternative directory to look for imports.
-        :param actions: Boolean to enable or disable grammar actions.
-        :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
+          1. Process the grammar files.
+          2. Build an internal representation.
+          3. Translate the internal representation into a generator source code in the target language.
+          4. Save the source code into file.
+
+        :param list[str] grammars: List of grammar files to produce generator from.
+        :param dict options: Options dictionary to override/extend the options set in the grammar.
+               Currenly, the following options are supported:
+
+                 1. ``superClass``: Define the ancestor for the current grammar. The generator of this grammar will be inherited from ``superClass``. (default: :class:`grammarinator.runtime.Generator`)
+                 2. ``dot``: Define how to handle the ``.`` wildcard in the grammar. Three keywords are accepted:
+
+                     1. ``any_ascii_letter``: generate any ASCII letters
+                     2. ``any_ascii_char``: generate any ASCII characters
+                     3. ``any_unicode_char``: generate any Unicode characters
+
+                    (default: ``any_ascii_char``)
+
+        :param str default_rule: Name of the default rule to start generation from (default: first parser rule in the grammar).
+        :param str encoding: Grammar file encoding.
+        :param str lib_dir: Alternative directory to look for grammar imports beside the current working directory.
+        :param bool actions: Boolean to enable grammar actions. If they are disabled then the inline actions and semantic
+               predicates of the input grammar (snippets in ``{...}`` and ``{...}?`` form) are disregarded (i.e., no code is
+               generated from them).
+        :param bool pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
         """
         lexer_root, parser_root = None, None
 

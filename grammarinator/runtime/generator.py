@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class RuleContext(object):
+    # Context manager wrapping rule generations. It is responsible for
+    # keeping track of the value of `max_depth` and for transitively calling the
+    # enter and exit methods of the registered listeners.
 
     def __init__(self, gen, node):
         self._gen = gen
@@ -31,6 +34,11 @@ class RuleContext(object):
 
 
 class AlternationContext(object):
+    # Context manager wrapping alternations. It is responsible for filtering
+    # the alternatives available within the maximum depth. Otherwise, if nothing
+    # is available (possibly due to some custom predicates or rule definitions),
+    # then it temporarily raises the maximum depth to the minimum value
+    # required to finish the generation.
 
     def __init__(self, gen, min_depths, conditions):
         self._gen = gen
@@ -52,13 +60,28 @@ class AlternationContext(object):
 
 
 class Generator(object):
+    """
+    Base class of the generated Generators. Stores the decision model, the listeners,
+    and additional internal state used during generation.
+    """
 
     def __init__(self, *, model=None, max_depth=inf):
+        """
+        :param model: Model object responsible for every decision during the generation.
+               (default: :class:`DefaultModel`).
+        :type model: DefaultModel or any other model
+        :param int or float max_depth: Maximum depth of the generated tree (default: ``inf``).
+        """
         self._model = model or DefaultModel()
         self._max_depth = max_depth
         self._listeners = []
 
     def add_listener(self, listener):
+        """
+        Register ``listener`` to the current generator.
+
+        :param listener: Listener object.
+        """
         self._listeners.append(listener)
 
     def _enter_rule(self, node):

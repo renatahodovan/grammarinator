@@ -2,6 +2,8 @@
 *Grammarinator* Release Notes
 =============================
 
+.. start included documentation
+
 19.3
 ====
 

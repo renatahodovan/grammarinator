@@ -16,6 +16,9 @@ class Tree(object):
     extension = '.grt'
 
     def __init__(self, root):
+        """
+        :param BaseRule root: Root of the generated tree.
+        """
         self.root = root
         self.node_dict = None
 
@@ -26,11 +29,9 @@ class Tree(object):
 
     def annotate(self):
         """
-        Add a dictionary to the current object which is indexed by node names
-        and contains nodes with the given name.
-        Furthermore, it sets the level and depth fields for every node.
-        Level field tells how far a node is from root.
-        Depth field shows how deep the tree is below the node.
+        Add a lookup table to the current tree indexing its nodes by their name.
+        Furthermore, it calculates various depth information of nodes needed by
+        :meth:`grammarinator.Generator.mutate` and :meth:`grammarinator.Generator.recombine`.
         """
         def _annotate(current, level):
             """
@@ -58,10 +59,25 @@ class Tree(object):
 
     @staticmethod
     def load(fn):
+        """
+        Load tree from file.
+
+        :param str fn: Path to the file containing the tree.
+        :return: The loaded tree.
+        :rtype: Tree
+        """
         with open(fn, 'rb') as f:
             return pickle.load(f)
 
     def save(self, fn, max_depth=inf):
+        """
+        Annotate and save a tree into file if its depth is less than ``max_depth``.
+
+        :param str fn: File path to save the tree to.
+        :param int or float max_depth: Maximum depth that is allowed to save (default: ``inf``).
+        :return: Returns True if saving succeded, otherwise False.
+        :rtype: bool
+        """
         self.annotate()
 
         if self.root.depth <= max_depth:
@@ -71,7 +87,9 @@ class Tree(object):
         return False
 
     def print(self):
-
+        """
+        Print the structure of the tree (for debugging purposes).
+        """
         def _walk(node):
             nonlocal indent
 
@@ -100,14 +118,30 @@ class Tree(object):
         _walk(self.root)
 
     def __str__(self):
+        """
+        Create the string representation of the tree starting from the
+        root node. Return a raw token sequence without any formatting.
+
+        :return: String representation of the tree.
+        :rtype: str
+        """
         return str(self.root)
 
 
 class BaseRule(object):
-
-    children = []
+    """
+    Base class of tree nodes.
+    """
 
     def __init__(self, *, name, parent=None):
+        """
+        :param str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
+        :param BaseRule parent: Parent node object (default: None).
+
+        :ivar str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
+        :ivar BaseRule parent: Parent node object.
+        :ivar list[BaseRule] children: Children of the rule.
+        """
         self.name = name
         self.parent = parent
         if parent:
@@ -116,8 +150,15 @@ class BaseRule(object):
         self.level = None
         self.depth = None
 
-    # Support for += operation.
     def __iadd__(self, child):
+        """
+        Support for ``+=`` operation to add one or more children to the current node. An alias to
+        :meth:`add_child` or :meth:`add_children` depending on the type of ``child``.
+
+        :param BaseRule or list[BaseRule] child: The node(s) to be added as child.
+        :return: The current node with extended children.
+        :rtype: BaseRule
+        """
         if isinstance(child, list):
             self.add_children(child)
         else:
@@ -126,6 +167,15 @@ class BaseRule(object):
 
     @property
     def left_sibling(self):
+        """
+        Returns the left sibling of the node if any.
+
+        :raises ValueError: if the current node has no parent or if it is
+          detached from its parent (it is not among the children of the parent).
+
+        :return: The left sibling of the current node.
+        :rtype: BaseRule
+        """
         try:
             self_idx = self.parent.children.index(self)
             return self.parent.children[self_idx - 1] if self_idx > 0 else None
@@ -134,6 +184,15 @@ class BaseRule(object):
 
     @property
     def right_sibling(self):
+        """
+        Returns the left sibling of the node if any.
+
+        :raises ValueError: if the current node has no parent or if it is
+          detached from its parent (it is not among the children of the parent).
+
+        :return: The right sibling of the current node.
+        :rtype: BaseRule
+        """
         try:
             self_idx = self.parent.children.index(self)
             return self.parent.children[self_idx + 1] if self_idx < len(self.parent.children) - 1 else None
@@ -142,6 +201,9 @@ class BaseRule(object):
 
     @property
     def last_child(self):
+        """
+        Get or replace the last child of the current node.
+        """
         return self.children[-1] if self.children else None
 
     @last_child.setter
@@ -150,6 +212,12 @@ class BaseRule(object):
         self.add_child(node)
 
     def insert_child(self, idx, node):
+        """
+        Insert node as child at position.
+
+        :param int idx: Index of position to insert ``node`` to.
+        :param BaseRule node: Node object to be insert.
+        """
         if not node:
             return
 
@@ -157,6 +225,11 @@ class BaseRule(object):
         self.children.insert(idx, node)
 
     def add_child(self, node):
+        """
+        Add node to the end of the list of the children.
+
+        :param BaseRule node: Node to be added to children.
+        """
         if node is None:
             return
 
@@ -164,10 +237,22 @@ class BaseRule(object):
         node.parent = self
 
     def add_children(self, nodes):
+        """
+        Add mulitple nodes to the end of the list of the children.
+
+        :param list[BaseRule] nodes: List of nodes to be added to children.
+        """
         for node in nodes:
             self.add_child(node)
 
     def replace(self, node):
+        """
+        Replace the current node with ``node``.
+
+        :param BaseRule node: The replacement node.
+        :return: ``node``
+        :rtype: BaseRule
+        """
         if self.parent and node is not self:
             self.parent.children[self.parent.children.index(self)] = node
             node.parent = self.parent
@@ -175,11 +260,20 @@ class BaseRule(object):
         return node
 
     def delete(self):
+        """
+        Delete the current node from the tree.
+        """
         if self.parent:
             self.parent.children.remove(self)
             self.parent = None
 
     def __str__(self):
+        """
+        Concatenates the string representation of the children.
+
+        :return: String representation of the current rule.
+        :rtype: str
+        """
         return ''.join(str(child) for child in self.children)
 
     def __getattr__(self, item):
@@ -206,14 +300,35 @@ class BaseRule(object):
 
 
 class UnparserRule(BaseRule):
-    pass
+    """
+    Tree node representing a parser rule. It can have zero or more :class:`UnparserRule` or
+    :class:`UnlexerRule` children.
+    """
 
 
 class UnlexerRule(BaseRule):
+    """
+    Tree node representing a lexer rule or token. It either has one or more further :class:`UnlexerRule`
+    children or - if it does not have any children - it has a string constant set in its ``src`` field.
+    """
 
     def __init__(self, *, name=None, parent=None, src=None):
+        """
+        :param str name: Name of the corresponding lexer rule in the grammar.
+        :param BaseRule parent: Parent node object (default: None).
+        :param str src: String content of the lexer rule (default: None).
+
+        :ivar str src: String content of the lexer rule.
+        """
         super().__init__(name=name, parent=parent)
         self.src = src
 
     def __str__(self):
+        """
+        Return the string representation of an ``UnlexerRule``. It is either ``self.src`` for simple tokens
+        or the concatenation of the string representation of the children for more complex production rules.
+
+        :return: String representation of ``UnlexerRule``.
+        :rtype: str
+        """
         return self.src or super().__str__()
