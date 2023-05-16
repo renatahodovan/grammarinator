@@ -61,7 +61,7 @@ class Population(object):
         return len(self.obj_list)
 
 
-class Generator(object):
+class GeneratorTool(object):
     """
     Class to create new test cases using the generator produced by ``grammarinator-process``.
     Its interface follows the expectation of the Fuzzinator fuzzer framework.
@@ -123,27 +123,27 @@ class Generator(object):
         def get_boolean(value):
             return value in ['True', True, 1]
 
-        self.generator_cls = import_object(generator) if generator else None
-        self.model_cls = import_object(model) if model else DefaultModel
-        self.listener_cls = import_list(listeners)
-        self.transformers = import_list(transformers)
-        self.serializer = import_object(serializer) if serializer else str
-        self.rule = rule or self.generator_cls._default_rule.__name__
+        self._generator_cls = import_object(generator) if generator else None
+        self._model_cls = import_object(model) if model else DefaultModel
+        self._listener_cls = import_list(listeners)
+        self._transformers = import_list(transformers)
+        self._serializer = import_object(serializer) if serializer else str
+        self._rule = rule or self._generator_cls._default_rule.__name__
 
         if out_format:
             os.makedirs(abspath(dirname(out_format)), exist_ok=True)
 
-        self.out_format = out_format
-        self.max_depth = float(max_depth)
-        self.cooldown = float(cooldown)
-        self.weights = weights
-        self.population = Population(population) if population else None
-        self.enable_generation = get_boolean(generate)
-        self.enable_mutation = get_boolean(mutate)
-        self.enable_recombination = get_boolean(recombine)
-        self.keep_trees = get_boolean(keep_trees)
-        self.cleanup = get_boolean(cleanup)
-        self.encoding = encoding
+        self._out_format = out_format
+        self._max_depth = float(max_depth)
+        self._cooldown = float(cooldown)
+        self._weights = weights
+        self._population = Population(population) if population else None
+        self._enable_generation = get_boolean(generate)
+        self._enable_mutation = get_boolean(mutate)
+        self._enable_recombination = get_boolean(recombine)
+        self._keep_trees = get_boolean(keep_trees)
+        self._cleanup = get_boolean(cleanup)
+        self._encoding = encoding
 
     def __enter__(self):
         return self
@@ -152,12 +152,12 @@ class Generator(object):
         """
         Delete the output directory if the tests were saved to files and if ``cleanup`` was enabled.
         """
-        if self.cleanup and self.out_format:
-            rmtree(dirname(self.out_format))
+        if self._cleanup and self._out_format:
+            rmtree(dirname(self._out_format))
 
     def __call__(self, index, *args, seed=None, weights=None, lock=None, **kwargs):
         """
-        Trampoline to :meth:`create_new_test`. This trampoline is needed to implement the
+        Trampoline to :meth:`create`. This trampoline is needed to implement the
         :class:`fuzzinator.fuzzer.Fuzzer` interface expectation of Fuzzinator (having only an index parameter).
 
         :param int index: Index of the test case to be generated.
@@ -181,9 +181,9 @@ class Generator(object):
             random.seed(seed + index)
         weights = weights if weights is not None else {}
         lock = lock or nullcontext()
-        return self.create_new_test(index, weights, lock)[0]
+        return self.create(index, weights, lock)[0]
 
-    def create_new_test(self, index, weights, lock):
+    def create(self, index, weights, lock):
         """
         Create new test case with a randomly selected generator method from the available
         options (i.e., via :meth:`generate`, :meth:`mutate`, or :meth:`recombine`). The
@@ -210,36 +210,36 @@ class Generator(object):
         """
         generators = []
 
-        if self.enable_generation:
+        if self._enable_generation:
             generators.append(self.generate)
 
-        if self.population:
-            if self.enable_mutation and self.population.size > 0:
+        if self._population:
+            if self._enable_mutation and self._population.size > 0:
                 generators.append(self.mutate)
-            if self.enable_recombination and self.population.size > 1:
+            if self._enable_recombination and self._population.size > 1:
                 generators.append(self.recombine)
 
         generator = random.choice(generators)
-        tree = generator(rule=self.rule, max_depth=self.max_depth, weights=weights, lock=lock)
-        test_fn = self.out_format % index if '%d' in self.out_format else self.out_format
-        tree.root = Generator._transform(tree.root, self.transformers)
+        tree = generator(rule=self._rule, max_depth=self._max_depth, weights=weights, lock=lock)
+        test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
+        tree.root = self._transform(tree.root, self._transformers)
 
         tree_fn = None
-        if self.population and self.keep_trees:
-            tree_basename = basename(self.out_format)
+        if self._population and self._keep_trees:
+            tree_basename = basename(self._out_format)
             if '%d' not in tree_basename:
                 base, ext = splitext(tree_basename)
                 tree_basename = f'{base}%d{ext}'
-            tree_fn = join(self.population.directory, tree_basename % index + Tree.extension)
-            self.population.add_tree(tree_fn)
+            tree_fn = join(self._population.directory, tree_basename % index + Tree.extension)
+            self._population.add_tree(tree_fn)
             tree.save(tree_fn)
 
         if test_fn:
-            with codecs.open(test_fn, 'w', self.encoding) as f:
-                f.write(self.serializer(tree.root))
+            with codecs.open(test_fn, 'w', self._encoding) as f:
+                f.write(self._serializer(tree.root))
         else:
             with lock:
-                print(self.serializer(tree.root))
+                print(self._serializer(tree.root))
 
         return test_fn, tree_fn
 
@@ -270,7 +270,7 @@ class Generator(object):
         :return: The generated tree.
         :rtype: Tree
         """
-        start_rule = getattr(self.generator_cls, rule)
+        start_rule = getattr(self._generator_cls, rule)
         if not hasattr(start_rule, 'min_depth'):
             logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
         elif start_rule.min_depth > max_depth:
@@ -285,18 +285,18 @@ class Generator(object):
                 instances[cls] = obj
             return obj
 
-        model = instantiate(self.model_cls)
-        if self.weights:
-            model = CustomWeightsModel(model, self.weights)
-        if self.cooldown < 1:
-            model = CooldownModel(model, cooldown=self.cooldown, weights=weights, lock=lock)
-        generator = self.generator_cls(model=model, max_depth=max_depth)
-        for listener_cls in self.listener_cls:
+        model = instantiate(self._model_cls)
+        if self._weights:
+            model = CustomWeightsModel(model, self._weights)
+        if self._cooldown < 1:
+            model = CooldownModel(model, cooldown=self._cooldown, weights=weights, lock=lock)
+        generator = self._generator_cls(model=model, max_depth=max_depth)
+        for listener_cls in self._listener_cls:
             generator.add_listener(instantiate(listener_cls))
         return Tree(getattr(generator, rule)())
 
     def _random_individuals(self, n):
-        return self.population.random_individuals(n=n)
+        return self._population.random_individuals(n=n)
 
     def mutate(self, *, weights, lock, **kwargs):
         """
@@ -325,7 +325,7 @@ class Generator(object):
             logger.debug('Could not choose node to mutate.')
             return tree
 
-        new_tree = self.generate(rule=node.name, max_depth=self.max_depth - node.level, weights=weights, lock=lock)
+        new_tree = self.generate(rule=node.name, max_depth=self._max_depth - node.level, weights=weights, lock=lock)
         node.replace(new_tree.root)
         return tree
 
@@ -349,7 +349,7 @@ class Generator(object):
         for node_1 in tree_1_iter:
             for node_2 in random.sample(tuple(tree_2.node_dict[node_1.name]), k=len(tree_2.node_dict[node_1.name])):
                 # Make sure that the output tree won't exceed the depth limit.
-                if node_1.level + node_2.depth <= self.max_depth:
+                if node_1.level + node_2.depth <= self._max_depth:
                     node_1.replace(node_2)
                     return tree_1
 
@@ -360,9 +360,9 @@ class Generator(object):
     # maximum depth (except 'EOF' and '<INVALID>' nodes).
     def _default_selector(self, nodes):
         def min_depth(node):
-            return getattr(getattr(self.generator_cls, node.name), 'min_depth', 0)
+            return getattr(getattr(self._generator_cls, node.name), 'min_depth', 0)
 
-        return [node for node in nodes if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and node.level + min_depth(node) < self.max_depth]
+        return [node for node in nodes if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and node.level + min_depth(node) < self._max_depth]
 
     # Select a node randomly from ``tree`` which can be regenerated within
     # the current maximum depth.

@@ -5,6 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .generate import Generator
+from .generator import GeneratorTool
 from .parser import ParserTool
 from .processor import ProcessorTool
