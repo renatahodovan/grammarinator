@@ -17,7 +17,7 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 
 from .cli import add_disable_cleanup_argument, add_jobs_argument, init_logging, logger
 from .pkgdata import __version__
-from .tool import ParserFactory
+from .tool import ParserTool
 
 
 def iterate_tests(files, rule, out, encoding):
@@ -72,14 +72,14 @@ def execute():
     process_sys_recursion_limit_argument(args)
     process_antlr_argument(args)
 
-    with ParserFactory(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr,
-                       max_depth=args.max_depth, cleanup=args.cleanup) as factory:
+    with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr,
+                    max_depth=args.max_depth, cleanup=args.cleanup) as parser:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
-                pool.starmap(factory.tree_from_file, iterate_tests(args.input, args.rule, args.out, args.encoding))
+                pool.starmap(parser.parse, iterate_tests(args.input, args.rule, args.out, args.encoding))
         else:
             for create_args in iterate_tests(args.input, args.rule, args.out, args.encoding):
-                factory.tree_from_file(*create_args)
+                parser.parse(*create_args)
 
 
 if __name__ == '__main__':
