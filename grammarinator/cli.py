@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2023 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -23,3 +23,13 @@ def add_jobs_argument(parser):
 def add_disable_cleanup_argument(parser):
     parser.add_argument('--disable-cleanup', dest='cleanup', default=True, action='store_false',
                         help='disable the removal of intermediate files.')
+
+
+def add_encoding_argument(parser, help):
+    parser.add_argument('--encoding', metavar='NAME', default='utf-8',
+                        help=help)
+
+
+def add_encoding_errors_argument(parser):
+    parser.add_argument('--encoding-errors', metavar='NAME', default='strict',
+                        help='encoding error handling scheme (default: %(default)s).')

@@ -137,7 +137,7 @@ class GeneratorTool(object):
     def __init__(self, generator_factory, rule, out_format, lock=None, max_depth=inf,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
-                 cleanup=True, encoding='utf-8'):
+                 cleanup=True, encoding='utf-8', errors='strict'):
         """
         :param generator_factory: A callable that can produce instances of a
             generator. It is a generalization of a generator class: it has to
@@ -166,6 +166,7 @@ class GeneratorTool(object):
                See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
         :param bool cleanup: Enable deleting the generated tests at :meth:`__exit__`.
         :param str encoding: Output file encoding.
+        :param str errors: Encoding error handling scheme.
         """
 
         self._generator_factory = generator_factory
@@ -186,6 +187,7 @@ class GeneratorTool(object):
         self._keep_trees = keep_trees
         self._cleanup = cleanup
         self._encoding = encoding
+        self._errors = errors
 
     def __enter__(self):
         return self
@@ -236,7 +238,7 @@ class GeneratorTool(object):
             tree.save(tree_fn)
 
         if test_fn:
-            with codecs.open(test_fn, 'w', self._encoding) as f:
+            with codecs.open(test_fn, 'w', self._encoding, self._errors) as f:
                 f.write(self._serializer(tree.root))
         else:
             with self._lock:

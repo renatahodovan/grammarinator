@@ -396,7 +396,7 @@ class ProcessorTool(object):
         self._template = env.from_string(get_data(__package__, 'resources/codegen/GeneratorTemplate.' + lang + '.jinja').decode('utf-8'))
         self._work_dir = work_dir or getcwd()
 
-    def process(self, grammars, *, options=None, default_rule=None, encoding='utf-8', lib_dir=None, actions=True, pep8=False):
+    def process(self, grammars, *, options=None, default_rule=None, encoding='utf-8', errors='strict', lib_dir=None, actions=True, pep8=False):
         """
         Perform the four main steps:
 
@@ -420,6 +420,7 @@ class ProcessorTool(object):
 
         :param str default_rule: Name of the default rule to start generation from (default: first parser rule in the grammar).
         :param str encoding: Grammar file encoding.
+        :param str errors: Encoding error handling scheme.
         :param str lib_dir: Alternative directory to look for grammar imports beside the current working directory.
         :param bool actions: Boolean to enable grammar actions. If they are disabled then the inline actions and semantic
                predicates of the input grammar (snippets in ``{...}`` and ``{...}?`` form) are disregarded (i.e., no code is
@@ -430,7 +431,7 @@ class ProcessorTool(object):
 
         for grammar in grammars:
             if grammar.endswith('.g4'):
-                root = self._parse_grammar(grammar, encoding, lib_dir)
+                root = self._parse_grammar(grammar, encoding, errors, lib_dir)
                 # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
                 if root.grammarDecl().grammarType().LEXER() or not root.grammarDecl().grammarType().PARSER():
                     lexer_root = root
@@ -449,14 +450,14 @@ class ProcessorTool(object):
                 src = autopep8.fix_code(src)
             f.write(src)
 
-    def _parse_grammar(self, grammar, encoding, lib_dir):
+    def _parse_grammar(self, grammar, encoding, errors, lib_dir):
         work_list = {grammar}
         root = None
 
         while work_list:
             grammar = work_list.pop()
 
-            antlr_parser = ANTLRv4Parser(CommonTokenStream(ANTLRv4Lexer(FileStream(grammar, encoding=encoding))))
+            antlr_parser = ANTLRv4Parser(CommonTokenStream(ANTLRv4Lexer(FileStream(grammar, encoding=encoding, errors=errors))))
             current_root = antlr_parser.grammarSpec()
             # assert antlr_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
 
