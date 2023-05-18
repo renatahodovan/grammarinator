@@ -440,8 +440,7 @@ class ProcessorTool(object):
             else:
                 copy(grammar, self._work_dir)
 
-        graph = self._build_graph(actions, lexer_root, parser_root, default_rule)
-        graph.options.update(options or {})
+        graph = self._build_graph(actions, lexer_root, parser_root, options, default_rule)
         self._analyze_graph(graph)
 
         src = self._template.render(graph=graph, version=__version__).lstrip()
@@ -488,7 +487,7 @@ class ProcessorTool(object):
         return imports
 
     @staticmethod
-    def _build_graph(actions, lexer_root, parser_root, default_rule):
+    def _build_graph(actions, lexer_root, parser_root, options, default_rule):
 
         def find_conditions(node):
             if not actions:
@@ -748,13 +747,13 @@ class ProcessorTool(object):
 
                     elif node.notSet():
                         if node.notSet().setElement():
-                            options = chars_from_set(node.notSet().setElement())
+                            not_ranges = chars_from_set(node.notSet().setElement())
                         else:
-                            options = []
+                            not_ranges = []
                             for set_element in node.notSet().blockSet().setElement():
-                                options.extend(chars_from_set(set_element))
+                                not_ranges.extend(chars_from_set(set_element))
 
-                        charset = Charset(multirange_diff(dot_charset.ranges, sorted(options, key=lambda x: x[0])))
+                        charset = Charset(multirange_diff(dot_charset.ranges, sorted(not_ranges, key=lambda x: x[0])))
                         graph.charsets.append(charset)
                         graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
@@ -880,6 +879,7 @@ class ProcessorTool(object):
         for root in [lexer_root, parser_root]:
             if root:
                 build_prequel(root)
+        graph.options.update(options or {})
 
         dot_charset = Charset(Charset.dot[graph.dot])
         graph.charsets.append(dot_charset)
