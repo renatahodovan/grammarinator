@@ -15,9 +15,20 @@ from os.path import exists, join
 from antlerinator import add_antlr_argument, process_antlr_argument
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 
-from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, init_logging, logger
+from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
 from .pkgdata import __version__
 from .tool import ParserTool
+
+
+def process_args(args):
+    for grammar in args.grammar:
+        if not exists(grammar):
+            raise ValueError(f'{grammar} does not exist.')
+
+    if not args.parser_dir:
+        args.parser_dir = join(args.out, 'grammars')
+
+    args.transformer = import_list(args.transformer)
 
 
 def iterate_tests(files, rule, out, encoding, errors):
@@ -59,18 +70,15 @@ def execute():
     add_version_argument(parser, version=__version__)
     args = parser.parse_args()
 
-    for grammar in args.grammar:
-        if not exists(grammar):
-            parser.error(f'{grammar} does not exist.')
-
-    if not args.parser_dir:
-        args.parser_dir = join(args.out, 'grammars')
-
     init_logging()
     process_log_level_argument(args, logger)
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
     process_antlr_argument(args)
+    try:
+        process_args(args)
+    except ValueError as e:
+        parser.error(e)
 
     with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr,
                     max_depth=args.max_depth, cleanup=args.cleanup) as parser:

@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import json
 import logging
 import os
 import shutil
@@ -17,7 +16,6 @@ from os.path import basename, commonprefix, join, split, splitext
 from subprocess import CalledProcessError, PIPE, run
 
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
-from inators.imp import import_object
 
 from ..runtime import Tree, UnlexerRule, UnparserRule
 
@@ -48,23 +46,19 @@ class ParserTool(object):
         :param str parser_dir: Directory where grammars and the generated parser will be placed.
         :param str antlr: Path to the ANTLR4 tool (Java jar binary).
         :param list[str] hidden: List of hidden rule names that are expected to be added to the grammar tree (hidden rules are skipped by default).
-        :param str or list[str] transformers: References to transformers to be applied to postprocess
-               the parsed tree before serializing it. If it is a list, then each element should be a
-               reference to a transformer. If it is a string, then it should be a JSON-formatted list of
-               references. The references should be in package.module.function format.
-        :param int max_depth: Maximum depth of trees. Deeper trees are not saved.
+        :param list transformers: List of transformers to be applied to postprocess
+               the parsed tree before serializing it.
+        :param int or float max_depth: Maximum depth of trees. Deeper trees are not saved.
         :param bool cleanup: Boolean to enable the removal of the helper parser resources after processing the inputs.
         """
-        self._max_depth = float(max_depth)
-        self._cleanup = cleanup in [True, 1, 'True', 'true']
-        transformers = transformers if isinstance(transformers, list) else json.loads(transformers) if transformers else []
-        self._transformers = [import_object(transformer) if isinstance(transformer, str) else transformer for transformer in transformers]
-        self._hidden = hidden if isinstance(hidden, list) else json.loads(hidden) if hidden else []
+        self._max_depth = max_depth
+        self._cleanup = cleanup
+        self._transformers = transformers or []
+        self._hidden = hidden or []
 
         self._parser_dir = parser_dir
         os.makedirs(self._parser_dir, exist_ok=True)
 
-        grammars = grammars if isinstance(grammars, list) else json.loads(grammars)
         for i, grammar in enumerate(grammars):
             shutil.copy(grammar, self._parser_dir)
             grammars[i] = basename(grammar)
