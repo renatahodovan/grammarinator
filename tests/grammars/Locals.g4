@@ -13,7 +13,8 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -n 5 --stdout
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --stdout
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --stdout
 
 grammar Locals;
 

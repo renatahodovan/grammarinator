@@ -12,7 +12,8 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --model {grammar}Generator.CustomModel -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --model {grammar}Generator.CustomModel -o {tmpdir}/{grammar}S%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --model {grammar}Generator.CustomModel -o {tmpdir}/{grammar}M%d.txt
 
 grammar DispatchingModel;
 

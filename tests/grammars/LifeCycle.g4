@@ -27,7 +27,7 @@
 // TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/ -o {tmpdir}/{grammar}B%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/ -o {tmpdir}/{grammar}C%d.txt --keep-trees --no-generate --no-mutate
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -n 6 --population {tmpdir}/population/ -o {tmpdir}/{grammar}D%d.txt --no-generate
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/ -o {tmpdir}/{grammar}D%d.txt --no-generate
 
 grammar LifeCycle;
 

@@ -13,8 +13,10 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener grammarinator.runtime.DefaultListener -o {tmpdir}/{grammar}A%d.txt
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener {grammar}Generator.CustomListener -o {tmpdir}/{grammar}B%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener grammarinator.runtime.DefaultListener -o {tmpdir}/{grammar}DS%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --listener grammarinator.runtime.DefaultListener -o {tmpdir}/{grammar}DM%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener {grammar}Generator.CustomListener -o {tmpdir}/{grammar}CS%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --listener {grammar}Generator.CustomListener -o {tmpdir}/{grammar}CM%d.txt
 
 grammar Listeners;
 
