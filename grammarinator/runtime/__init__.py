@@ -14,4 +14,4 @@ from .generator import AlternationContext, Generator, RuleContext
 from .listener import Listener
 from .model import Model
 from .serializer import simple_space_serializer
-from .tree import BaseRule, Tree, UnlexerRule, UnparserRule
+from .tree import Rule, Tree, UnlexerRule, UnparserRule
