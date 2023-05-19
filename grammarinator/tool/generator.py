@@ -16,7 +16,7 @@ from math import inf
 from os.path import abspath, basename, dirname, join, splitext
 from shutil import rmtree
 
-from ..runtime import CooldownModel, CustomWeightsModel, DefaultModel, Tree
+from ..runtime import CooldownModel, DefaultModel, Tree
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class DefaultGeneratorFactory(object):
     """
 
     def __init__(self, generator_class, *,
-                 model_class=None, custom_weights=None, cooldown=1.0, cooldown_weights=None, cooldown_lock=None,
+                 model_class=None, cooldown=1.0, weights=None, lock=None,
                  listener_classes=None):
         """
         :param type[~grammarinator.runtime.Generator] generator_class: The class
@@ -75,19 +75,14 @@ class DefaultGeneratorFactory(object):
         :param type[~grammarinator.runtime.Model] model_class: The class of the
             model to instantiate. The model instance is used to instantiate the
             generator.
-        :param dict[tuple,float] custom_weights: Custom multipliers assigned to
-            alternatives. Used to instantiate a
-            :class:`~grammarinator.runtime.CustomWeightsModel` wrapper around
-            the model.
         :param float cooldown: Cooldown factor. Used to instantiate a
             :class:`~grammarinator.runtime.CooldownModel` wrapper around the
             model.
-        :param dict[tuple,float] cooldown_weights: Cooldown multipliers of
-            alternatives. Used to instantiate a
-            :class:`~grammarinator.runtime.CooldownModel` wrapper around the
-            model.
-        :param multiprocessing.Lock cooldown_lock: Lock object when generating
-            in parallel. Used to instantiate a
+        :param dict[tuple,float] weights: Initial multipliers of alternatives.
+            Used to instantiate a :class:`~grammarinator.runtime.CooldownModel`
+            wrapper around the model.
+        :param multiprocessing.Lock lock: Lock object when generating in
+            parallel. Used to instantiate a
             :class:`~grammarinator.runtime.CooldownModel` wrapper around the
             model.
         :param list[type[~grammarinator.runtime.Listener]] listener_classes:
@@ -95,10 +90,9 @@ class DefaultGeneratorFactory(object):
         """
         self._generator_class = generator_class
         self._model_class = model_class or DefaultModel
-        self._custom_weights = custom_weights
         self._cooldown = cooldown
-        self._cooldown_weights = cooldown_weights
-        self._cooldown_lock = cooldown_lock
+        self._weights = weights
+        self._lock = lock
         self._listener_classes = listener_classes or []
 
     def __call__(self, max_depth=inf):
@@ -112,10 +106,8 @@ class DefaultGeneratorFactory(object):
         :rtype: ~grammarinator.runtime.Generator
         """
         model = self._model_class()
-        if self._custom_weights:
-            model = CustomWeightsModel(model, self._custom_weights)
-        if self._cooldown < 1:
-            model = CooldownModel(model, cooldown=self._cooldown, weights=self._cooldown_weights, lock=self._cooldown_lock)
+        if self._cooldown < 1 or self._weights:
+            model = CooldownModel(model, cooldown=self._cooldown, weights=self._weights, lock=self._lock)
 
         generator = self._generator_class(model=model, max_depth=max_depth)
 

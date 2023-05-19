@@ -49,6 +49,8 @@ def process_args(args):
                     for alternative_idx, w in alternatives.items():
                         weights[(rule, int(alternation_idx), int(alternative_idx))] = w
             args.weights = weights
+    else:
+        args.weights = {}
 
     if args.population:
         if not isdir(args.population):
@@ -59,10 +61,9 @@ def process_args(args):
 def generator_tool_helper(args, weights, lock):
     return GeneratorTool(generator_factory=DefaultGeneratorFactory(args.generator,
                                                                    model_class=args.model,
-                                                                   custom_weights=args.weights,
                                                                    cooldown=args.cooldown,
-                                                                   cooldown_weights=weights,
-                                                                   cooldown_lock=lock,
+                                                                   weights=weights,
+                                                                   lock=lock,
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out,
                          max_depth=args.max_depth,
@@ -145,13 +146,13 @@ def execute():
 
     if args.jobs > 1:
         with Manager() as manager:
-            with generator_tool_helper(args, weights=manager.dict(), lock=manager.Lock()) as generator_tool:  # pylint: disable=no-member
+            with generator_tool_helper(args, weights=manager.dict(args.weights), lock=manager.Lock()) as generator_tool:  # pylint: disable=no-member
                 parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
                 with Pool(args.jobs) as pool:
                     for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):
                         pass
     else:
-        with generator_tool_helper(args, weights={}, lock=None) as generator_tool:
+        with generator_tool_helper(args, weights=args.weights, lock=None) as generator_tool:
             for i in count(0) if args.n == inf else range(args.n):
                 create_test(generator_tool, i, seed=args.random_seed)
 
