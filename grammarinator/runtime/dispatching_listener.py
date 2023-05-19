@@ -5,21 +5,20 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .default_listener import DefaultListener
+from .listener import Listener
 
 
-class DispatchingListener(DefaultListener):
+class DispatchingListener(Listener):
     """
-    Subclass of :class:`DefaultListener` to make action definition more convenient.
-    Subclassing ``DispatchingListener`` enables to define the enter and exit
-    methods of a rule in the form of ``[enter|exit]_{rule_name}``.
+    Base class of custom listeners that aim to override the enter and exit
+    actions for specific rules. Subclassing ``DispatchingListener`` enables to
+    define the enter and exit methods of a rule in the form of
+    ``[enter|exit]_{rule_name}``.
     """
 
     def enter_rule(self, node):
         """
-        Trampoline method calling the ``enter_{node.name}`` method of the subclassed listener, if it is defined.
-
-        :param ~grammarinator.runtime.BaseRule node: Empty node that is about to have a subtree generated.
+        Trampoline to the ``enter_{node.name}`` method of the subclassed listener, if it is defined.
         """
         fn = 'enter_' + node.name
         if hasattr(self, fn):
@@ -27,9 +26,7 @@ class DispatchingListener(DefaultListener):
 
     def exit_rule(self, node):
         """
-        Trampoline method calling the ``exit_{node.name}`` method of the subclassed listener, if it is defined.
-
-        :param ~grammarinator.runtime.BaseRule node: Node with its subtree just generated.
+        Trampoline to the ``exit_{node.name}`` method of the subclassed listener, if it is defined.
         """
         fn = 'exit_' + node.name
         if hasattr(self, fn):

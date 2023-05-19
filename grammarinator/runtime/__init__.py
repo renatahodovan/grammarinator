@@ -7,11 +7,11 @@
 
 from .cooldown_model import CooldownModel
 from .custom_weights_model import CustomWeightsModel
-from .default_listener import DefaultListener
 from .default_model import DefaultModel
 from .dispatching_listener import DispatchingListener
 from .dispatching_model import DispatchingModel
 from .generator import AlternationContext, Generator, RuleContext
+from .listener import Listener
 from .model import Model
 from .serializer import simple_space_serializer
 from .tree import BaseRule, Tree, UnlexerRule, UnparserRule

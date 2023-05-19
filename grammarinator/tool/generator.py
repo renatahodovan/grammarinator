@@ -90,8 +90,8 @@ class DefaultGeneratorFactory(object):
             in parallel. Used to instantiate a
             :class:`~grammarinator.runtime.CooldownModel` wrapper around the
             model.
-        :param list[type] listener_classes: List of listener classes to
-            instantiate and attach to the generator.
+        :param list[type[~grammarinator.runtime.Listener]] listener_classes:
+            List of listener classes to instantiate and attach to the generator.
         """
         self._generator_class = generator_class
         self._model_class = model_class or DefaultModel
