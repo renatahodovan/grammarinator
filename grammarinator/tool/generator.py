@@ -72,16 +72,17 @@ class DefaultGeneratorFactory(object):
         """
         :param type[~grammarinator.runtime.Generator] generator_class: The class
             of the generator to instantiate.
-        :param type model_class: The class of the model to instantiate. The
-            model instance is used to instantiate the generator.
-        :param dict[tuple,float] custom_weights: Weights assigned to
+        :param type[~grammarinator.runtime.Model] model_class: The class of the
+            model to instantiate. The model instance is used to instantiate the
+            generator.
+        :param dict[tuple,float] custom_weights: Custom multipliers assigned to
             alternatives. Used to instantiate a
             :class:`~grammarinator.runtime.CustomWeightsModel` wrapper around
             the model.
         :param float cooldown: Cooldown factor. Used to instantiate a
             :class:`~grammarinator.runtime.CooldownModel` wrapper around the
             model.
-        :param dict[tuple,float] cooldown_weights: Cooldown weights of
+        :param dict[tuple,float] cooldown_weights: Cooldown multipliers of
             alternatives. Used to instantiate a
             :class:`~grammarinator.runtime.CooldownModel` wrapper around the
             model.

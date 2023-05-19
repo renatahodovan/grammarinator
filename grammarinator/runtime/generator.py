@@ -67,9 +67,8 @@ class Generator(object):
 
     def __init__(self, *, model=None, max_depth=inf):
         """
-        :param model: Model object responsible for every decision during the generation.
+        :param Model model: Model object responsible for every decision during the generation.
                (default: :class:`DefaultModel`).
-        :type model: DefaultModel or any other model
         :param int or float max_depth: Maximum depth of the generated tree (default: ``inf``).
         """
         self._model = model or DefaultModel()

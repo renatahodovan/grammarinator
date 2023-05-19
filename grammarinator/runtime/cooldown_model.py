@@ -7,8 +7,10 @@
 
 from contextlib import nullcontext
 
+from .model import Model
 
-class CooldownModel(object):
+
+class CooldownModel(Model):
     """
     Custom model (or model wrapper) that updates (practically downscales) the
     weights of alternatives chosen by the underlying model.
@@ -16,10 +18,10 @@ class CooldownModel(object):
 
     def __init__(self, model, *, cooldown=1.0, weights=None, lock=None):
         """
-        :param model: The underlying model.
+        :param Model model: The underlying model.
         :param float cooldown: The cooldown factor (default: 1.0, meaning no cooldown).
-        :param dict[tuple,float] weights: Cooldown weights of alternatives. It is only useful, if the same
-               dictionary object is passed to every invocation of this class so that the decisions made
+        :param dict[tuple,float] weights: Cooldown multipliers of alternatives. It is only useful, if the same
+               dictionary object is passed to every instantiation of this class so that the decisions made
                during test case generation can affect those that follow.
                The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
                the first element specifies the name of the rule that contains the alternative, the second element
@@ -36,16 +38,9 @@ class CooldownModel(object):
 
     def choice(self, node, idx, weights):
         """
-        Method called by the generated fuzzer to choose an alternative from an
-        alternation. Transitively calls the ``choice`` method of the underlying
+        Transitively calls the ``choice`` method of the underlying
         model with cooldown multipliers applied to ``weights`` first, and updates
         the cooldown multiplier of the chosen alternative with the cooldown factor afterwards.
-
-        :param BaseRule node: Rule node object containing the alternation to choose alternative from.
-        :param int idx: Index of the alternation inside the rule.
-        :param list[float] weights: Weights assigned to the alternatives in the grammar using semantic predicates.
-        :return: The index of the chosen alternation.
-        :rtype: int
         """
         c = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(weights)])
         with self._lock:
