@@ -109,10 +109,11 @@ class DefaultGeneratorFactory(object):
         if self._cooldown < 1 or self._weights:
             model = CooldownModel(model, cooldown=self._cooldown, weights=self._weights, lock=self._lock)
 
-        generator = self._generator_class(model=model, max_depth=max_depth)
-
+        listeners = []
         for listener_class in self._listener_classes:
-            generator.add_listener(listener_class())
+            listeners.append(listener_class())
+
+        generator = self._generator_class(model=model, listeners=listeners, max_depth=max_depth)
 
         return generator
 

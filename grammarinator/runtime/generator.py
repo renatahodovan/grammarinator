@@ -65,23 +65,17 @@ class Generator(object):
     and additional internal state used during generation.
     """
 
-    def __init__(self, *, model=None, max_depth=inf):
+    def __init__(self, *, model=None, listeners=None, max_depth=inf):
         """
         :param Model model: Model object responsible for every decision during the generation.
                (default: :class:`DefaultModel`).
+        :param list[Listener] listeners: Listeners that get notified whenever a
+               rule is entered or exited.
         :param int or float max_depth: Maximum depth of the generated tree (default: ``inf``).
         """
         self._model = model or DefaultModel()
         self._max_depth = max_depth
-        self._listeners = []
-
-    def add_listener(self, listener):
-        """
-        Register ``listener`` to the current generator.
-
-        :param Listener listener: Listener object.
-        """
-        self._listeners.append(listener)
+        self._listeners = listeners or []
 
     def _enter_rule(self, node):
         for listener in self._listeners:
