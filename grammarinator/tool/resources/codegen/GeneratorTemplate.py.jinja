@@ -120,9 +120,6 @@ else:
 
 class {{ graph.name }}({{ graph.superclass }}):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     {% for rule in graph.imag_rules %}
     def {{ rule.id }}(self, parent=None):
         return UnlexerRule(name='{{ rule.id }}', parent=parent)
