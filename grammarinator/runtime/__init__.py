@@ -12,5 +12,6 @@ from .dispatching_model import DispatchingModel
 from .generator import AlternationContext, Generator, RuleContext
 from .listener import Listener
 from .model import Model
+from .population import Population
+from .rule import Rule, UnlexerRule, UnparserRule
 from .serializer import simple_space_serializer
-from .tree import Rule, Tree, UnlexerRule, UnparserRule

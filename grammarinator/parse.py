@@ -17,7 +17,7 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 
 from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
 from .pkgdata import __version__
-from .tool import ParserTool
+from .tool import DefaultPopulation, ParserTool
 
 
 def process_args(args):
@@ -29,11 +29,6 @@ def process_args(args):
         args.parser_dir = join(args.out, 'grammars')
 
     args.transformer = import_list(args.transformer)
-
-
-def iterate_tests(files, rule, out, encoding, errors):
-    for test in files:
-        yield (test, rule, out, encoding, errors)
 
 
 def execute():
@@ -80,14 +75,15 @@ def execute():
     except ValueError as e:
         parser.error(e)
 
-    with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr,
-                    max_depth=args.max_depth, cleanup=args.cleanup) as parser:
+    with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
+                    population=DefaultPopulation(args.out), max_depth=args.max_depth, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
-                pool.starmap(parser.parse, iterate_tests(args.input, args.rule, args.out, args.encoding, args.encoding_errors))
+                for _ in pool.imap_unordered(parser.parse, args.input):
+                    pass
         else:
-            for create_args in iterate_tests(args.input, args.rule, args.out, args.encoding, args.encoding_errors):
-                parser.parse(*create_args)
+            for fn in args.input:
+                parser.parse(fn)
 
 
 if __name__ == '__main__':

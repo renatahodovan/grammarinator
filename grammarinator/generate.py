@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import inspect
 import json
 import os
 import random
@@ -21,7 +22,7 @@ from inators.imp import import_object
 
 from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
 from .pkgdata import __version__
-from .tool import DefaultGeneratorFactory, GeneratorTool
+from .tool import DefaultGeneratorFactory, DefaultPopulation, GeneratorTool
 
 
 def restricted_float(value):
@@ -67,7 +68,11 @@ def generator_tool_helper(args, weights, lock):
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out,
                          max_depth=args.max_depth,
-                         population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
+                         population=DefaultPopulation(args.population,
+                                                      min_depths={name: method.min_depth
+                                                                  for name, method in inspect.getmembers(args.generator, inspect.ismethod)
+                                                                  if hasattr(method, 'min_depth')}) if args.population else None,
+                         generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors)
 

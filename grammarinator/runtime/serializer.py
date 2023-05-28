@@ -5,7 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .tree import UnlexerRule, UnparserRule
+from .rule import UnlexerRule, UnparserRule
 
 
 def simple_space_serializer(root):
