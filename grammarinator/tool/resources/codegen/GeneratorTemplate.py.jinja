@@ -39,7 +39,7 @@ UnlexerRule(src='{{ node.src | escape_string }}', parent=current)
 
 
 {% macro processQuantifierNode(node, args) %}
-if self._max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
+if self._max_depth >= {{ node.min_depth }}:
     for _ in self._model.quantify(current, {{ node.idx }}, min={{ node.min }}, max={{ node.max }}):
     {% for edge in node.out_edges %}
         {{ processNode(edge.dst, edge.args) | indent | indent -}}
@@ -48,7 +48,7 @@ if self._max_depth >= {{ 0 if node.min == 1 else node.min_depth }}:
 
 
 {% macro processAlternationNode(node, args) %}
-with AlternationContext(self, [{{ node.min_depth | join(', ') }}], [{{ node.conditions | join(', ') | substitute('\$(?P<var_name>\\w+)', 'local_ctx[\'\\g<var_name>\']') }}]) as weights{{ node.idx }}:
+with AlternationContext(self, [{{ node.min_depths | join(', ') }}], [{{ node.conditions | join(', ') | substitute('\$(?P<var_name>\\w+)', 'local_ctx[\'\\g<var_name>\']') }}]) as weights{{ node.idx }}:
     choice{{ node.idx }} = self._model.choice(current, {{ node.idx }}, weights{{ node.idx }})
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {% if simple_lits and simple_rules %}
