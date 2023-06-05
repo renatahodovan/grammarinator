@@ -46,7 +46,6 @@ class Node(object):
             Node._cnt += 1
         self.id = id
         self.out_edges = []
-        self.min_depth = inf
 
     @property
     def out_neighbours(self):
@@ -79,6 +78,7 @@ class RuleNode(Node):
         super().__init__(name if label is None else '_'.join((name, label)))
         self.name = name
         self.type = type
+        self.min_depth = None
 
         self.labels = {}
         self.args = {}
@@ -151,6 +151,7 @@ class AlternationNode(Node):
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the alternation in the container rule.
         self.conditions = conditions
+        self.min_depths = None
 
     def simple_alternatives(self):
         # Check if an alternation contains simple alternatives only (simple
@@ -200,6 +201,7 @@ class QuantifierNode(Node):
         self.idx = idx  # Index of the quantifier in the container rule.
         self.min = min
         self.max = max
+        self.min_depth = None
 
     def __str__(self):
         return f'{super().__str__()}; idx: {self.idx}; min: {self.min}; max: {self.max}'
@@ -326,24 +328,20 @@ class GrammarGraph(object):
             for ident, node in self.vertices.items():
                 selector = min if isinstance(node, AlternationNode) else max
                 min_depth = selector((min_depths[out_node.id] + int(isinstance(out_node, RuleNode))
-                                      for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.min >= 1), default=0)
+                                      for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.min > 0), default=0)
 
                 if min_depth < min_depths[ident]:
                     min_depths[ident] = min_depth
                     changed = True
 
-        # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
-        for ident in min_depths:
-            if isinstance(self.vertices[ident], AlternationNode):
-                min_depths[ident] = [min_depths[node.id] for node in self.vertices[ident].out_neighbours]
-
-        # Remove the lifted Alternatives.
-        for ident in list(min_depths.keys()):
-            if isinstance(self.vertices[ident], AlternativeNode):
-                del min_depths[ident]
-
-        for ident, min_depth in min_depths.items():
-            self.vertices[ident].min_depth = min_depth
+        for ident, node in self.vertices.items():
+            if isinstance(node, RuleNode):
+                node.min_depth = min_depths[ident]
+            elif isinstance(node, QuantifierNode):
+                node.min_depth = 0 if node.min > 0 else min_depths[ident]
+            elif isinstance(node, AlternationNode):
+                # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
+                node.min_depths = [min_depths[alt.id] for alt in node.out_neighbours]
 
 
 def escape_string(s):
@@ -923,7 +921,7 @@ class ProcessorTool(object):
         for ident, node in graph.vertices.items():
             if isinstance(node, AlternationNode):
                 for alternative_idx, alternative_node in enumerate(node.out_neighbours):
-                    if node.min_depth[alternative_idx] == inf:
+                    if node.min_depths[alternative_idx] == inf:
                         # Generate human-readable description for an alternative in the graph. The output is a
                         # (rule node, alternation node, alternative node) string, where `rule` defines the container
                         # rule and the (alternation node, alternative node) sequence defines a derivation reaching the alternative.
