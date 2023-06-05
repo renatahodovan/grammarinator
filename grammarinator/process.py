@@ -16,7 +16,7 @@ from inators.arg import add_log_level_argument, add_version_argument, process_lo
 
 from .cli import init_logging, logger
 from .pkgdata import __version__
-from .tool import FuzzerFactory
+from .tool import ProcessorTool
 
 
 def execute():
@@ -64,7 +64,7 @@ def execute():
     init_logging()
     process_log_level_argument(args, logger)
 
-    FuzzerFactory(args.language, args.out).generate_fuzzer(args.grammar, options=options, default_rule=args.rule, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    ProcessorTool(args.language, args.out).process(args.grammar, options=options, default_rule=args.rule, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
 
 if __name__ == '__main__':
