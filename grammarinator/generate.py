@@ -19,7 +19,7 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 
 from .cli import add_jobs_argument, init_logging, logger
 from .pkgdata import __version__
-from .tool import Generator
+from .tool import GeneratorTool
 
 
 def restricted_float(value):
@@ -111,11 +111,11 @@ def execute():
             parser.error('Population must point to an existing directory.')
         args.population = abspath(args.population)
 
-    with Generator(generator=args.generator, rule=args.rule, out_format=args.out,
-                   model=args.model, listeners=args.listener, max_depth=args.max_depth, cooldown=args.cooldown, weights=args.weights,
-                   population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
-                   transformers=args.transformer, serializer=args.serializer,
-                   cleanup=False, encoding=args.encoding) as generator:
+    with GeneratorTool(generator=args.generator, rule=args.rule, out_format=args.out,
+                       model=args.model, listeners=args.listener, max_depth=args.max_depth, cooldown=args.cooldown, weights=args.weights,
+                       population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
+                       transformers=args.transformer, serializer=args.serializer,
+                       cleanup=False, encoding=args.encoding) as generator:
         if args.jobs > 1:
             with Manager() as manager:
                 generator = partial(generator, seed=args.random_seed, weights=manager.dict(), lock=manager.Lock())  # pylint: disable=no-member
