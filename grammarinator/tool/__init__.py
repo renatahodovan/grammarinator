@@ -6,5 +6,5 @@
 # according to those terms.
 
 from .generate import Generator
-from .parse import ParserFactory
+from .parser import ParserTool
 from .processor import ProcessorTool
