@@ -14,8 +14,8 @@ Grammarinator
    :caption: API Reference
    :maxdepth: 1
 
-   grammarinator
    grammarinator.runtime
+   grammarinator.tool
 
 
 .. toctree::

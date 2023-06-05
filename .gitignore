@@ -12,4 +12,4 @@ dist
 .coverage*
 *.interp
 *.tokens
-grammarinator/parser/ANTLRv4*.py
+grammarinator/tool/g4/ANTLRv4*.py
