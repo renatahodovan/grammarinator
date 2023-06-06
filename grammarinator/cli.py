@@ -8,11 +8,17 @@
 import logging
 import os
 
+from inators.imp import import_object
+
 logger = logging.getLogger('grammarinator')
 
 
 def init_logging():
     logging.basicConfig(format='%(message)s')
+
+
+def import_list(lst):
+    return [import_object(item) for item in lst]
 
 
 def add_jobs_argument(parser):

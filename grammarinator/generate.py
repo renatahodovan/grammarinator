@@ -19,7 +19,7 @@ from os.path import abspath, exists, isdir, join
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from inators.imp import import_object
 
-from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, init_logging, logger
+from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
 from .pkgdata import __version__
 from .tool import DefaultGeneratorFactory, GeneratorTool
 
@@ -29,10 +29,6 @@ def restricted_float(value):
     if value <= 0.0 or value > 1.0:
         raise ArgumentTypeError(f'{value!r} not in range (0.0, 1.0]')
     return value
-
-
-def import_list(lst):
-    return [import_object(item) for item in lst]
 
 
 def process_args(args):
