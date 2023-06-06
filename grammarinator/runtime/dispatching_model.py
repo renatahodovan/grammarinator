@@ -10,7 +10,7 @@ from .default_model import DefaultModel
 
 class DispatchingModel(DefaultModel):
     """
-    Base class of custom modules that aim to override the decisions in
+    Base class of custom models that aim to override the decisions in
     specific rules. To override a decision point, the subclass must
     define methods in the form of ``choice_{rule_name}``, ``quantify_{rule_name}``
     or ``charset_{rule_name}`` - with the same signature as their counterparts
@@ -20,24 +20,24 @@ class DispatchingModel(DefaultModel):
 
     def choice(self, node, idx, weights):
         """
-        Trampoline method to call the ``choice_{node.name}`` method of the subclassed model, if it exists.
-        Otherwise, it calls :class:`DefaultModel`'s ``choice`` implementation.
+        Trampoline to the ``choice_{node.name}`` method of the subclassed model, if it exists.
+        Otherwise, it calls the default implementation (:meth:`DefaultModel.choice`).
         """
         name = 'choice_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, weights)
 
     def quantify(self, node, idx, min, max):
         """
-        Trampoline method to call the ``quantify_{node.name}`` method of the subclassed model, if it exists.
-        Otherwise, it calls :class:`DefaultModel`'s ``quantify`` implementation.
+        Trampoline to the ``quantify_{node.name}`` method of the subclassed model, if it exists.
+        Otherwise, it calls the default implementation (:meth:`DefaultModel.quantify`).
         """
         name = 'quantify_' + node.name
         yield from (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, min, max)
 
     def charset(self, node, idx, chars):
         """
-        Trampoline method to call the ``charset_{node.name}`` method of the subclassed model, if it exists.
-        Otherwise, it calls :class:`DefaultModel`'s ``charset`` implementation.
+        Trampoline to the ``charset_{node.name}`` method of the subclassed model, if it exists.
+        Otherwise, it calls the default implementation (:meth:`DefaultModel.charset`).
         """
         name = 'charset_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().charset)(node, idx, chars)
