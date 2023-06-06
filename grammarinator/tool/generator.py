@@ -7,7 +7,6 @@
 
 import codecs
 import glob
-import json
 import logging
 import os
 import random
@@ -16,8 +15,6 @@ from contextlib import nullcontext
 from math import inf
 from os.path import abspath, basename, dirname, join, splitext
 from shutil import rmtree
-
-from inators.imp import import_object
 
 from ..runtime import CooldownModel, CustomWeightsModel, DefaultModel, Tree
 
@@ -61,42 +58,101 @@ class Population(object):
         return len(self.obj_list)
 
 
+class DefaultGeneratorFactory(object):
+    """
+    The default generator factory implementation. Instances of
+    ``DefaultGeneratorFactory`` are callable. When called, a new generator
+    instance is created backed by a new decision model instance and a set of
+    newly created listener objects is attached.
+    """
+
+    def __init__(self, generator_class, *,
+                 model_class=None, custom_weights=None, cooldown=1.0, cooldown_weights=None, cooldown_lock=None,
+                 listener_classes=None):
+        """
+        :param type[~grammarinator.runtime.Generator] generator_class: The class
+            of the generator to instantiate.
+        :param type model_class: The class of the model to instantiate. The
+            model instance is used to instantiate the generator.
+        :param dict[tuple,float] custom_weights: Weights assigned to
+            alternatives. Used to instantiate a
+            :class:`~grammarinator.runtime.CustomWeightsModel` wrapper around
+            the model.
+        :param float cooldown: Cooldown factor. Used to instantiate a
+            :class:`~grammarinator.runtime.CooldownModel` wrapper around the
+            model.
+        :param dict[tuple,float] cooldown_weights: Cooldown weights of
+            alternatives. Used to instantiate a
+            :class:`~grammarinator.runtime.CooldownModel` wrapper around the
+            model.
+        :param multiprocessing.Lock cooldown_lock: Lock object when generating
+            in parallel. Used to instantiate a
+            :class:`~grammarinator.runtime.CooldownModel` wrapper around the
+            model.
+        :param list[type] listener_classes: List of listener classes to
+            instantiate and attach to the generator.
+        """
+        self._generator_class = generator_class
+        self._model_class = model_class or DefaultModel
+        self._custom_weights = custom_weights
+        self._cooldown = cooldown
+        self._cooldown_weights = cooldown_weights
+        self._cooldown_lock = cooldown_lock
+        self._listener_classes = listener_classes or []
+
+    def __call__(self, max_depth=inf):
+        """
+        Create a new generator instance according to the settings specified for
+        the factory instance and for this method.
+
+        :param int or float max_depth: Maximum tree depth to be generated
+            (default: ``inf``). Used to instantiate the generator.
+        :return: The created generator instance.
+        :rtype: ~grammarinator.runtime.Generator
+        """
+        model = self._model_class()
+        if self._custom_weights:
+            model = CustomWeightsModel(model, self._custom_weights)
+        if self._cooldown < 1:
+            model = CooldownModel(model, cooldown=self._cooldown, weights=self._cooldown_weights, lock=self._cooldown_lock)
+
+        generator = self._generator_class(model=model, max_depth=max_depth)
+
+        for listener_class in self._listener_classes:
+            generator.add_listener(listener_class())
+
+        return generator
+
+    def __getattr__(self, name):
+        if name.startswith('__'):
+            raise AttributeError()
+        return getattr(self._generator_class, name)
+
+
 class GeneratorTool(object):
     """
     Class to create new test cases using the generator produced by ``grammarinator-process``.
-    Its interface follows the expectation of the Fuzzinator fuzzer framework.
     """
 
-    def __init__(self, generator, rule, out_format,
-                 model=None, listeners=None, max_depth=inf, cooldown=1.0, weights=None,
+    def __init__(self, generator_factory, rule, out_format, lock=None, max_depth=inf,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8'):
         """
-        :param str generator: Reference to the generator created by ``grammarinator-process`` (in package.module.class format).
+        :param generator_factory: A callable that can produce instances of a
+            generator. It is a generalization of a generator class: it has to
+            instantiate a generator object, and it may also set the decision
+            model and the listeners of the generator as well. In the simplest
+            case, it can be a ``grammarinator-process``-created subclass of
+            :class:`~grammarinator.runtime.Generator`, but in more complex
+            scenarios a factory can be used, e.g., an instance of
+            :class:`DefaultGeneratorFactory`.
         :param str rule: Name of the rule to start generation from.
         :param str out_format: Test output description. It can be a file path pattern possibly including the ``%d``
                placeholder which will be replaced by the index of the test case. Otherwise, it can be an empty string,
                which will result in printing the test case to the stdout (i.e., not saving to file system).
-        :param str model: Reference to the decision model (in package.module.class format).
-               See :class:`grammarinator.runtime.DefaultModel` for the default unguided random model.
-        :param str or list[str] listeners: References to listeners to be applied (in package.module.class format).
-               If it is a list, then each element should be a reference to a listener. If it is a string, then it
-               should be a JSON-formatted list of references.
-               See :class:`grammarinator.runtime.DefaultListener` for the default listener.
+        :param multiprocessing.Lock lock: Lock object necessary when printing test cases in parallel (optional).
         :param int or float max_depth: Maximum recursion depth during generation (default: ``inf``).
-        :param float cooldown: Defines how much the probability of an alternative should decrease after it has been chosen.
-               See :class:`grammarinator.runtime.CooldownModel` for details.
-               (default: 1.0, meaning no decrease in the probability).
-        :param dict[tuple,float] weights: Weights assigned to alternatives. Any alternative that has no weight assigned is
-               treated as if 1.0 were assigned.
-               The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
-               the first element specifies the name of the rule that contains the alternative, the second element
-               specifies the index of the alternation containing the alternative within the rule, and the third element
-               specifies the index of the alternative within the alternation (both indices start counting from 0). The
-               first and second elements correspond to the ``node`` and ``idx`` parameters of
-               :meth:`grammarinator.runtime.DefaultModel.choice`, while the third element corresponds to the indices of
-               its ``weights`` parameter. See :class:`grammarinator.runtime.CustomWeightsModel`.
         :param str population: Directory of grammarinator tree pool.
         :param bool generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
         :param bool mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
@@ -104,45 +160,31 @@ class GeneratorTool(object):
         :param bool keep_trees: Keep generated trees to participate in further mutations or recombinations
                (otherwise, only the initial population will be mutated or recombined). It has effect only if
                population is defined.
-        :param str or list[str] transformers: References to transformers to be applied to postprocess
-               the generated tree before serializing it. If it is a list, then each element should be a
-               reference to a transformer. If it is a string, then it should be a JSON-formatted list of
-               references. The references should be in package.module.function format.
-        :param str serializer: Reference to a seralizer (in package.module.function format) that takes a tree and produces a string from it.
+        :param list transformers: List of transformers to be applied to postprocess
+               the generated tree before serializing it.
+        :param serializer: A seralizer that takes a tree and produces a string from it (default: :class:`str`).
                See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
         :param bool cleanup: Enable deleting the generated tests at :meth:`__exit__`.
         :param str encoding: Output file encoding.
         """
 
-        def import_list(lst):
-            lst = lst or []
-            if isinstance(lst, str):
-                lst = json.loads(lst)
-            return [import_object(item) for item in lst]
-
-        def get_boolean(value):
-            return value in ['True', True, 1]
-
-        self._generator_cls = import_object(generator) if generator else None
-        self._model_cls = import_object(model) if model else DefaultModel
-        self._listener_cls = import_list(listeners)
-        self._transformers = import_list(transformers)
-        self._serializer = import_object(serializer) if serializer else str
-        self._rule = rule or self._generator_cls._default_rule.__name__
+        self._generator_factory = generator_factory
+        self._transformers = transformers or []
+        self._serializer = serializer or str
+        self._rule = rule
 
         if out_format:
             os.makedirs(abspath(dirname(out_format)), exist_ok=True)
 
         self._out_format = out_format
-        self._max_depth = float(max_depth)
-        self._cooldown = float(cooldown)
-        self._weights = weights
+        self._lock = lock or nullcontext()
+        self._max_depth = max_depth
         self._population = Population(population) if population else None
-        self._enable_generation = get_boolean(generate)
-        self._enable_mutation = get_boolean(mutate)
-        self._enable_recombination = get_boolean(recombine)
-        self._keep_trees = get_boolean(keep_trees)
-        self._cleanup = get_boolean(cleanup)
+        self._enable_generation = generate
+        self._enable_mutation = mutate
+        self._enable_recombination = recombine
+        self._keep_trees = keep_trees
+        self._cleanup = cleanup
         self._encoding = encoding
 
     def __enter__(self):
@@ -155,35 +197,7 @@ class GeneratorTool(object):
         if self._cleanup and self._out_format:
             rmtree(dirname(self._out_format))
 
-    def __call__(self, index, *args, seed=None, weights=None, lock=None, **kwargs):
-        """
-        Trampoline to :meth:`create`. This trampoline is needed to implement the
-        :class:`fuzzinator.fuzzer.Fuzzer` interface expectation of Fuzzinator (having only an index parameter).
-
-        :param int index: Index of the test case to be generated.
-        :param int seed: Seed of the random number generator to ensure reproducible results (optional).
-        :param dict[tuple,float] weights: Cooldown weights of alternatives calculated by
-               :class:`grammarinator.runtime.CooldownModel`, if it is applied. It is only useful, if the same
-               dictionary object is passed to every invocation of this method so that the decisions made
-               during test case generation can affect those that follow.
-               The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
-               the first element specifies the name of the rule that contains the alternative, the second element
-               specifies the index of the alternation containing the alternative within the rule, and the third element
-               specifies the index of the alternative within the alternation (both indices start counting from 0). The
-               first and second elements correspond to the ``node`` and ``idx`` parameters of
-               :meth:`grammarinator.runtime.CooldownModel.choice`, while the third element corresponds to the indices of
-               its ``weights`` parameter.
-        :param multiprocessing.Lock lock: Lock object when generating in parallel (optional).
-        :return: Path of the output test.
-        :rtype: str
-        """
-        if seed:
-            random.seed(seed + index)
-        weights = weights if weights is not None else {}
-        lock = lock or nullcontext()
-        return self.create(index, weights, lock)[0]
-
-    def create(self, index, weights, lock):
+    def create(self, index):
         """
         Create new test case with a randomly selected generator method from the available
         options (i.e., via :meth:`generate`, :meth:`mutate`, or :meth:`recombine`). The
@@ -191,39 +205,26 @@ class GeneratorTool(object):
         used to initialize the current generator object.
 
         :param int index: Index of the test case to be generated.
-        :param dict[tuple,float] weights: Cooldown weights of alternatives calculated by
-               :class:`grammarinator.runtime.CooldownModel`, if it is applied. It is only useful, if the same
-               dictionary object is passed to every invocation of this method so that the decisions made
-               during test case generation can affect those that follow.
-               The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
-               the first element specifies the name of the rule that contains the alternative, the second element
-               specifies the index of the alternation containing the alternative within the rule, and the third element
-               specifies the index of the alternative within the alternation (both indices start counting from 0). The
-               first and second elements correspond to the ``node`` and ``idx`` parameters of
-               :meth:`grammarinator.runtime.DefaultModel.choice`, while the third element corresponds to the indices of
-               its ``weights`` parameter.
-        :param multiprocessing.Lock lock: Lock object when generating in parallel (optional).
         :return: Tuple of the path to the generated serialized test file and the path to the tree file. The second item,
                (i.e., the path to the tree file) might be ``None``, if either ``population`` or ``keep_trees`` were not set
                in :meth:`__init__` and hence the tree object was not saved either.
         :rtype: tuple[str, str]
         """
-        generators = []
-
+        creators = []
         if self._enable_generation:
-            generators.append(self.generate)
-
+            creators.append(self.generate)
         if self._population:
             if self._enable_mutation and self._population.size > 0:
-                generators.append(self.mutate)
+                creators.append(self.mutate)
             if self._enable_recombination and self._population.size > 1:
-                generators.append(self.recombine)
+                creators.append(self.recombine)
+        creator = random.choice(creators)
 
-        generator = random.choice(generators)
-        tree = generator(rule=self._rule, max_depth=self._max_depth, weights=weights, lock=lock)
+        tree = creator()
+        for transformer in self._transformers:
+            tree.root = transformer(tree.root)
+
         test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
-        tree.root = self._transform(tree.root, self._transformers)
-
         tree_fn = None
         if self._population and self._keep_trees:
             tree_basename = basename(self._out_format)
@@ -238,86 +239,40 @@ class GeneratorTool(object):
             with codecs.open(test_fn, 'w', self._encoding) as f:
                 f.write(self._serializer(tree.root))
         else:
-            with lock:
+            with self._lock:
                 print(self._serializer(tree.root))
 
         return test_fn, tree_fn
 
-    @staticmethod
-    def _transform(root, transformers):
-        for transformer in transformers:
-            root = transformer(root)
-        return root
-
-    def generate(self, *, rule, max_depth, weights, lock):
+    def generate(self, *, rule=None, max_depth=None):
         """
         Instantiate a new generator and generate a new tree from scratch.
 
         :param str rule: Name of the rule to start generation from.
         :param int max_depth: Maximum recursion depth during generation.
-        :param dict[tuple,float] weights: Cooldown weights of alternatives calculated by
-               :class:`grammarinator.runtime.CooldownModel`, if it is applied. It is only useful, if the same
-               dictionary object is passed to every invocation of this method so that the decisions made
-               during test case generation can affect those that follow.
-               The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
-               the first element specifies the name of the rule that contains the alternative, the second element
-               specifies the index of the alternation containing the alternative within the rule, and the third element
-               specifies the index of the alternative within the alternation (both indices start counting from 0). The
-               first and second elements correspond to the ``node`` and ``idx`` parameters of
-               :meth:`grammarinator.runtime.DefaultModel.choice`, while the third element corresponds to the indices of
-               its ``weights`` parameter.
-        :param multiprocessing.Lock lock: Lock object when generating in parallel (optional).
         :return: The generated tree.
         :rtype: Tree
         """
-        start_rule = getattr(self._generator_cls, rule)
+        max_depth = max_depth if max_depth is not None else self._max_depth
+        generator = self._generator_factory(max_depth=max_depth)
+
+        rule = rule or self._rule or generator._default_rule.__name__
+        start_rule = getattr(generator, rule)
         if not hasattr(start_rule, 'min_depth'):
             logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
         elif start_rule.min_depth > max_depth:
             raise ValueError(f'{rule} cannot be generated within the given depth: {max_depth} (min needed: {start_rule.min_depth}).')
 
-        instances = {}
+        return Tree(start_rule())
 
-        def instantiate(cls):
-            obj = instances.get(cls)
-            if not obj:
-                obj = cls()
-                instances[cls] = obj
-            return obj
-
-        model = instantiate(self._model_cls)
-        if self._weights:
-            model = CustomWeightsModel(model, self._weights)
-        if self._cooldown < 1:
-            model = CooldownModel(model, cooldown=self._cooldown, weights=weights, lock=lock)
-        generator = self._generator_cls(model=model, max_depth=max_depth)
-        for listener_cls in self._listener_cls:
-            generator.add_listener(instantiate(listener_cls))
-        return Tree(getattr(generator, rule)())
-
-    def _random_individuals(self, n):
-        return self._population.random_individuals(n=n)
-
-    def mutate(self, *, weights, lock, **kwargs):
+    def mutate(self):
         """
         Select a tree randomly from the population and mutate it at a random position.
 
-        :param dict[tuple,float] weights: Cooldown weights of alternatives calculated by
-               :class:`grammarinator.runtime.CooldownModel`, if it is applied. It is only useful, if the same
-               dictionary object is passed to every invocation of this method so that the decisions made
-               during test case generation can affect those that follow.
-               The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
-               the first element specifies the name of the rule that contains the alternative, the second element
-               specifies the index of the alternation containing the alternative within the rule, and the third element
-               specifies the index of the alternative within the alternation (both indices start counting from 0). The
-               first and second elements correspond to the ``node`` and ``idx`` parameters of
-               :meth:`grammarinator.runtime.DefaultModel.choice`, while the third element corresponds to the indices of
-               its ``weights`` parameter.
-        :param multiprocessing.Lock lock: Lock object when generating in parallel (optional).
         :return: The mutated tree.
         :rtype: Tree
         """
-        tree_fn = self._random_individuals(n=1)[0]
+        tree_fn = self._population.random_individuals(n=1)[0]
         tree = Tree.load(tree_fn)
 
         node = self._random_node(tree)
@@ -325,11 +280,11 @@ class GeneratorTool(object):
             logger.debug('Could not choose node to mutate.')
             return tree
 
-        new_tree = self.generate(rule=node.name, max_depth=self._max_depth - node.level, weights=weights, lock=lock)
+        new_tree = self.generate(rule=node.name, max_depth=self._max_depth - node.level)
         node.replace(new_tree.root)
         return tree
 
-    def recombine(self, **kwargs):
+    def recombine(self):
         """
         Select two trees from the population and recombine them at a random
         position, where the nodes are compatible with each other (i.e., they
@@ -338,7 +293,7 @@ class GeneratorTool(object):
         :return: The recombined tree.
         :rtype: Tree
         """
-        tree_1_fn, tree_2_fn = self._random_individuals(n=2)
+        tree_1_fn, tree_2_fn = self._population.random_individuals(n=2)
         tree_1 = Tree.load(tree_1_fn)
         tree_2 = Tree.load(tree_2_fn)
 
@@ -359,10 +314,7 @@ class GeneratorTool(object):
     # Filter items from ``nodes`` that can be regenerated within the current
     # maximum depth (except 'EOF' and '<INVALID>' nodes).
     def _default_selector(self, nodes):
-        def min_depth(node):
-            return getattr(getattr(self._generator_cls, node.name), 'min_depth', 0)
-
-        return [node for node in nodes if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and node.level + min_depth(node) < self._max_depth]
+        return [node for node in nodes if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and node.level + getattr(getattr(self._generator_factory, node.name), 'min_depth', 0) < self._max_depth]
 
     # Select a node randomly from ``tree`` which can be regenerated within
     # the current maximum depth.

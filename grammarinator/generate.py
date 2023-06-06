@@ -7,6 +7,7 @@
 
 import json
 import os
+import random
 
 from argparse import ArgumentParser, ArgumentTypeError, SUPPRESS
 from functools import partial
@@ -16,10 +17,11 @@ from multiprocessing import Manager, Pool
 from os.path import abspath, exists, isdir, join
 
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
+from inators.imp import import_object
 
 from .cli import add_jobs_argument, init_logging, logger
 from .pkgdata import __version__
-from .tool import GeneratorTool
+from .tool import DefaultGeneratorFactory, GeneratorTool
 
 
 def restricted_float(value):
@@ -29,13 +31,54 @@ def restricted_float(value):
     return value
 
 
-def convert_weights(dct):
-    weights = {}
-    for rule, alts in dct.items():
-        for alternation_idx, alternatives in alts.items():
-            for alternative_idx, w in alternatives.items():
-                weights[(rule, int(alternation_idx), int(alternative_idx))] = w
-    return weights
+def import_list(lst):
+    return [import_object(item) for item in lst]
+
+
+def process_args(args):
+    args.generator = import_object(args.generator)
+    args.model = import_object(args.model)
+    args.listener = import_list(args.listener)
+    args.transformer = import_list(args.transformer)
+    args.serializer = import_object(args.serializer) if args.serializer else None
+
+    if args.weights:
+        if not exists(args.weights):
+            raise ValueError('Custom weights should point to an existing JSON file.')
+
+        with open(args.weights, 'r') as f:
+            weights = {}
+            for rule, alts in json.load(f).items():
+                for alternation_idx, alternatives in alts.items():
+                    for alternative_idx, w in alternatives.items():
+                        weights[(rule, int(alternation_idx), int(alternative_idx))] = w
+            args.weights = weights
+
+    if args.population:
+        if not isdir(args.population):
+            raise ValueError('Population must point to an existing directory.')
+        args.population = abspath(args.population)
+
+
+def generator_tool_helper(args, weights, lock):
+    return GeneratorTool(generator_factory=DefaultGeneratorFactory(args.generator,
+                                                                   model_class=args.model,
+                                                                   custom_weights=args.weights,
+                                                                   cooldown=args.cooldown,
+                                                                   cooldown_weights=weights,
+                                                                   cooldown_lock=lock,
+                                                                   listener_classes=args.listener),
+                         rule=args.rule, out_format=args.out,
+                         max_depth=args.max_depth,
+                         population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
+                         transformers=args.transformer, serializer=args.serializer,
+                         cleanup=False, encoding=args.encoding)
+
+
+def create_test(generator_tool, index, *, seed):
+    if seed:
+        random.seed(seed + index)
+    return generator_tool.create(index)
 
 
 def execute():
@@ -99,33 +142,22 @@ def execute():
     process_log_level_argument(args, logger)
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
+    try:
+        process_args(args)
+    except ValueError as e:
+        parser.error(e)
 
-    if args.weights:
-        if not exists(args.weights):
-            parser.error('Custom weights should point to an existing JSON file.')
-        with open(args.weights, 'r') as f:
-            args.weights = convert_weights(json.load(f))
-
-    if args.population:
-        if not isdir(args.population):
-            parser.error('Population must point to an existing directory.')
-        args.population = abspath(args.population)
-
-    with GeneratorTool(generator=args.generator, rule=args.rule, out_format=args.out,
-                       model=args.model, listeners=args.listener, max_depth=args.max_depth, cooldown=args.cooldown, weights=args.weights,
-                       population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
-                       transformers=args.transformer, serializer=args.serializer,
-                       cleanup=False, encoding=args.encoding) as generator:
-        if args.jobs > 1:
-            with Manager() as manager:
-                generator = partial(generator, seed=args.random_seed, weights=manager.dict(), lock=manager.Lock())  # pylint: disable=no-member
+    if args.jobs > 1:
+        with Manager() as manager:
+            with generator_tool_helper(args, weights=manager.dict(), lock=manager.Lock()) as generator_tool:  # pylint: disable=no-member
+                parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
                 with Pool(args.jobs) as pool:
-                    for _ in pool.imap_unordered(generator, count(0) if args.n == inf else range(args.n)):
+                    for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):
                         pass
-        else:
-            weights = {}
+    else:
+        with generator_tool_helper(args, weights={}, lock=None) as generator_tool:
             for i in count(0) if args.n == inf else range(args.n):
-                generator(i, seed=args.random_seed, weights=weights)
+                create_test(generator_tool, i, seed=args.random_seed)
 
 
 if __name__ == '__main__':
