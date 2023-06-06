@@ -199,7 +199,7 @@ class ParserTool(object):
             logger.warning('Exception while parsing%s.', f' {fn}' if fn else '', exc_info=e)
         return None
 
-    def parse(self, fn, rule, out, encoding):
+    def parse(self, fn, rule, out, encoding, errors):
         """
         Load content from file, parse it to an ANTLR tree, convert it to Grammarinator tree, and save it to file.
 
@@ -208,10 +208,11 @@ class ParserTool(object):
         :param str out: Path to the output directory where the trees will be saved with ``.grt``
                extension.
         :param str encoding: Encoding of the input file.
+        :param str errors: Encoding error handling scheme.
         """
         logger.info('Process file %s.', fn)
         try:
-            tree = self._create_tree(FileStream(fn, encoding=encoding), rule, fn)
+            tree = self._create_tree(FileStream(fn, encoding=encoding, errors=errors), rule, fn)
             if tree is not None:
                 if not tree.save(join(out, basename(fn) + Tree.extension), max_depth=self._max_depth):
                     logger.info('The tree representation of %r is too deep. Skipping.', fn)

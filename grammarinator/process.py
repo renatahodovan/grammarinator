@@ -14,7 +14,7 @@ from os.path import exists
 
 from inators.arg import add_log_level_argument, add_version_argument, process_log_level_argument
 
-from .cli import init_logging, logger
+from .cli import add_encoding_argument, add_encoding_errors_argument, init_logging, logger
 from .pkgdata import __version__
 from .tool import ProcessorTool
 
@@ -36,14 +36,14 @@ def execute():
                         help='do not process inline actions.')
     parser.add_argument('--rule', '-r', metavar='NAME',
                         help='default rule to start generation from (default: the first parser rule)')
-    parser.add_argument('--encoding', metavar='ENC', default='utf-8',
-                        help='grammar file encoding (default: %(default)s).')
     parser.add_argument('--lib', metavar='DIR',
                         help='alternative location of import grammars.')
     parser.add_argument('--pep8', default=False, action='store_true',
                         help='enable autopep8 to format the generated fuzzer.')
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
                         help='temporary working directory (default: %(default)s).')
+    add_encoding_argument(parser, help='grammar file encoding (default: %(default)s).')
+    add_encoding_errors_argument(parser)
     add_log_level_argument(parser, short_alias=())
     add_version_argument(parser, version=__version__)
     args = parser.parse_args()
@@ -64,7 +64,7 @@ def execute():
     init_logging()
     process_log_level_argument(args, logger)
 
-    ProcessorTool(args.language, args.out).process(args.grammar, options=options, default_rule=args.rule, encoding=args.encoding, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
+    ProcessorTool(args.language, args.out).process(args.grammar, options=options, default_rule=args.rule, encoding=args.encoding, errors=args.encoding_errors, lib_dir=args.lib, actions=args.actions, pep8=args.pep8)
 
 
 if __name__ == '__main__':

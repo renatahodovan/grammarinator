@@ -15,14 +15,14 @@ from os.path import exists, join
 from antlerinator import add_antlr_argument, process_antlr_argument
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 
-from .cli import add_disable_cleanup_argument, add_jobs_argument, init_logging, logger
+from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, init_logging, logger
 from .pkgdata import __version__
 from .tool import ParserTool
 
 
-def iterate_tests(files, rule, out, encoding):
+def iterate_tests(files, rule, out, encoding, errors):
     for test in files:
-        yield (test, rule, out, encoding)
+        yield (test, rule, out, encoding, errors)
 
 
 def execute():
@@ -42,14 +42,14 @@ def execute():
                         help='reference to a transformer (in package.module.function format) to postprocess the parsed tree.')
     parser.add_argument('--hidden', metavar='NAME', action='append', default=[],
                         help='list of hidden tokens to be built into the parsed tree.')
-    parser.add_argument('--encoding', metavar='ENC', default='utf-8',
-                        help='input file encoding (default: %(default)s).')
     parser.add_argument('--max-depth', type=int, default=inf,
                         help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
                         help='directory to save the trees (default: %(default)s).')
     parser.add_argument('--parser-dir', metavar='DIR',
                         help='directory to save the parser grammars (default: <OUTDIR>/grammars).')
+    add_encoding_argument(parser, help='input file encoding (default: %(default)s).')
+    add_encoding_errors_argument(parser)
     add_disable_cleanup_argument(parser)
     add_jobs_argument(parser)
     add_antlr_argument(parser)
@@ -76,9 +76,9 @@ def execute():
                     max_depth=args.max_depth, cleanup=args.cleanup) as parser:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
-                pool.starmap(parser.parse, iterate_tests(args.input, args.rule, args.out, args.encoding))
+                pool.starmap(parser.parse, iterate_tests(args.input, args.rule, args.out, args.encoding, args.encoding_errors))
         else:
-            for create_args in iterate_tests(args.input, args.rule, args.out, args.encoding):
+            for create_args in iterate_tests(args.input, args.rule, args.out, args.encoding, args.encoding_errors):
                 parser.parse(*create_args)
 
 

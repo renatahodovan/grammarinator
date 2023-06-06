@@ -19,7 +19,7 @@ from os.path import abspath, exists, isdir, join
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from inators.imp import import_object
 
-from .cli import add_jobs_argument, init_logging, logger
+from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, init_logging, logger
 from .pkgdata import __version__
 from .tool import DefaultGeneratorFactory, GeneratorTool
 
@@ -72,7 +72,7 @@ def generator_tool_helper(args, weights, lock):
                          max_depth=args.max_depth,
                          population=args.population, generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
-                         cleanup=False, encoding=args.encoding)
+                         cleanup=False, encoding=args.encoding, errors=args.encoding_errors)
 
 
 def create_test(generator_tool, index, *, seed):
@@ -123,14 +123,14 @@ def execute():
     # Auxiliary settings.
     parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', 'test_%d'),
                         help='output file name pattern (default: %(default)s).')
-    parser.add_argument('--encoding', metavar='ENC', default='utf-8',
-                        help='output file encoding (default: %(default)s).')
     parser.add_argument('--stdout', dest='out', action='store_const', const='', default=SUPPRESS,
                         help='print test cases to stdout (alias for --out=%(const)r)')
     parser.add_argument('-n', default=1, type=int, metavar='NUM',
                         help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default).')
+    add_encoding_argument(parser, help='output file encoding (default: %(default)s).')
+    add_encoding_errors_argument(parser)
     add_jobs_argument(parser)
     add_sys_path_argument(parser)
     add_sys_recursion_limit_argument(parser)
