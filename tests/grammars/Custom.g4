@@ -57,7 +57,7 @@ start
   ;
 
 tag
-  : '<' remember=tagname '>' (cnt+=CONTENT)* {assert isinstance($cnt, list)} '</' tagname {current.last_child = deepcopy($remember)} '>'
+  : '<' remember=tagname '>' (cnt+=CONTENT)* {assert isinstance($cnt, list)} '</' tagname {current.last_child.replace(deepcopy($remember))} '>'
   ;
 
 tagname
