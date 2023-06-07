@@ -79,7 +79,7 @@ class Generator(object):
         """
         Register ``listener`` to the current generator.
 
-        :param listener: Listener object.
+        :param Listener listener: Listener object.
         """
         self._listeners.append(listener)
 
