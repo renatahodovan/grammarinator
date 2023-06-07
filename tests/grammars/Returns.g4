@@ -24,8 +24,7 @@ tokens { VAR }
 def exec_op(op1, op, op2):
     return {'+': lambda: op1 + op2,
             '-': lambda: op1 - op2,
-            '*': lambda: op1 * op2,
-            '/': lambda: op1 / op2}[op]()
+            '*': lambda: op1 * op2}[op]()
 }
 
 start
@@ -33,7 +32,7 @@ start
     ;
 
 expr returns [result]
-    : '(' op1=expr op=('*' | '/') op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
+    : '(' op1=expr op='*' op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
     | '(' op1=expr op=('+' | '-') op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
     | num=Number {$result = float(str($num))}
     ;
