@@ -13,7 +13,7 @@ def simple_space_serializer(root):
     Simple serializer concatenating the children of :class:`UnparserRule` s with a single
     space, while the children of :class:`UnlexerRule` s (tokens) are glued without any character.
 
-    :param BaseRule root: The root node of the tree or subtree to serialize.
+    :param Rule root: The root node of the tree or subtree to serialize.
     :return: The serialized tree as string.
     :rtype: str
     """

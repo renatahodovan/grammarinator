@@ -17,7 +17,7 @@ class Tree(object):
 
     def __init__(self, root):
         """
-        :param BaseRule root: Root of the generated tree.
+        :param Rule root: Root of the generated tree.
         """
         self.root = root
         self.node_dict = None
@@ -128,7 +128,7 @@ class Tree(object):
         return str(self.root)
 
 
-class BaseRule(object):
+class Rule(object):
     """
     Base class of tree nodes.
     """
@@ -136,11 +136,11 @@ class BaseRule(object):
     def __init__(self, *, name, parent=None):
         """
         :param str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        :param BaseRule parent: Parent node object (default: None).
+        :param Rule parent: Parent node object (default: None).
 
         :ivar str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        :ivar BaseRule parent: Parent node object.
-        :ivar list[BaseRule] children: Children of the rule.
+        :ivar Rule parent: Parent node object.
+        :ivar list[Rule] children: Children of the rule.
         """
         self.name = name
         self.parent = parent
@@ -155,9 +155,9 @@ class BaseRule(object):
         Support for ``+=`` operation to add one or more children to the current node. An alias to
         :meth:`add_child` or :meth:`add_children` depending on the type of ``child``.
 
-        :param BaseRule or list[BaseRule] child: The node(s) to be added as child.
+        :param Rule or list[Rule] child: The node(s) to be added as child.
         :return: The current node with extended children.
-        :rtype: BaseRule
+        :rtype: Rule
         """
         if isinstance(child, list):
             self.add_children(child)
@@ -174,7 +174,7 @@ class BaseRule(object):
           detached from its parent (it is not among the children of the parent).
 
         :return: The left sibling of the current node.
-        :rtype: BaseRule
+        :rtype: Rule
         """
         try:
             self_idx = self.parent.children.index(self)
@@ -191,7 +191,7 @@ class BaseRule(object):
           detached from its parent (it is not among the children of the parent).
 
         :return: The right sibling of the current node.
-        :rtype: BaseRule
+        :rtype: Rule
         """
         try:
             self_idx = self.parent.children.index(self)
@@ -216,7 +216,7 @@ class BaseRule(object):
         Insert node as child at position.
 
         :param int idx: Index of position to insert ``node`` to.
-        :param BaseRule node: Node object to be insert.
+        :param Rule node: Node object to be insert.
         """
         if not node:
             return
@@ -228,7 +228,7 @@ class BaseRule(object):
         """
         Add node to the end of the list of the children.
 
-        :param BaseRule node: Node to be added to children.
+        :param Rule node: Node to be added to children.
         """
         if node is None:
             return
@@ -240,7 +240,7 @@ class BaseRule(object):
         """
         Add mulitple nodes to the end of the list of the children.
 
-        :param list[BaseRule] nodes: List of nodes to be added to children.
+        :param list[Rule] nodes: List of nodes to be added to children.
         """
         for node in nodes:
             self.add_child(node)
@@ -249,9 +249,9 @@ class BaseRule(object):
         """
         Replace the current node with ``node``.
 
-        :param BaseRule node: The replacement node.
+        :param Rule node: The replacement node.
         :return: ``node``
-        :rtype: BaseRule
+        :rtype: Rule
         """
         if self.parent and node is not self:
             self.parent.children[self.parent.children.index(self)] = node
@@ -299,14 +299,14 @@ class BaseRule(object):
         return result[0] if len(result) == 1 else result
 
 
-class UnparserRule(BaseRule):
+class UnparserRule(Rule):
     """
     Tree node representing a parser rule. It can have zero or more :class:`UnparserRule` or
     :class:`UnlexerRule` children.
     """
 
 
-class UnlexerRule(BaseRule):
+class UnlexerRule(Rule):
     """
     Tree node representing a lexer rule or token. It either has one or more further :class:`UnlexerRule`
     children or - if it does not have any children - it has a string constant set in its ``src`` field.
@@ -315,7 +315,7 @@ class UnlexerRule(BaseRule):
     def __init__(self, *, name=None, parent=None, src=None):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
-        :param BaseRule parent: Parent node object (default: None).
+        :param Rule parent: Parent node object (default: None).
         :param str src: String content of the lexer rule (default: None).
 
         :ivar str src: String content of the lexer rule.

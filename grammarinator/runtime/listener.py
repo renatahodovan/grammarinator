@@ -22,9 +22,9 @@ class Listener(object):
 
         No-op by default.
 
-        :param ~grammarinator.runtime.BaseRule node: Empty node (it has no
-            children yet, but ``node.name`` and ``node.parent`` are already
-            valid) that is about to have a subtree generated.
+        :param ~grammarinator.runtime.Rule node: Empty node (it has no children
+            yet, but ``node.name`` and ``node.parent`` are already valid) that
+            is about to have a subtree generated.
         """
 
     def exit_rule(self, node):
@@ -34,6 +34,6 @@ class Listener(object):
 
         No-op by default.
 
-        :param ~grammarinator.runtime.BaseRule node: Node with its subtree just
+        :param ~grammarinator.runtime.Rule node: Node with its subtree just
             generated.
         """

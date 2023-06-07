@@ -18,9 +18,9 @@ class Model(object):
 
         Raises :exc:`NotImplementedError` by default.
 
-        :param ~grammarinator.runtime.BaseRule node: The current node. Its
-            ``name`` field identifies the corresponding grammar rule, which
-            contains the alternation to choose an alternative from.
+        :param ~grammarinator.runtime.Rule node: The current node. Its ``name``
+            field identifies the corresponding grammar rule, which contains the
+            alternation to choose an alternative from.
         :param int idx: Index of the alternation inside the current rule.
         :param list[float] weights: Weights assigned to alternatives of the
             selected alternation.
@@ -37,9 +37,9 @@ class Model(object):
 
         Raises :exc:`NotImplementedError` by default.
 
-        :param ~grammarinator.runtime.BaseRule node: The current node. Its
-            ``name`` field identifies the corresponding grammar rule, which
-            contains the quantified subtree.
+        :param ~grammarinator.runtime.Rule node: The current node. Its ``name``
+            field identifies the corresponding grammar rule, which contains the
+            quantified subtree.
         :param int idx: Index of the quantified subtree inside the current rule.
         :param int min: Lower bound of the quantification range.
         :param int max: Upper bound of the quantification range.
@@ -56,9 +56,9 @@ class Model(object):
 
         Raises :exc:`NotImplementedError` by default.
 
-        :param ~grammarinator.runtime.BaseRule node: The current node. Its
-            ``name`` field identifies the corresponding grammar rule, which
-            contains the charset.
+        :param ~grammarinator.runtime.Rule node: The current node. Its ``name``
+            field identifies the corresponding grammar rule, which contains the
+            charset.
         :param int idx: Index of the charset inside the current rule.
         :param list[str] chars: List of characters to choose a single character
             from.
