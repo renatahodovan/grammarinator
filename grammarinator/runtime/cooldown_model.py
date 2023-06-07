@@ -20,7 +20,7 @@ class CooldownModel(Model):
         """
         :param Model model: The underlying model.
         :param float cooldown: The cooldown factor (default: 1.0, meaning no cooldown).
-        :param dict[tuple,float] weights: Cooldown multipliers of alternatives. It is only useful, if the same
+        :param dict[tuple,float] weights: Initial multipliers of alternatives. It is only useful, if the same
                dictionary object is passed to every instantiation of this class so that the decisions made
                during test case generation can affect those that follow.
                The keys of the dictionary are tuples in the form of ``(str, int, int)``, each denoting an alternative:
@@ -39,15 +39,16 @@ class CooldownModel(Model):
     def choice(self, node, idx, weights):
         """
         Transitively calls the ``choice`` method of the underlying
-        model with cooldown multipliers applied to ``weights`` first, and updates
-        the cooldown multiplier of the chosen alternative with the cooldown factor afterwards.
+        model with multipliers applied to ``weights`` first, and updates
+        the multiplier of the chosen alternative with the cooldown factor afterwards.
         """
         c = self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(weights)])
-        with self._lock:
-            self._weights[(node.name, idx, c)] = self._weights.get((node.name, idx, c), 1) * self._cooldown
-            wsum = sum(self._weights.get((node.name, idx, i), 1) for i in range(len(weights)))
-            for i in range(len(weights)):
-                self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) / wsum
+        if self._cooldown < 1:
+            with self._lock:
+                self._weights[(node.name, idx, c)] = self._weights.get((node.name, idx, c), 1) * self._cooldown
+                wsum = sum(self._weights.get((node.name, idx, i), 1) for i in range(len(weights)))
+                for i in range(len(weights)):
+                    self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) / wsum
         return c
 
     def quantify(self, node, idx, min, max):

@@ -8,14 +8,14 @@
  */
 
 /*
- * This test checks whether CustomWeightsModel works as expected.
+ * This test checks whether custom initial weights work as expected.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --weights custom_weights.json -o {tmpdir}/{grammar}S%d.txt
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --weights custom_weights.json -o {tmpdir}/{grammar}M%d.txt
 
-grammar CustomWeightsModel;
+grammar CustomWeights;
 
 start : (a | b | c) {assert str(current) == 'b', str(current)};
 a : A ;

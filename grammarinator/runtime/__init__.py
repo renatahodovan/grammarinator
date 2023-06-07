@@ -6,7 +6,6 @@
 # according to those terms.
 
 from .cooldown_model import CooldownModel
-from .custom_weights_model import CustomWeightsModel
 from .default_model import DefaultModel
 from .dispatching_listener import DispatchingListener
 from .dispatching_model import DispatchingModel
