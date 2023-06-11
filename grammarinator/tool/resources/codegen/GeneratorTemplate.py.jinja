@@ -52,14 +52,14 @@ with AlternationContext(self, [{{ node.min_depths | join(', ') }}], [{{ node.con
     choice{{ node.idx }} = self._model.choice(current, {{ node.idx }}, weights{{ node.idx }})
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {% if simple_lits and simple_rules %}
-    src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
+    src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     if src is not None:
         UnlexerRule(src=src, parent=current)
     else:
         rule(parent=current)
     {% elif simple_lits %}
-    UnlexerRule(src=[{% for lit in simple_lits %}'{{ lit }}'{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}], parent=current)
+    UnlexerRule(src=[{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}], parent=current)
     {% elif simple_rules %}
     [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}](parent=current)
     {% else %}

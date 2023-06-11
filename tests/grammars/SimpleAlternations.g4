@@ -22,13 +22,13 @@ grammar SimpleAlternations;
 
 start: simple_literals | simple_rules | simple_mixed_alts ;
 
-simple_literals : 'a' | 'b' | 'c';
+simple_literals : 'a' | 'b' | 'c' | '\r\n';
 
 simple_rules : d | E | F ;
 
 d : D ;
 
-simple_mixed_alts : g | H | 'i' ;
+simple_mixed_alts : g | H | 'i' | '\r\n';
 
 g : G ;
 
