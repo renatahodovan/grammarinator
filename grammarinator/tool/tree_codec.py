@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -166,7 +166,7 @@ class FlatBuffersTreeCodec(TreeCodec):
     FlatBuffers-based tree codec.
     """
 
-    def __init__(self, encoding='utf-8', encoding_errors='surrogatepass'):
+    def __init__(self, encoding='utf-8', encoding_errors='ignore'):
         """
         :param str encoding: The encoding to use when converting between
             flatbuffers-encoded text and bytes (default: utf-8).

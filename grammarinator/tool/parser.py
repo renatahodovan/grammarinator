@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Override ConsoleErrorListener to suppress parse issues in non-verbose mode.
 class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        logger.debug('line %d:%d %s', line, column, msg)
+        logger.info('line %d:%d %s', line, column, msg)
 
 
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
@@ -203,7 +203,14 @@ class ParserTool:
             name, text = parser.symbolicNames[antlr_node.symbol.type] if len(parser.symbolicNames) > antlr_node.symbol.type else '<INVALID>', antlr_node.symbol.text
             assert name, f'{name} is None or empty'
 
-            if antlr_node.symbol.type == Token.EOF:
+            if (antlr_node.symbol.type == Token.EOF
+                    # The DefaultErrorStrategy of ANTLR creates and adds artificial tokens
+                    # to the parse tree if it sees that even if a token is missing but the next
+                    # one in the stream is what it was assumed. In such cases, it creates a
+                    # CommonToken with the prefix '<missing ' and postfix '>'. However, these
+                    # must be filtered out, since it would cause extra tokens in our test cases.
+                    # Link: https://github.com/antlr/antlr4/blob/67228355c5bfd1ed5ebb89e726992ec43dda7b53/runtime/Java/src/org/antlr/v4/runtime/DefaultErrorStrategy.java#L583
+                    or text.startswith('<missing') and text.endswith('>')):
                 return None, 0, []
 
             if not self._hidden:

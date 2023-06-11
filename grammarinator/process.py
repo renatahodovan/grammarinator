@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -30,7 +30,7 @@ def execute():
                         help='ANTLR grammar files describing the expected format to generate.')
     parser.add_argument('-D', metavar='OPT=VAL', dest='options', default=[], action='append',
                         help='set/override grammar-level option')
-    parser.add_argument('--language', metavar='LANG', choices=['py'], default='py',
+    parser.add_argument('--language', metavar='LANG', choices=['py', 'hpp'], default='py',
                         help='language of the generated code (choices: %(choices)s; default: %(default)s)')
     parser.add_argument('--no-actions', dest='actions', default=True, action='store_false',
                         help='do not process inline actions.')

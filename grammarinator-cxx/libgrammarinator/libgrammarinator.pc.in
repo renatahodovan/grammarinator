@@ -1,0 +1,8 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=${prefix}/include
+
+Name: libgrammarinator
+Description: Grammarinator: ANTLRv4 grammar-based test generator (C++ runtime & tool library)
+URL: https://github.com/renatahodovan/grammarinator
+Version: @GRAMMARINATOR_VERSION@
+Cflags: -I${includedir}

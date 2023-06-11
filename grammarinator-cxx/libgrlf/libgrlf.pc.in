@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libgrlf-@GRAMMARINATOR_SUFFIX@
+Description: Grammarinator-LibFuzzer integration library for @GRAMMARINATOR_GENERATOR@
+URL: https://github.com/renatahodovan/grammarinator
+Version: @GRAMMARINATOR_VERSION@
+Requires.private: libgrammarinator
+Libs: -L${libdir} -lgrlf-@GRAMMARINATOR_SUFFIX@
+Cflags: -I${includedir}

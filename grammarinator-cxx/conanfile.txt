@@ -1,0 +1,8 @@
+[requires]
+cxxopts/3.2.0
+nlohmann_json/3.11.3
+flatbuffers/24.3.25
+
+[generators]
+CMakeDeps
+CMakeToolchain

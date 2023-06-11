@@ -430,7 +430,9 @@ def escape_string(s):
         '\n': '\\n',
         '\r': '\\r',
         '\\': '\\\\',
-        '\'': '\\\''
+        '\'': '\\\'',
+        # C++ escape:
+        '"': '\\"'
     }
 
     def _iter_escaped_chars(si):

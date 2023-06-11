@@ -1,0 +1,294 @@
+{#
+ # Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+ #
+ # Licensed under the BSD 3-Clause License
+ # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
+ # This file may not be copied, modified, or distributed except
+ # according to those terms.
+ #}
+
+{% macro resolveVarRefs(src) %}
+{{ src | substitute('\$(?P<var_name>\\w+)', 'local_ctx.\\g<var_name>') -}}
+{% endmacro %}
+
+{% macro processVariableNode(node, inedge) %}
+local_ctx.{{ node.name }}{% if node.is_list %}.push_back(current->last_child()){% else %} = current->last_child(){% endif %};
+{% endmacro %}
+
+
+{% macro processActionNode(node, inedge) %}
+{{ resolveVarRefs(node.src) }}
+{% endmacro %}
+
+
+{% macro processLambdaNode(node, inedge) %}
+{% endmacro %}
+
+
+{% macro processRuleNode(node, inedge) %}
+{% if inedge.reserve != 0 %}
+_reserve({{ inedge.reserve }}, this, &{{ graph.name }}::{{ node.id | join('_') }}, {% if inedge.args %}{% for _, _, v in inedge.args %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}current);
+{% else %}
+{{ node.id | join('_') }}({% if inedge.args %}{% for _, _, v in inedge.args %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}current);
+{% endif %}
+{% endmacro %}
+
+
+{% macro processCharsetNode(node, inedge) %}
+static_cast<UnlexerRule*>(current)->src += _model->charset(current, {{ node.idx }}, {{ graph.name }}::_charsets[{{ node.charset }}]);
+{% endmacro %}
+
+
+{% macro processLiteralNode(node, inedge) %}
+static_cast<UnlexerRule*>(current)->src += "{{ node.src | escape_string }}";
+{% endmacro %}
+
+
+{% macro processQuantifierNode(node, inedge) %}
+{
+    QuantifierContext quant{{ node.idx }}(rule, {{ node.idx }}, {{ node.start }}, {{ node.stop | replace('inf', 'INT_MAX') }}, {{ graph.name }}::_quant_sizes[{{ node.min_size }}], {{ inedge.reserve }});
+    while (quant{{ node.idx }}()) {
+        {
+            QuantifiedContext quantified(rule);
+            current = rule.current();
+            {% for edge in node.out_edges %}
+            {{ processNode(edge.dst, edge) | indent | indent | indent -}}
+            {% endfor %}
+        }
+    }
+}
+current = rule.current();
+{% endmacro %}
+
+
+{% macro processAlternationNode(node, inedge) %}
+{
+    AlternationContext alt{{ node.idx }}(rule, {{ node.idx }}, {{ graph.name }}::_alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}{ {{ resolveVarRefs(node.conditions | join(', ')) }} }{% else %}{{ graph.name }}::_alt_conds[{{ node.conditions }}]{% endif %});
+    current = rule.current();
+    {{ alternationContent(node) | indent }}
+}
+current = rule.current();
+{% endmacro %}
+
+
+{% macro alternationContent(node, choice=None) %}
+{% set simple_lits, simple_rules = node.simple_alternatives() %}
+{# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
+{% if simple_lits and simple_rules %}
+{% if choice is none %}size_t choice{{ node.idx }} = alt{{ node.idx }}();{% endif %}
+const char* alt_src = std::vector<const char*>{ {% for lit in simple_lits %}{% if lit is not none %}"{{ lit | escape_string }}"{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
+RuleFn alt_rule = std::vector<RuleFn>{ {% for rule in simple_rules %}{% if rule is not none %}&{{ graph.name }}::{{ rule | join('_') }}{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
+if (alt_src) {
+    static_cast<UnlexerRule*>(current)->src += alt_src;
+} else {
+    (this->*alt_rule)(current);
+}
+{% elif simple_lits %}
+static_cast<UnlexerRule*>(current)->src += std::vector<std::string>{ {% for lit in simple_lits %}"{{ lit | escape_string }}"{% if not loop.last %}, {% endif %}{% endfor %} }[{% if choice is none %}alt{{ node.idx }}(){% else %}{{ choice }}{% endif %}];
+{% elif simple_rules %}
+std::vector<RuleFn> options{ {% for rule in simple_rules %}&{{ graph.name }}::{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %} };
+RuleFn fn = options[{% if choice is none %}alt{{ node.idx }}(){% else %}{{ choice }}{% endif %}];
+(this->*fn)(current);
+{% else %}
+{% if choice is none %}
+size_t choice{{ node.idx }} = alt{{ node.idx }}();
+{% endif %}
+switch ({% if choice is none %}choice{{ node.idx }}{% else %}{{ choice }}{% endif %}) {
+{% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
+    case {{ edge.dst.idx }}:
+        {{ processNode(edge.dst, edge) | indent | indent }}            break;
+{% endfor %}
+}
+{% endif %}
+{% endmacro %}
+
+
+{% macro processAlternativeNode(node, inedge) %}
+{% for edge in node.out_edges %}
+{{ processNode(edge.dst, edge) -}}
+{% endfor %}
+{% endmacro %}
+
+
+{% macro processPermutationNode(node, inedge) %}
+{% set alt_node = node.out_neighbours[0] %}
+{
+    PermutationContext perm{{ node.idx }}(rule, {{ node.idx }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {% if alt_node.conditions is sequence %}({{ resolveVarRefs(alt_node.conditions | join(', ')) }}){% else %}{{ graph.name }}._alt_conds[{{ alt_node.conditions }}]{% endif %});
+    current = rule.current();
+    while (perm{{ node.idx }}()) {
+        {
+            AlternationContext alt{{ alt_node.idx }}(rule, {{ alt_node.idx }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {{ node.out_edges[0].reserve }}, perm{{ node.idx }}.conditions);
+            current = rule.current();
+            {{ alternationContent(alt_node, "perm{}.choice(alt{}())".format(node.idx, alt_node.idx)) | indent | indent | indent }}
+        }
+        current = rule.current();
+    }
+}
+current = rule.current();
+{% endmacro %}
+
+
+{% macro processMultiSelectNode(node, inedge) %}
+{% set alt_node = node.out_neighbours[0] %}
+{
+    MultiSelectContext multi{{ node.idx }}(rule, {{ node.idx }}, {{ node.start }}, {{ node.stop | replace('inf', 'INT_MAX') }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {{ inedge.reserve }}, {% if alt_node.conditions is sequence %}({{ resolveVarRefs(alt_node.conditions | join(', ')) }}){% else %}{{ graph.name }}::_alt_conds[{{ alt_node.conditions }}]{% endif %});
+    current = rule.current();
+    while (multi{{ node.idx }}()) {
+        {
+            AlternationContext alt{{ alt_node.idx }}(rule, {{ alt_node.idx }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {{ node.out_edges[0].reserve }}, multi{{ node.idx }}.conditions);
+            current = rule.current();
+            {{ alternationContent(alt_node, "multi{}.choice(alt{}())".format(node.idx, alt_node.idx)) | indent | indent }}
+        }
+        current = rule.current();
+    }
+}
+current = rule.current();
+{% endmacro %}
+
+
+{% macro processNode(node, inedge) %}
+{% set processors = {
+    'QuantifierNode': processQuantifierNode,
+    'PermutationNode': processPermutationNode,
+    'MultiSelectNode': processMultiSelectNode,
+    'UnlexerRuleNode': processRuleNode,
+    'UnparserRuleNode': processRuleNode,
+    'ImagRuleNode': processRuleNode,
+    'CharsetNode': processCharsetNode,
+    'LiteralNode': processLiteralNode,
+    'AlternationNode': processAlternationNode,
+    'AlternativeNode': processAlternativeNode,
+    'ActionNode': processActionNode,
+    'LambdaNode': processLambdaNode,
+    'VariableNode': processVariableNode,
+    }
+%}
+{{ processors[node.__class__.__name__](node, inedge) -}}
+{% endmacro %}
+
+
+// Generated by Grammarinator {{ version }}
+
+#ifndef GRAMMARINATOR_GENERATED_{{ graph.name | upper }}_HPP
+#define GRAMMARINATOR_GENERATED_{{ graph.name | upper }}_HPP
+
+#include <array>
+#include <climits>
+#include <cmath>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+#undef EOF
+
+#include "grammarinator/runtime/Generator.hpp"
+
+{% if graph.superclass != 'Generator' %}
+#include "{{ graph.superclass }}.hpp"
+
+
+{% endif %}
+
+{%- if graph.header %}
+{{ graph.header }}
+{% endif -%}
+
+using namespace grammarinator;
+using namespace grammarinator::runtime;
+using namespace grammarinator::tool;
+
+class {{ graph.name }} : public {{ graph.superclass }}
+{
+public:
+    explicit {{ graph.name }}(Model* model=new DefaultModel(), const std::vector<Listener*>& listeners={}, const RuleSize& limit=RuleSize::max()) : {{ graph.superclass }}(model, listeners, limit) {}
+
+    {% for rule in graph.imag_rules %}
+    UnlexerRule* {{ rule.id | join('_') }}(Rule *parent = nullptr) {
+        UnlexerRuleContext rule(this, "{{ rule.id | join('_') }}", parent);
+        return rule.current();
+    }
+    {% endfor %}
+
+    {%- if graph.members %}
+    {{ graph.members | trim | indent }}
+    {% endif %}
+
+    {% for rule in graph.rules %}
+    Rule* {{ rule.id | join('_') }}({% for t, k, v in rule.args %}{{ t }} {{ k }}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}Rule *parent = nullptr) {
+        {% if rule.labels or rule.args or rule.locals or rule.returns %}
+        struct {
+            {% for t, k, _ in rule.args %}
+            {{ t }} {{ k }} = {{ k }};
+            {% endfor %}
+            {% for t, k, v in (rule.locals + rule.returns) %}
+            {{ t }} {{ k }}{% if v %} = {{ resolveVarRefs(v) }}{% endif %};
+            {% endfor %}
+            {% for name, is_list in rule.labels.items() %}
+            {%+ if is_list %}vector<{% endif %}Rule*{% if is_list%}>{% endif %} {{ name }}{% if is_list %} = {}{% endif %};
+            {% endfor %}
+        } local_ctx;
+        {% endif %}
+        {{ rule.type }}Context rule(this, "{% if rule.trampoline %}{{ rule.id[0] }}{% else %}{{ rule.name }}{% endif %}", parent{% if rule.type == 'UnlexerRule' and (rule.name,) in graph.immutables %}, true{% endif %});
+        Rule* current = rule.current();
+        {% for edge in rule.out_edges %}
+        {{ processNode(edge.dst, edge) | indent | indent -}}
+        {% endfor %}
+        {# FIXME: missing rule.returns #}
+        {% if rule.trampoline %}
+        current->remove();
+        current = static_cast<ParentRule*>(static_cast<ParentRule*>(current)->children[0])->children[0];
+        current->remove();
+        if (parent)
+            static_cast<ParentRule*>(parent)->add_child(current);
+        {% endif %}
+        return current;
+    }
+
+    {% endfor %}
+
+    using RuleFn = Rule* ({{ graph.name }}::*)(Rule *);
+
+    inline static const std::string _default_rule = "{{ graph.default_rule }}";
+
+    inline static const std::unordered_map<std::string, RuleFn> _rule_fns = {
+        {% for rule in graph.rules %}
+        { "{{ rule.id | join('_') }}", &{{ graph.name }}::{{ rule.id | join('_') }} },
+        {% endfor %}
+    };
+
+    inline static const std::unordered_map<std::string, RuleSize> _rule_sizes = {
+        {% for rule in graph.rules %}
+        { "{{ rule.id | join('_') }}", RuleSize({{ rule.min_size.depth }}, {{ rule.min_size.tokens }}) },
+        {% endfor %}
+    };
+
+    inline static const std::vector<std::vector<RuleSize>> _alt_sizes = {
+        {% for alt_size in graph.alt_sizes %}
+        { {% for size in alt_size %}RuleSize({{ size.depth }}, {{ size.tokens }}){% if not loop.last %}, {% endif %}{% endfor %} },  // {{ loop.index0 }}
+        {% endfor %}
+    };
+
+    inline static const std::vector<RuleSize> _quant_sizes = {
+        {% for size in graph.quant_sizes %}
+        RuleSize({{ size.depth }}, {{ size.tokens }}),  // {{ loop.index0 }}
+        {% endfor %}
+    };
+
+private:
+    inline static const std::vector<std::vector<double>> _alt_conds = {
+        {% for alt_cond in graph.alt_conds %}
+        { {{ alt_cond | join(', ') }} },  // {{ loop.index0 }}
+        {% endfor %}
+    };
+
+    inline static const std::vector<std::vector<std::string>> _charsets = {
+        {% for charset in graph.charsets %}
+        Generator::_charset({ {% for range in charset %}{ {{ "0x%x, 0x%x" % (range[0], range[1]) }} }{% if not loop.last%}, {% endif %}{% endfor %} }),  // {{ loop.index0 }}
+        {% endfor %}
+    };
+
+}; // class {{ graph.name }}
+
+#endif // GRAMMARINATOR_GENERATED_{{ graph.name | upper }}_HPP
+{# Ensure newline at end of file #}

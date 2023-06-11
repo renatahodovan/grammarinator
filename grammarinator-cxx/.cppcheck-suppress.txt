@@ -1,0 +1,3 @@
+duplInheritedMember
+unusedStructMember
+useStlAlgorithm
