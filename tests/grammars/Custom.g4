@@ -37,7 +37,7 @@ from copy import deepcopy
 from sys import platform as CustomLexerPlatform
 }
 
-@lexer::member {
+@lexer::members {
 def _custom_lexer_content(self, parent=None):
     return UnlexerRule(src=CustomLexerPlatform, parent=parent)
 }
@@ -46,7 +46,7 @@ def _custom_lexer_content(self, parent=None):
 from random import randint as CustomParserUniform
 }
 
-@parser::member {
+@parser::members {
 def _custom_parser_uniform(self):
     return CustomParserUniform(0, 1)
 }

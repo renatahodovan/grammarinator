@@ -28,7 +28,7 @@
 
 lexer grammar HTMLLexer;
 
-@lexer::member {
+@lexer::members {
 def style_sheet(self, parent=None):
     return UnlexerRule(src='', parent=parent)
 

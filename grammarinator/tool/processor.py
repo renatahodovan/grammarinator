@@ -286,7 +286,7 @@ class GrammarGraph(object):
         self.options = {}
         self.charsets = []
         self.header = ''
-        self.member = ''
+        self.members = ''
         self.default_rule = None
 
     @property
@@ -824,11 +824,10 @@ class ProcessorTool(object):
                     action_type = str(action_ident.RULE_REF() or action_ident.TOKEN_REF())
                     raw_action_src = ''.join(str(child) for child in action.actionBlock().ACTION_CONTENT())
 
-                    # We simply append both member and header code chunks to the generated source.
+                    # We simply append both members and header code chunks to the generated source.
                     # It's the user's responsibility to define them in order.
-                    # Both 'member' and 'members' keywords are accepted.
-                    if action_type in ('member', 'members'):
-                        graph.member += raw_action_src
+                    if action_type == 'members':
+                        graph.members += raw_action_src
                     elif action_type == 'header':
                         graph.header += raw_action_src
 
