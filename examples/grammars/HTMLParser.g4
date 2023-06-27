@@ -60,7 +60,7 @@ def html_space_serializer(root):
 
 }
 
-@parser::member {
+@parser::members {
 def _endOfHtmlElement(self):
     pass
 

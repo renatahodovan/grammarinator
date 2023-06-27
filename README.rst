@@ -84,7 +84,7 @@ Basic command-line syntax of test generator creation::
     *Grammarinator* uses the `ANTLR v4 grammar`_ format as its input, which
     makes existing grammars (lexer and parser rules) easily reusable. However,
     because of the inherently different goals of a fuzzer and a parser, inlined
-    code (actions and conditions, header and member blocks) are most probably
+    code (actions and conditions, header and members blocks) are most probably
     not reusable, or even preventing proper execution. For first experiments
     with existing grammar files, ``grammarinator-process`` supports the
     command-line option ``--no-actions``, which skips all such code blocks
