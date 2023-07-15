@@ -6,56 +6,18 @@
 # according to those terms.
 
 import codecs
-import glob
 import logging
 import os
 import random
 
 from contextlib import nullcontext
 from math import inf
-from os.path import abspath, basename, dirname, join, splitext
+from os.path import abspath, dirname
 from shutil import rmtree
 
-from ..runtime import CooldownModel, DefaultModel, Tree
+from ..runtime import CooldownModel, DefaultModel
 
 logger = logging.getLogger(__name__)
-
-
-class Population(object):
-
-    def __init__(self, directory):
-        """
-        :param str directory: Path to the directory containing the trees.
-        """
-        self.directory = directory
-        self.tree_extension = Tree.extension
-        os.makedirs(directory, exist_ok=True)
-        self.obj_list = glob.glob(join(self.directory, '*' + Tree.extension))
-
-    def random_individuals(self, n=1):
-        """
-        Select ``n`` items from the population.
-
-        :param int n: Number of items to be selected.
-        :return: List of selected tree paths.
-        :rtype: list[str]
-        """
-        return random.sample(self.obj_list, n)
-
-    def add_tree(self, fn):
-        """
-        Add a single tree to the popoulation by path.
-
-        :param str fn: File path of tree to be added.
-        """
-        self.obj_list.append(fn)
-
-    @property
-    def size(self):
-        """
-        Number of trees in population.
-        """
-        return len(self.obj_list)
 
 
 class DefaultGeneratorFactory(object):
@@ -117,18 +79,13 @@ class DefaultGeneratorFactory(object):
 
         return generator
 
-    def __getattr__(self, name):
-        if name.startswith('__'):
-            raise AttributeError()
-        return getattr(self._generator_class, name)
-
 
 class GeneratorTool(object):
     """
     Class to create new test cases using the generator produced by ``grammarinator-process``.
     """
 
-    def __init__(self, generator_factory, rule, out_format, lock=None, max_depth=inf,
+    def __init__(self, generator_factory, out_format, lock=None, rule=None, max_depth=inf,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8', errors='strict'):
@@ -141,13 +98,15 @@ class GeneratorTool(object):
             :class:`~grammarinator.runtime.Generator`, but in more complex
             scenarios a factory can be used, e.g., an instance of
             :class:`DefaultGeneratorFactory`.
-        :param str rule: Name of the rule to start generation from.
+        :param str rule: Name of the rule to start generation from (default: the
+            default rule of the generator).
         :param str out_format: Test output description. It can be a file path pattern possibly including the ``%d``
                placeholder which will be replaced by the index of the test case. Otherwise, it can be an empty string,
                which will result in printing the test case to the stdout (i.e., not saving to file system).
         :param multiprocessing.Lock lock: Lock object necessary when printing test cases in parallel (optional).
         :param int or float max_depth: Maximum recursion depth during generation (default: ``inf``).
-        :param str population: Directory of grammarinator tree pool.
+        :param ~grammarinator.tool.Population population: Tree pool for mutation
+            and recombination.
         :param bool generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
         :param bool mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
         :param bool recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
@@ -174,7 +133,7 @@ class GeneratorTool(object):
         self._out_format = out_format
         self._lock = lock or nullcontext()
         self._max_depth = max_depth
-        self._population = Population(population) if population else None
+        self._population = population
         self._enable_generation = generate
         self._enable_mutation = mutate
         self._enable_recombination = recombine
@@ -210,35 +169,30 @@ class GeneratorTool(object):
         if self._enable_generation:
             creators.append(self.generate)
         if self._population:
-            if self._enable_mutation and self._population.size > 0:
-                creators.append(self.mutate)
-            if self._enable_recombination and self._population.size > 1:
-                creators.append(self.recombine)
+            if self._enable_mutation and self._population.can_mutate():
+                creators.append(lambda: self.mutate(self._population.select_to_mutate(self._max_depth)))
+            if self._enable_recombination and self._population.can_recombine():
+                creators.append(lambda: self.recombine(*self._population.select_to_recombine(self._max_depth)))
         creator = random.choice(creators)
 
-        tree = creator()
+        root = creator()
         for transformer in self._transformers:
-            tree.root = transformer(tree.root)
+            root = transformer(root)
 
+        test = self._serializer(root)
         test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
-        tree_fn = None
+
         if self._population and self._keep_trees:
-            tree_basename = basename(self._out_format)
-            if '%d' not in tree_basename:
-                base, ext = splitext(tree_basename)
-                tree_basename = f'{base}%d{ext}'
-            tree_fn = join(self._population.directory, tree_basename % index + Tree.extension)
-            self._population.add_tree(tree_fn)
-            tree.save(tree_fn)
+            self._population.add_individual(root, path=test_fn)
 
         if test_fn:
             with codecs.open(test_fn, 'w', self._encoding, self._errors) as f:
-                f.write(self._serializer(tree.root))
+                f.write(test)
         else:
             with self._lock:
-                print(self._serializer(tree.root))
+                print(test)
 
-        return test_fn, tree_fn
+        return test_fn
 
     def generate(self, *, rule=None, max_depth=None):
         """
@@ -246,8 +200,8 @@ class GeneratorTool(object):
 
         :param str rule: Name of the rule to start generation from.
         :param int max_depth: Maximum recursion depth during generation.
-        :return: The generated tree.
-        :rtype: Tree
+        :return: The root of the generated tree.
+        :rtype: Rule
         """
         max_depth = max_depth if max_depth is not None else self._max_depth
         generator = self._generator_factory(max_depth=max_depth)
@@ -259,61 +213,47 @@ class GeneratorTool(object):
         elif start_rule.min_depth > max_depth:
             raise ValueError(f'{rule} cannot be generated within the given depth: {max_depth} (min needed: {start_rule.min_depth}).')
 
-        return Tree(start_rule())
+        return start_rule()
 
-    def mutate(self):
+    def mutate(self, mutated_node):
         """
-        Select a tree randomly from the population and mutate it at a random position.
+        Mutate a tree at a given position, i.e., discard and re-generate its
+        sub-tree at the specified node.
 
-        :return: The mutated tree.
-        :rtype: Tree
+        :param Rule mutated_node: The root of the sub-tree that should be
+            re-generated.
+        :return: The root of the mutated tree.
+        :rtype: Rule
         """
-        tree_fn = self._population.random_individuals(n=1)[0]
-        tree = Tree.load(tree_fn)
+        node, level = mutated_node, 0
+        while node.parent:
+            node = node.parent
+            level += 1
 
-        node = self._random_node(tree)
-        if node is None:
-            logger.debug('Could not choose node to mutate.')
-            return tree
+        mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, max_depth=self._max_depth - level))
 
-        new_tree = self.generate(rule=node.name, max_depth=self._max_depth - node.level)
-        node.replace(new_tree.root)
-        return tree
+        node = mutated_node
+        while node.parent:
+            node = node.parent
+        return node
 
-    def recombine(self):
+    def recombine(self, recipient_node, donor_node):
         """
-        Select two trees from the population and recombine them at a random
-        position, where the nodes are compatible with each other (i.e., they
-        share the same node name).
+        Recombine two trees at given positions where the nodes are compatible
+        with each other (i.e., they share the same node name). One of the trees
+        is called the recipient while the other is the donor. The sub-tree
+        rooted at the specified node of the recipient is discarded and replaced
+        by the sub-tree rooted at the specified node of the donor.
 
-        :return: The recombined tree.
-        :rtype: Tree
+        :param Rule recipient_node: The root of the sub-tree in the recipient.
+        :param Rule donor_node: The root of the sub-tree in the donor.
+        :return: The root of the recombined tree.
+        :rtype: Rule
         """
-        tree_1_fn, tree_2_fn = self._population.random_individuals(n=2)
-        tree_1 = Tree.load(tree_1_fn)
-        tree_2 = Tree.load(tree_2_fn)
+        if recipient_node.name != donor_node.name:
+            raise ValueError(f'{recipient_node.name} cannot be replaced with {donor_node.name}')
 
-        common_types = set(tree_1.node_dict.keys()).intersection(set(tree_2.node_dict.keys()))
-        options = self._default_selector(node for rule_name in common_types for node in tree_1.node_dict[rule_name])
-        # Shuffle suitable nodes with sample.
-        tree_1_iter = random.sample(options, k=len(options))
-        for node_1 in tree_1_iter:
-            for node_2 in random.sample(tuple(tree_2.node_dict[node_1.name]), k=len(tree_2.node_dict[node_1.name])):
-                # Make sure that the output tree won't exceed the depth limit.
-                if node_1.level + node_2.depth <= self._max_depth:
-                    node_1.replace(node_2)
-                    return tree_1
-
-        logger.debug('Could not find node pairs to recombine.')
-        return tree_1
-
-    # Filter items from ``nodes`` that can be regenerated within the current
-    # maximum depth (except 'EOF' and '<INVALID>' nodes).
-    def _default_selector(self, nodes):
-        return [node for node in nodes if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and node.level + getattr(getattr(self._generator_factory, node.name), 'min_depth', 0) < self._max_depth]
-
-    # Select a node randomly from ``tree`` which can be regenerated within
-    # the current maximum depth.
-    def _random_node(self, tree):
-        options = self._default_selector(x for name in tree.node_dict for x in tree.node_dict[name])
-        return random.choice(options) if options else None
+        node = recipient_node.replace(donor_node)
+        while node.parent:
+            node = node.parent
+        return node
