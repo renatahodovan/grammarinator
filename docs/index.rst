@@ -4,10 +4,11 @@ Grammarinator
 *ANTLRv4 grammar-based test generator*
 
 .. toctree::
-   :caption: Quick Start
+   :caption: Documentation
    :maxdepth: 1
 
    introduction
+   user_guide
 
 
 .. toctree::
@@ -16,13 +17,6 @@ Grammarinator
 
    grammarinator.runtime
    grammarinator.tool
-
-
-.. toctree::
-   :caption: CLI Reference
-   :maxdepth: 1
-
-   cli
 
 
 .. toctree::

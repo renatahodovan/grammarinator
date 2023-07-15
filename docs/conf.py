@@ -62,6 +62,10 @@ html_title = '%s %s documentation' % (project, release)
 #
 html_show_sourcelink = False
 
+# If true, navigation will be scrolled with the main page and navigation
+# groups won't be closed when selecting an item.
+sticky_navigation = True
+
 
 # -- Extension configuration -------------------------------------------------
 
