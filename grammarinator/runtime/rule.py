@@ -13,32 +13,15 @@ class Rule(object):
     def __init__(self, *, name, parent=None):
         """
         :param str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        :param Rule parent: Parent node object (default: None).
+        :param UnparserRule parent: Parent node object (default: None).
 
         :ivar str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        :ivar Rule parent: Parent node object.
-        :ivar list[Rule] children: Children of the rule.
+        :ivar UnparserRule parent: Parent node object.
         """
         self.name = name
         self.parent = parent
         if parent:
             parent += self
-        self.children = []
-
-    def __iadd__(self, child):
-        """
-        Support for ``+=`` operation to add one or more children to the current node. An alias to
-        :meth:`add_child` or :meth:`add_children` depending on the type of ``child``.
-
-        :param Rule or list[Rule] child: The node(s) to be added as child.
-        :return: The current node with extended children.
-        :rtype: Rule
-        """
-        if isinstance(child, list):
-            self.add_children(child)
-        else:
-            self.add_child(child)
-        return self
 
     @property
     def left_sibling(self):
@@ -74,6 +57,45 @@ class Rule(object):
         except ValueError:
             return None
 
+    def replace(self, node):
+        """
+        Replace the current node with ``node``.
+
+        :param Rule node: The replacement node.
+        :return: ``node``
+        :rtype: Rule
+        """
+        if self.parent and node is not self:
+            self.parent.children[self.parent.children.index(self)] = node
+            node.parent = self.parent
+            self.parent = None
+        return node
+
+    def delete(self):
+        """
+        Delete the current node from the tree.
+        """
+        if self.parent:
+            self.parent.children.remove(self)
+            self.parent = None
+
+
+class UnparserRule(Rule):
+    """
+    Tree node representing a parser rule. It can have zero or more :class:`UnparserRule` or
+    :class:`UnlexerRule` children.
+    """
+
+    def __init__(self, name, parent=None):
+        """
+        :param str name: Name of the corresponding parser rule in the grammar.
+        :param UnparserRule parent: Parent node object (default: None).
+
+        :ivar list[Rule] children: Children of the rule.
+        """
+        super().__init__(name=name, parent=parent)
+        self.children = []
+
     @property
     def last_child(self):
         """
@@ -91,7 +113,7 @@ class Rule(object):
         Insert node as child at position.
 
         :param int idx: Index of position to insert ``node`` to.
-        :param Rule node: Node object to be insert.
+        :param Rule node: Node object to be inserted.
         """
         if not node:
             return
@@ -120,27 +142,20 @@ class Rule(object):
         for node in nodes:
             self.add_child(node)
 
-    def replace(self, node):
+    def __iadd__(self, item):
         """
-        Replace the current node with ``node``.
+        Support for ``+=`` operation to add one or more children to the current node. An alias to
+        :meth:`add_child` or :meth:`add_children` depending on the type of ``child``.
 
-        :param Rule node: The replacement node.
-        :return: ``node``
+        :param Rule or list[Rule] item: The node(s) to be added as child.
+        :return: The current node with extended children.
         :rtype: Rule
         """
-        if self.parent and node is not self:
-            self.parent.children[self.parent.children.index(self)] = node
-            node.parent = self.parent
-            self.parent = None
-        return node
-
-    def delete(self):
-        """
-        Delete the current node from the tree.
-        """
-        if self.parent:
-            self.parent.children.remove(self)
-            self.parent = None
+        if isinstance(item, list):
+            self.add_children(item)
+        else:
+            self.add_child(item)
+        return self
 
     def __str__(self):
         """
@@ -174,36 +189,27 @@ class Rule(object):
         return result[0] if len(result) == 1 else result
 
 
-class UnparserRule(Rule):
-    """
-    Tree node representing a parser rule. It can have zero or more :class:`UnparserRule` or
-    :class:`UnlexerRule` children.
-    """
-
-
 class UnlexerRule(Rule):
     """
-    Tree node representing a lexer rule or token. It either has one or more further :class:`UnlexerRule`
-    children or - if it does not have any children - it has a string constant set in its ``src`` field.
+    Tree node representing a lexer rule or token. It has a string constant set in its ``src`` field.
     """
 
     def __init__(self, *, name=None, parent=None, src=None):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
-        :param Rule parent: Parent node object (default: None).
-        :param str src: String content of the lexer rule (default: None).
+        :param UnparserRule parent: Parent node object (default: None).
+        :param str src: String content of the lexer rule (default: "").
 
         :ivar str src: String content of the lexer rule.
         """
+        self.src = src or ''
         super().__init__(name=name, parent=parent)
-        self.src = src
 
     def __str__(self):
         """
-        Return the string representation of an ``UnlexerRule``. It is either ``self.src`` for simple tokens
-        or the concatenation of the string representation of the children for more complex production rules.
+        Return the string representation of an ``UnlexerRule``, which is simply ``self.src``.
 
         :return: String representation of ``UnlexerRule``.
         :rtype: str
         """
-        return self.src or super().__str__()
+        return self.src

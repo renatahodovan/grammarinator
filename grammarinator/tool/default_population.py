@@ -51,7 +51,7 @@ class DefaultTree(object):
             self.nodes_by_name[current.name].add(current)
 
             self.node_depths[current] = 0
-            if current.children:
+            if isinstance(current, UnparserRule) and current.children:
                 for child in current.children:
                     _annotate(child, level + 1)
                     self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)

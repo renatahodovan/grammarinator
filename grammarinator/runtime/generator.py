@@ -10,6 +10,7 @@ import logging
 from math import inf
 
 from .default_model import DefaultModel
+from .rule import UnlexerRule, UnparserRule
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,24 @@ class RuleContext(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._gen._exit_rule(self._node)
         self._gen._max_depth += 1
+
+
+class UnlexerRuleContext(RuleContext):
+    """
+    Subclass of :class:`RuleContext` handling unlexer rules.
+    """
+
+    def __init__(self, gen, name, parent=None):
+        super().__init__(gen, parent if isinstance(parent, UnlexerRule) else UnlexerRule(name=name, parent=parent))
+
+
+class UnparserRuleContext(RuleContext):
+    """
+    Subclass of :class:`RuleContext` handling unparser rules.
+    """
+
+    def __init__(self, gen, name, parent=None):
+        super().__init__(gen, UnparserRule(name=name, parent=parent))
 
 
 class AlternationContext(object):

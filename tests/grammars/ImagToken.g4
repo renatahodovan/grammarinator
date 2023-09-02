@@ -25,5 +25,5 @@ def REDEFINED(self, parent=None):
 tokens { IMAG, REDEFINED }
 
 start
-  : IMAG {assert current.last_child.name == 'IMAG' and current.last_child.src is None} REDEFINED {assert current.last_child.src == 'redefined'}
+  : IMAG {assert current.last_child.name == 'IMAG' and current.last_child.src == ''} REDEFINED {assert current.last_child.src == 'redefined'}
   ;

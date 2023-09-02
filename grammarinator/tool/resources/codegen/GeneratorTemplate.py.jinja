@@ -29,12 +29,12 @@ self.{{ node.id }}({% if args %}{% for k, v in args.items() %}{{ k }}{% if v %}=
 
 
 {% macro processCharsetNode(node, args) %}
-UnlexerRule(src=self._model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}]), parent=current)
+current.src += self._model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}])
 {% endmacro %}
 
 
 {% macro processLiteralNode(node, args) %}
-UnlexerRule(src='{{ node.src | escape_string }}', parent=current)
+current.src += '{{ node.src | escape_string }}'
 {% endmacro %}
 
 
@@ -55,11 +55,11 @@ with AlternationContext(self, [{{ node.min_depths | join(', ') }}], [{{ node.con
     src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     if src is not None:
-        UnlexerRule(src=src, parent=current)
+        current.src += src
     else:
         rule(parent=current)
     {% elif simple_lits %}
-    UnlexerRule(src=[{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}], parent=current)
+    current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     {% elif simple_rules %}
     [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}](parent=current)
     {% else %}
@@ -135,7 +135,7 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% if rule.has_var %}
         local_ctx = dict({% for key, value in rule.attributes.items() %}{{ key }}={% if key in rule.args %}{{ key }}{% else %}{{ value }}{% endif %}{% if not loop.last or rule.labels %}, {% endif %}{% endfor %}{% for name, is_list in rule.labels.items() %}{{ name }}={% if is_list %}[]{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %})
         {% endif %}
-        with RuleContext(self, {{ rule.type }}(name='{{ rule.id }}', parent=parent)) as current:
+        with {{ rule.type }}Context(self, name='{{ rule.id }}', parent=parent) as current:
             {% for edge in rule.out_edges %}
             {{ processNode(edge.dst, edge.args) | indent | indent | indent -}}
             {% endfor %}
