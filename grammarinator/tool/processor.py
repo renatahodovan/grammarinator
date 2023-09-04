@@ -94,7 +94,7 @@ class RuleNode(Node):
         return dict(self.args, **self.locals, **self.returns)
 
     def __str__(self):
-        return f'{super().__str__()}; name: {self.name}; var: {self.has_var}'
+        return f'{super().__str__()}; name: {self.id}; var: {self.has_var}'
 
 
 class UnlexerRuleNode(RuleNode):
@@ -674,12 +674,12 @@ class ProcessorTool(object):
                         return
 
                     nonlocal alt_idx
-                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=[find_conditions(child) for child in children], rule_id=rule.name))
+                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=[find_conditions(child) for child in children], rule_id=rule.id))
                     alt_idx += 1
                     graph.add_edge(frm=parent_id, to=alt_id)
 
                     for i, child in enumerate(children):
-                        alternative_id = graph.add_node(AlternativeNode(rule_id=rule.name, alt_idx=graph.vertices[alt_id].idx, idx=i))
+                        alternative_id = graph.add_node(AlternativeNode(rule_id=rule.id, alt_idx=graph.vertices[alt_id].idx, idx=i))
                         graph.add_edge(frm=alt_id, to=alternative_id)
                         build_expr(child, alternative_id)
 
@@ -722,7 +722,7 @@ class ProcessorTool(object):
                     nonlocal quant_idx
                     suffix = str(suffix.children[0])
                     quant_ranges = {'?': {'min': 0, 'max': 1}, '*': {'min': 0, 'max': 'inf'}, '+': {'min': 1, 'max': 'inf'}}
-                    quant_id = graph.add_node(QuantifierNode(rule_id=rule.name, idx=quant_idx, **quant_ranges[suffix]))
+                    quant_id = graph.add_node(QuantifierNode(rule_id=rule.id, idx=quant_idx, **quant_ranges[suffix]))
                     quant_idx += 1
                     graph.add_edge(frm=parent_id, to=quant_id)
                     build_expr(node.children[0], quant_id)
@@ -742,7 +742,7 @@ class ProcessorTool(object):
                     nonlocal chr_idx
 
                     if node.DOT():
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=dot_charset.id)))
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=dot_charset.id)))
                         chr_idx += 1
 
                     elif node.notSet():
@@ -755,7 +755,7 @@ class ProcessorTool(object):
 
                         charset = Charset(multirange_diff(dot_charset.ranges, sorted(not_ranges, key=lambda x: x[0])))
                         graph.charsets.append(charset)
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
 
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.characterRange():
@@ -765,7 +765,7 @@ class ProcessorTool(object):
 
                         charset = Charset([(start, end)])
                         graph.charsets.append(charset)
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
 
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.LEXER_CHAR_SET():
@@ -775,7 +775,7 @@ class ProcessorTool(object):
 
                         charset = Charset(sorted(ranges, key=lambda x: x[0]))
                         graph.charsets.append(charset)
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.name, idx=chr_idx, charset=charset.id)))
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
 
                     for child in node.children:
