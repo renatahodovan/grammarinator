@@ -15,7 +15,7 @@ from math import inf
 from os.path import abspath, dirname
 from shutil import rmtree
 
-from ..runtime import CooldownModel, DefaultModel
+from ..runtime import CooldownModel, DefaultModel, RuleSize
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +57,18 @@ class DefaultGeneratorFactory(object):
         self._lock = lock
         self._listener_classes = listener_classes or []
 
-    def __call__(self, max_depth=inf):
+    def __call__(self, limit=None):
         """
         Create a new generator instance according to the settings specified for
         the factory instance and for this method.
 
-        :param int or float max_depth: Maximum tree depth to be generated
-            (default: ``inf``). Used to instantiate the generator.
+        :param RuleSize limit: The limit on the depth of the trees and on the
+            number of tokens (number of unlexer rule calls), i.e., it must be
+            possible to finish generation from the selected node so that the
+            overall depth and token count of the tree does not exceed these
+            limits.
+            (default values: ``inf`` and ``inf``).
+            Used to instantiate the generator.
         :return: The created generator instance.
         :rtype: ~grammarinator.runtime.Generator
         """
@@ -75,7 +80,7 @@ class DefaultGeneratorFactory(object):
         for listener_class in self._listener_classes:
             listeners.append(listener_class())
 
-        generator = self._generator_class(model=model, listeners=listeners, max_depth=max_depth)
+        generator = self._generator_class(model=model, listeners=listeners, limit=limit)
 
         return generator
 
@@ -85,7 +90,7 @@ class GeneratorTool(object):
     Class to create new test cases using the generator produced by ``grammarinator-process``.
     """
 
-    def __init__(self, generator_factory, out_format, lock=None, rule=None, max_depth=inf,
+    def __init__(self, generator_factory, out_format, lock=None, rule=None, limit=None,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8', errors='strict', dry_run=False):
@@ -104,7 +109,11 @@ class GeneratorTool(object):
                placeholder which will be replaced by the index of the test case. Otherwise, it can be an empty string,
                which will result in printing the test case to the stdout (i.e., not saving to file system).
         :param multiprocessing.Lock lock: Lock object necessary when printing test cases in parallel (optional).
-        :param int or float max_depth: Maximum recursion depth during generation (default: ``inf``).
+        :param RuleSize limit: The limit on the depth of the trees and on the
+            number of tokens (number of unlexer rule calls), i.e., it must be
+            possible to finish generation from the selected node so that the
+            overall depth and token count of the tree does not exceed these
+            limits (default values: ``inf`` and ``inf``).
         :param ~grammarinator.tool.Population population: Tree pool for mutation
             and recombination.
         :param bool generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
@@ -133,7 +142,7 @@ class GeneratorTool(object):
 
         self._out_format = out_format
         self._lock = lock or nullcontext()
-        self._max_depth = max_depth
+        self._limit = limit or RuleSize(depth=inf, tokens=inf)
         self._population = population
         self._enable_generation = generate
         self._enable_mutation = mutate
@@ -172,9 +181,9 @@ class GeneratorTool(object):
             creators.append(self.generate)
         if self._population:
             if self._enable_mutation and self._population.can_mutate():
-                creators.append(lambda: self.mutate(self._population.select_to_mutate(self._max_depth)))
+                creators.append(lambda: self.mutate(*self._population.select_to_mutate(self._limit)))
             if self._enable_recombination and self._population.can_recombine():
-                creators.append(lambda: self.recombine(*self._population.select_to_recombine(self._max_depth)))
+                creators.append(lambda: self.recombine(*self._population.select_to_recombine(self._limit)))
         creator = random.choice(creators)
 
         root = creator()
@@ -199,43 +208,48 @@ class GeneratorTool(object):
 
         return test_fn
 
-    def generate(self, *, rule=None, max_depth=None):
+    def generate(self, *, rule=None, reserve=None):
         """
         Instantiate a new generator and generate a new tree from scratch.
 
         :param str rule: Name of the rule to start generation from.
-        :param int max_depth: Maximum recursion depth during generation.
+        :param RuleSize reserve: Size budget that needs to be put in reserve
+            before generating the tree. Practically, deduced from the initially
+            specified limit. (default values: 0, 0)
         :return: The root of the generated tree.
         :rtype: Rule
         """
-        max_depth = max_depth if max_depth is not None else self._max_depth
-        generator = self._generator_factory(max_depth=max_depth)
+        reserve = reserve if reserve is not None else RuleSize()
+        limit = self._limit - reserve
+        generator = self._generator_factory(limit=limit)
 
         rule = rule or self._rule or generator._default_rule.__name__
         start_rule = getattr(generator, rule)
-        if not hasattr(start_rule, 'min_depth'):
-            logger.warning('The \'min_depth\' property of %s is not set. Fallback to 0.', rule)
-        elif start_rule.min_depth > max_depth:
-            raise ValueError(f'{rule} cannot be generated within the given depth: {max_depth} (min needed: {start_rule.min_depth}).')
+
+        if not hasattr(start_rule, 'min_size'):
+            logger.warning('The \'min_size\' property of %s is not set.', rule)
+        elif start_rule.min_size.depth > limit.depth:
+            raise ValueError(f'{rule} cannot be generated within the given depth: {limit.depth} (min needed: {start_rule.min_size.depth}).')
+        elif start_rule.min_size.tokens > limit.tokens:
+            raise ValueError(f'{rule} cannot be generated within the given token count: {limit.tokens} (min needed: {start_rule.min_size.tokens}).')
 
         return start_rule()
 
-    def mutate(self, mutated_node):
+    def mutate(self, mutated_node, reserve):
         """
         Mutate a tree at a given position, i.e., discard and re-generate its
         sub-tree at the specified node.
 
         :param Rule mutated_node: The root of the sub-tree that should be
             re-generated.
+        :param RuleSize reserve: Size budget that needs to be put in reserve
+            before re-generating the sub-tree (distance of the sub-tree from
+            the root of the tree, number of tokens outside the sub-tree).
+            Practically, deduced from the initially specified limit.
         :return: The root of the mutated tree.
         :rtype: Rule
         """
-        node, level = mutated_node, 0
-        while node.parent:
-            node = node.parent
-            level += 1
-
-        mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, max_depth=self._max_depth - level))
+        mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))
 
         node = mutated_node
         while node.parent:

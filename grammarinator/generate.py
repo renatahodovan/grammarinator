@@ -22,6 +22,7 @@ from inators.imp import import_object
 
 from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
 from .pkgdata import __version__
+from .runtime import RuleSize
 from .tool import DefaultGeneratorFactory, DefaultPopulation, GeneratorTool
 
 
@@ -67,11 +68,11 @@ def generator_tool_helper(args, weights, lock):
                                                                    lock=lock,
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out,
-                         max_depth=args.max_depth,
+                         limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
                          population=DefaultPopulation(args.population,
-                                                      min_depths={name: method.min_depth
-                                                                  for name, method in inspect.getmembers(args.generator, inspect.ismethod)
-                                                                  if hasattr(method, 'min_depth')}) if args.population else None,
+                                                      min_sizes={name: method.min_size
+                                                                 for name, method in inspect.getmembers(args.generator, inspect.ismethod)
+                                                                 if hasattr(method, 'min_size')}) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
@@ -104,6 +105,8 @@ def execute():
                         help='reference to a seralizer (in package.module.function format) that takes a tree and produces a string from it.')
     parser.add_argument('-d', '--max-depth', default=inf, type=int, metavar='NUM',
                         help='maximum recursion depth during generation (default: %(default)f).')
+    parser.add_argument('--max-tokens', default=inf, type=int, metavar='NUM',
+                        help='maximum token number during generation (default: %(default)f).')
     parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
                         help='cool-down factor defines how much the probability of an alternative should decrease '
                              'after it has been chosen (interval: (0, 1]; default: %(default)f).')

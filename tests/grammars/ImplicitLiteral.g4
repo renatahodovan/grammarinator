@@ -18,8 +18,8 @@
 grammar ImplicitLiteral;
 
 @members {
-def __init__(self, *, model=None, listeners=None, max_depth=inf):
-    super().__init__(model=model, listeners=listeners, max_depth=max_depth)
+def __init__(self, *, model=None, listeners=None, limit=None):
+    super().__init__(model=model, listeners=listeners, limit=limit)
     self.hello_called = False
 }
 

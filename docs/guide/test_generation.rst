@@ -43,6 +43,17 @@ The depth of the generated tree can be controlled using the ``--max-depth``
 argument. If the generation cannot be performed within the provided depth,
 an error will be raised.
 
+The number of the output tokens (more precisiely, the number of the unlexer
+rule calls during the generation) can be controlled using the ``--max-token``
+argument. If the generation cannot be performed within the provided token
+count, an error will be raised.
+
+``--max-depth`` and ``--max-token`` can be defined at the same time. If
+any of them is too strict by itself making the generation impossible, then
+an error will be raised. However, if both of them are permissive enough
+separately, but they are too strict together, then the limits will be
+automatically updated to the minimal value that makes the generation possible.
+
 The output test cases can be written to the file system using the ``--out``
 argument, which allows the definition of the output file path. The ``%d``
 wildcard can be used as a placeholder for the test case index, which will be

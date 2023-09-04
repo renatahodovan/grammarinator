@@ -34,23 +34,27 @@ class Population(object):
         """
         raise NotImplementedError()
 
-    def select_to_mutate(self, max_depth):
+    def select_to_mutate(self, limit):
         """
         Select an individual of the population to be mutated and select a node
         in it that should be re-generated.
 
         Raises :exc:`NotImplementedError` by default.
 
-        :param int or float max_depth: The limit on the depth of the trees,
-            i.e., it must be possible to finish generation from the selected
-            node so that the overall depth of the tree does not exceed this
-            limit.
-        :return: The root of the sub-tree that should be re-generated.
-        :rtype: ~grammarinator.runtime.Rule
+        :param ~grammarinator.runtime.RuleSize limit: The limit on the depth of
+            the trees and on the number of tokens (number of unlexer rule
+            calls), i.e., it must be possible to finish generation from the
+            selected node so that the overall depth and token count of the
+            tree does not exceed these limits.
+        :return: The root of the sub-tree that should be re-generated and size
+            information about the surroundings of the sub-tree (distance of the
+            sub-tree from the root of the tree, number of tokens outside the
+            sub-tree).
+        :rtype: tuple[~grammarinator.runtime.Rule,~grammarinator.runtime.RuleSize]
         """
         raise NotImplementedError()
 
-    def select_to_recombine(self, max_depth):
+    def select_to_recombine(self, limit):
         """
         Select two individuals of the population to be recombined and select two
         compatible nodes from each. One of the individuals is called the
@@ -60,8 +64,9 @@ class Population(object):
 
         Raises :exc:`NotImplementedError` by default.
 
-        :param int or float max_depth: The limit on the depth of the trees,
-            i.e., the depth of the recombined tree must not exceed this limit.
+        :param ~grammarinator.runtime.RuleSize limit: The limit on the depth of
+            the trees and on the number of tokens (i.e., the depth of the
+            recombined tree must not exceed this limit).
         :return: The roots of the sub-trees in the recipient and in the donor.
         :rtype: tuple[~grammarinator.runtime.Rule,~grammarinator.runtime.Rule]
         """

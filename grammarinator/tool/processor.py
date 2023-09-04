@@ -34,6 +34,7 @@ class Edge(object):
     def __init__(self, dst, args=None):
         self.dst = dst
         self.args = args
+        self.reserve = 0
 
 
 class Node(object):
@@ -72,13 +73,19 @@ class Node(object):
         return f'cls: {self.__class__.__name__}'
 
 
+class NodeSize(object):
+    def __init__(self, depth, tokens):
+        self.depth = depth
+        self.tokens = tokens
+
+
 class RuleNode(Node):
 
     def __init__(self, name, label, type):
         super().__init__(name if label is None else '_'.join((name, label)))
         self.name = name
         self.type = type
-        self.min_depth = None
+        self.min_size = None
 
         self.labels = {}
         self.args = []
@@ -148,7 +155,7 @@ class AlternationNode(Node):
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the alternation in the container rule.
         self.conditions = conditions
-        self.min_depths = None
+        self.min_sizes = None
 
     def simple_alternatives(self):
         # Check if an alternation contains simple alternatives only (simple
@@ -202,7 +209,7 @@ class QuantifierNode(Node):
         self.idx = idx  # Index of the quantifier in the container rule.
         self.min = min
         self.max = max
-        self.min_depth = None
+        self.min_size = None
 
     def __str__(self):
         return f'{super().__str__()}; idx: {self.idx}; min: {self.min}; max: {self.max}'
@@ -325,29 +332,48 @@ class GrammarGraph(object):
         assert to in self.vertices, f'{to} not in vertices.'
         self.vertices[frm].out_edges.append(Edge(dst=self.vertices[to], args=args))
 
-    def calc_min_depths(self):
-        min_depths = defaultdict(lambda: inf)
-        changed = True
+    def calc_min_sizes(self):
+        min_sizes = defaultdict(lambda: NodeSize(depth=inf, tokens=inf))
 
+        # Calculcate the size metrics for all the subtrees.
+        changed = True
         while changed:
             changed = False
             for ident, node in self.vertices.items():
-                selector = min if isinstance(node, AlternationNode) else max
-                min_depth = selector((min_depths[out_node.id] + int(isinstance(out_node, RuleNode))
-                                      for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.min > 0), default=0)
+                children_sizes = [NodeSize(depth=min_sizes[out_node.id].depth + int(isinstance(out_node, RuleNode)),
+                                           tokens=min_sizes[out_node.id].tokens + int(isinstance(out_node, UnlexerRuleNode)))
+                                  for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.min > 0]
 
-                if min_depth < min_depths[ident]:
-                    min_depths[ident] = min_depth
+                if isinstance(node, AlternationNode):
+                    min_size = NodeSize(depth=min((c.depth for c in children_sizes), default=0),
+                                        tokens=min((c.tokens for c in children_sizes), default=0))
+                else:
+                    min_size = NodeSize(depth=max((c.depth for c in children_sizes), default=0),
+                                        tokens=sum(c.tokens for c in children_sizes))
+
+                if min_size.depth < min_sizes[ident].depth:
+                    min_sizes[ident].depth = min_size.depth
+                    changed = True
+                if min_size.tokens < min_sizes[ident].tokens:
+                    min_sizes[ident].tokens = min_size.tokens
                     changed = True
 
+        # Assign the calculated size metric values to the vertices participating in generator decisions.
         for ident, node in self.vertices.items():
-            if isinstance(node, RuleNode):
-                node.min_depth = min_depths[ident]
-            elif isinstance(node, QuantifierNode):
-                node.min_depth = 0 if node.min > 0 else min_depths[ident]
+            if isinstance(node, (QuantifierNode, RuleNode)):
+                node.min_size = min_sizes[ident]
             elif isinstance(node, AlternationNode):
-                # Lift the minimal depths of the alternatives to the alternations, where the decision will happen.
-                node.min_depths = [min_depths[alt.id] for alt in node.out_neighbours]
+                # Lift the minimal size of the alternatives to the alternations, where the decision will happen.
+                # The sizes of the alternatives are 0 if the alternation is inside a token.
+                node.min_sizes = [min_sizes[alt.id] for alt in node.out_neighbours]
+
+        # In case of token size metric, calculate the minimum needed cost of finishing the generation (everything after the current node).
+        for node in self.vertices.values():
+            reserve = 0
+            for edge in reversed(node.out_edges):
+                edge.reserve = reserve
+                if not isinstance(node, AlternationNode) and (not isinstance(edge.dst, QuantifierNode) or edge.dst.min > 0):
+                    reserve += min_sizes[edge.dst.id].tokens + int(isinstance(edge.dst, UnlexerRuleNode))
 
 
 def escape_string(s):
@@ -1044,7 +1070,7 @@ class ProcessorTool(object):
             if root:
                 build_rules(root)
 
-        graph.calc_min_depths()
+        graph.calc_min_sizes()
         return graph
 
     # Calculates the distance of every rule node from the start node. As a result, it can
@@ -1078,13 +1104,13 @@ class ProcessorTool(object):
         for ident, node in graph.vertices.items():
             if isinstance(node, AlternationNode):
                 for alternative_idx, alternative_node in enumerate(node.out_neighbours):
-                    if node.min_depths[alternative_idx] == inf:
+                    if node.min_sizes[alternative_idx].depth == inf:
                         # Generate human-readable description for an alternative in the graph. The output is a
                         # (rule node, alternation node, alternative node) string, where `rule` defines the container
                         # rule and the (alternation node, alternative node) sequence defines a derivation reaching the alternative.
                         inf_alts.append(', '.join(map(str, [graph.vertices[alternative_node.rule_id], node, alternative_node])))
             elif isinstance(node, RuleNode):
-                if node.min_depth == inf:
+                if node.min_size.depth == inf:
                     inf_rules.append(ident)
         if inf_alts:
             logger.warning('\t%d alternative(s) with infinite derivation (rule node, alternation node, alternative node):\n\t%s', len(inf_alts), ',\n\t'.join(inf_alts))

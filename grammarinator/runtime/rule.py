@@ -5,6 +5,41 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+
+class RuleSize(object):
+
+    def __init__(self, depth=0, tokens=0):
+        self.depth = depth
+        self.tokens = tokens
+
+    def __add__(self, other):
+        return RuleSize(depth=self.depth + other.depth, tokens=self.tokens + other.tokens)
+
+    def __iadd__(self, other):
+        self.depth += other.depth
+        self.tokens += other.tokens
+
+    def __sub__(self, other):
+        return RuleSize(depth=self.depth - other.depth, tokens=self.tokens - other.tokens)
+
+    def __isub__(self, other):
+        self.depth -= other.depth
+        self.tokens -= other.tokens
+
+    def __eq__(self, other):
+        return self.depth == other.depth and self.tokens == other.tokens
+
+    def __le__(self, other):
+        # This defines a partial order (i.e., reflexive, antisymmetric, and transitive).
+        # Not every pair of objects are comparable.
+        return self.depth <= other.depth and self.tokens <= other.tokens
+
+    def __lt__(self, other):
+        # This defines a strict partial order (i.e., irreflexive, asymmetric, and transitive).
+        # Not every pair of objects are comparable.
+        return self.depth < other.depth and self.tokens < other.tokens
+
+
 class Rule(object):
     """
     Base class of tree nodes.
@@ -203,6 +238,8 @@ class UnlexerRule(Rule):
         :ivar str src: String content of the lexer rule.
         """
         self.src = src or ''
+        self.size = RuleSize(depth=1 if src else 0, tokens=1 if src else 0)
+
         super().__init__(name=name, parent=parent)
 
     def __str__(self):

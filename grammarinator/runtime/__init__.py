@@ -9,7 +9,7 @@ from .cooldown_model import CooldownModel
 from .default_model import DefaultModel
 from .dispatching_listener import DispatchingListener
 from .dispatching_model import DispatchingModel
-from .generator import AlternationContext, Generator, QuantifierContext, UnlexerRuleContext, UnparserRuleContext
+from .generator import AlternationContext, Generator, QuantifierContext, RuleSize, UnlexerRuleContext, UnparserRuleContext
 from .listener import Listener
 from .model import Model
 from .population import Population
