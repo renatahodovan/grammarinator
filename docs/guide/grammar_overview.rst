@@ -165,10 +165,34 @@ Lexer Rule Specific Items
   2) **Character set**: Defines a character set inside square brackets
      ``[...]``. It may contain single characters or ranges separated with
      ``-``. It supports the following special characters: ``\n``, ``\r``,
-     ``\b``, ``\t``, ``\f`` and ``\uXXXX`` or ``\u{XXXXXX}``. ``]`` and ``\``
-     must be escaped with ``\``, while ``-`` must be the first item if it is
-     part of the set.
+     ``\b``, ``\t``, ``\f`` and ``\uXXXX`` or ``\u{XXXXXX}``.
+     ``]`` and ``\`` must be escaped with ``\``. ``-`` must be escaped too,
+     except if it is the first or last character of the set.
      Examples: ``[0-9a-fA-F]`` (hex digits) or ``[-a-zA-Z0-9.,;!?]``.
+
+     Unicode properties are supported in the form of ``\p{PropertyName}``
+     and ``\p{EnumProperty=Value}``, or ``\P{PropertyName}`` and
+     ``\P{EnumProperty=Value}`` for inverted ranges. They are not allowed as
+     part of ranges since they define ranges themselves. The ``PropertyName``
+     placeholder can be any `valid Unicode property`_. General category,
+     boolean or enumerated properties including scripts and blocks are
+     supported. Just like ANTLR, Grammarinator also supports
+     `short and long Unicode general category names and values`_ (e.g.,
+     ``\p{Lu}``, ``\p{Z}``, ``\p{Symbol}``). `Blocks`_ are supported in the
+     form of ``\p{Block=BlockName}`` or in the short form ``\p{InBlockName}``
+     prefixed with `In` (e.g., ``\p{InCherokee}`` or
+     ``\p{InLatin_1_Supplement}`` (Grammarinator accepts Block names containing
+     whitespaces but to keep the grammar compatible with ANTLR they are advised
+     to be replaced with `_` or `-`.).
+
+     Additionally, Grammarinator supports several extra properties that are
+     also supported by ANTLR:
+
+      * ``\p{Extended_Pictographic}``: see UTS #35
+      * ``\p{EmojiPresentation=EmojiDefault}``: code points which have colorful emoji-style presentation by default but which can also be displayed text-style
+      * ``\p{EmojiPresentation=TextDefault}``: code points which have black-and-white text-style presentation by default but which can also be displayed emoji-style
+      * ``\p{EmojiPresentation=Text}``: code points which have only black-and-white text-style and lack a colorful emoji-style presentation
+
   3) **Inverted set**: Defines a character set with inverting another one. It
      is defined in the form ``~x`` where ``x`` can be a single character
      literal, a character range or a character set.
@@ -179,3 +203,7 @@ Lexer Rule Specific Items
 .. _`ANTLRv4 grammar`: https://github.com/antlr/antlr4/blob/master/doc/index.md
 .. _`lexer rules`: https://github.com/antlr/antlr4/blob/master/doc/lexer-rules.md
 .. _`parser rules`: https://github.com/antlr/antlr4/blob/master/doc/parser-rules.md
+.. _`valid unicode property`: http://unicode.org/reports/tr44/#Properties
+.. _`short and long Unicode general category names and values`: http://unicode.org/reports/tr44/#General_Category_Values
+.. _`Blocks`: http://www.unicode.org/Public/UCD/latest/ucd/Blocks.txt
+.. _`UTS #35`: http://unicode.org/reports/tr35/#Extended_Pictographic
