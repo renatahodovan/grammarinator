@@ -99,7 +99,12 @@ class RuleNode(Node):
 
 class UnlexerRuleNode(RuleNode):
 
-    def __init__(self, name):
+    _lit_cnt = 0
+
+    def __init__(self, name=None):
+        if not name:
+            name = f'T__{UnlexerRuleNode._lit_cnt}'
+            UnlexerRuleNode._lit_cnt += 1
         super().__init__(name, None, 'UnlexerRule')
         self.start_ranges = None
 
@@ -790,8 +795,16 @@ class ProcessorTool(object):
 
                         if lexer_rule:
                             rule.start_ranges.append((ord(src[0]), ord(src[0]) + 1))
-
-                        graph.add_edge(frm=parent_id, to=graph.add_node(LiteralNode(src=src)))
+                            graph.add_edge(frm=parent_id, to=graph.add_node(LiteralNode(src=src)))
+                        else:
+                            # Ensure that every inline literal in parser rules has its lexer rule
+                            # found or implicitly created.
+                            lit_id = literal_lookup.get(src)
+                            if not lit_id:
+                                lit_id = graph.add_node(UnlexerRuleNode())
+                                literal_lookup[src] = lit_id
+                                graph.add_edge(frm=lit_id, to=graph.add_node(LiteralNode(src=src)))
+                            graph.add_edge(frm=parent_id, to=lit_id)
 
                 elif isinstance(node, ParserRuleContext) and node.getChildCount():
                     for child in node.children:
@@ -801,6 +814,10 @@ class ProcessorTool(object):
                 rule.start_ranges = []
 
             build_expr(node, rule.id)
+
+            # Save lexer rules with constant literals to enable resolving them in parser rules.
+            if lexer_rule and len(rule.out_edges) == 1 and isinstance(rule.out_edges[0].dst, LiteralNode):
+                literal_lookup[rule.out_edges[0].dst.src] = rule.id
 
         def build_prequel(node):
             assert isinstance(node, ANTLRv4Parser.GrammarSpecContext)
@@ -863,7 +880,8 @@ class ProcessorTool(object):
             if duplicate_rules:
                 raise ValueError(f'Rule redefinition(s): {", ".join(duplicate_rules)}')
 
-            for rule_args in generator_rules:
+            # Ensure to process lexer rules first to lookup table from literal constants.
+            for rule_args in sorted(generator_rules, key=lambda r: int(isinstance(r[0], UnparserRuleNode))):
                 build_rule(*rule_args)
 
             if default_rule:
@@ -882,6 +900,8 @@ class ProcessorTool(object):
 
         dot_charset = Charset(Charset.dot[graph.dot])
         graph.charsets.append(dot_charset)
+
+        literal_lookup = {}
 
         for root in [lexer_root, parser_root]:
             if root:
