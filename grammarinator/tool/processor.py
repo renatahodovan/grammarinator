@@ -278,6 +278,11 @@ class Charset(object):
     _cnt = 0
 
     def __init__(self, ranges):
+        if not ranges:
+            raise ValueError('Charset must contain at least one range')
+        for start, end in ranges:
+            if end <= start:
+                raise ValueError(f"Charset range must not be empty: '\\u{{{start:x}}}'..'\\u{{{end - 1:x}}}', '{chr(start)}'..'{chr(end - 1)}'")
         self.id = Charset._cnt
         Charset._cnt += 1
         self.ranges = ranges
