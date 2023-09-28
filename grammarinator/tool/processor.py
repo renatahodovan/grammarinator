@@ -747,8 +747,21 @@ class ProcessorTool(object):
                     nonlocal chr_idx
 
                     if node.DOT():
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=dot_charset.id)))
-                        chr_idx += 1
+                        if isinstance(node, ANTLRv4Parser.LexerAtomContext):
+                            graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=dot_charset.id)))
+                            chr_idx += 1
+                        else:
+                            if '_dot' not in graph.vertices:
+                                # Create an artificial `_dot` rule with an alternation of all the lexer rules.
+                                parser_dot_id = graph.add_node(UnparserRuleNode(name='_dot', label=None))
+                                unlexer_ids = [v.name for vid, v in graph.vertices.items() if isinstance(v, UnlexerRuleNode) and v.id != 'EOF']
+                                alt_id = graph.add_node(AlternationNode(rule_id=parser_dot_id, idx=0, conditions=[1] * len(unlexer_ids)))
+                                graph.add_edge(frm=parser_dot_id, to=alt_id)
+                                for i, lexer_id in enumerate(unlexer_ids):
+                                    alternative_id = graph.add_node(AlternativeNode(rule_id=parser_dot_id, alt_idx=0, idx=i))
+                                    graph.add_edge(frm=alt_id, to=alternative_id)
+                                    graph.add_edge(frm=alternative_id, to=lexer_id)
+                            graph.add_edge(frm=parent_id, to='_dot')
 
                     elif node.notSet():
                         if node.notSet().setElement():
