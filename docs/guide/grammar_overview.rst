@@ -113,9 +113,13 @@ Alternatives (both in lexer and parser rules) are built from the following eleme
   2) **Literals**: Lexer rules and parser rules in combined grammars
      can define implicit literals by enclosing them in single quotes
      (e.g., ``'literal'``).
-  3) **Dot**: Representing an arbitrary single character. The behavior of the
-     dot can be customized using the ``dot`` option. See the ``dot`` key in
-     `options`_ for details.
+  3) **Dot**: The ``dot`` wildcard behaves differently in parser and in
+     lexer rules. In lexer rules, it represents an arbitrary single character.
+     Its behavior can be customized using the ``dot`` option. See the ``dot``
+     key in `options`_ for details. However, if it is placed in a parser rule,
+     then it represents an arbitrary token of the grammar. Since Grammarinator
+     does not keep track of lexer modes (yet), the token is selected from all
+     tokens available in all lexer modes.
   4) **Parentheses**: Grouping parts of rules using parentheses to create
      blocks (e.g., ``(rule1 | 'literal')``).
   5) **Quantifiers**: Applying quantifiers to references, literals, and blocks

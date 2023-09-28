@@ -8,14 +8,17 @@
  */
 
 /*
- * This test checks whether command-line override of the dot option (`-Ddot=`)
- * works correctly.
+ * The test checks the handling of the ``dot`` wildcard both in lexer and parser
+ * rules. Furthermore, it checks whether command-line override of the lexer dot
+ * option (`-Ddot=`) works correctly.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir} -Ddot=any_ascii_letter
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 --model {grammar}Generator.DotModel -o {tmpdir}/{grammar}.txt
+// TEST-ANTLR: {grammar}.g4 -o {tmpdir}
+// TEST-REPARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}%d.txt
 
-grammar DotOption;
+grammar Dot;
 
 options {
 dot=any_ascii_char;
@@ -28,12 +31,15 @@ from grammarinator.runtime import DispatchingModel
 
 class DotModel(DispatchingModel):
 
-    def charset_start(self, node, idx, chars):
+    def charset_C(self, node, idx, chars):
         # dot option in grammar allows any printable 7-bit ASCII character, 0 included
         # command-line override tries to limit dot to 7-bit ASCII letters, 0 excluded
         assert ord('0') not in chars, chars
-        return 'a'
+        return 'c'
 }
 
 
-start : . ;
+start : A . C;
+A : 'aa' ;
+B : 'bb' ;
+C : . ;
