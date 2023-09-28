@@ -153,7 +153,7 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     _charsets = {
         {% for charset in graph.charsets %}
-        {{ charset.id }}: list(itertools.chain.from_iterable({{ charset.ranges | substitute('(\(.*?\))', 'range\\1') }})),
+        {{ charset.id }}: list(itertools.chain.from_iterable([{% for range in charset.ranges %}range({{ "0x%x, 0x%x" % (range[0], range[1]) }}){% if not loop.last %}, {% endif %}{% endfor %}])),
         {% endfor %}
     }
 {# Ensure newline at end of file #}
