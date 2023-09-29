@@ -38,8 +38,8 @@ from sys import platform as CustomLexerPlatform
 }
 
 @lexer::members {
-def _custom_lexer_content(self, parent=None):
-    return UnlexerRule(src=CustomLexerPlatform, parent=parent)
+def _custom_lexer_content(self):
+    return CustomLexerPlatform
 }
 
 @parser::header {
@@ -73,5 +73,5 @@ ID
   ;
 
 CONTENT
-  : '<![CDATA[' {self._custom_lexer_content(parent=current)} ']]>'
+  : '<![CDATA[' {current.src += self._custom_lexer_content()} ']]>'
   ;

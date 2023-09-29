@@ -29,8 +29,8 @@
 lexer grammar HTMLLexer;
 
 @lexer::members {
-def style_sheet(self, parent=None):
-    return UnlexerRule(src='', parent=parent)
+def _style_sheet(self):
+    return ''
 
 }
 
@@ -163,11 +163,11 @@ SCRIPT_SHORT_BODY
 mode STYLE;
 
 STYLE_BODY
-    : {current += self.style_sheet()} '</style>' -> popMode
+    : {current.src += self._style_sheet()} '</style>' -> popMode
     ;
 
 STYLE_SHORT_BODY
-    : {current += self.style_sheet()} '</>' -> popMode
+    : {current.src += self._style_sheet()} '</>' -> popMode
     ;
 
 //

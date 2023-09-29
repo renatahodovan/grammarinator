@@ -5,7 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .rule import UnlexerRule, UnparserRule
+from .rule import UnparserRule
 
 
 def simple_space_serializer(root):
@@ -19,16 +19,12 @@ def simple_space_serializer(root):
     """
 
     def _walk(node):
-        nonlocal src
-        for child in node.children:
-            _walk(child)
+        if isinstance(node, UnparserRule):
+            for child in node.children:
+                _walk(child)
+        else:
+            tokens.append(node.src)
 
-            if isinstance(node, UnparserRule):
-                src += ' '
-
-        if isinstance(node, UnlexerRule) and node.src:
-            src += node.src
-
-    src = ''
+    tokens = []
     _walk(root)
-    return src
+    return ' '.join(tokens)

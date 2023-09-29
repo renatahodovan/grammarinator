@@ -43,15 +43,16 @@ def html_space_serializer(root):
 
     def _walk(node):
         nonlocal src
-        for child in node.children:
-            _walk(child)
 
-        if isinstance(node, UnlexerRule) and node.src:
+        if isinstance(node, UnlexerRule):
             src += node.src
+        else:
+            for child in node.children:
+                _walk(child)
 
         if (isinstance(node, UnparserRule) and
             node.name == 'htmlTagName' and node.right_sibling and node.right_sibling.name == 'htmlAttribute' or node.name == 'htmlAttribute') \
-                or isinstance(node, UnlexerRule) and node.src and node.src.endswith(('<script', '<style', '<?xml')):
+                or isinstance(node, UnlexerRule) and node.src.endswith(('<script', '<style', '<?xml')):
             src += ' '
 
     src = ''

@@ -20,7 +20,7 @@
 
 grammar SimpleAlternations;
 
-start: simple_literals | simple_rules | simple_mixed_alts ;
+start: simple_literals | simple_rules | simple_mixed_alts | SIMPLE_MIXED_LEXER_ALTS ;
 
 simple_literals : 'a' | 'b' | 'c' | '\r\n';
 
@@ -29,6 +29,8 @@ simple_rules : d | E | F ;
 d : D ;
 
 simple_mixed_alts : g | H | 'i' | '\r\n';
+
+SIMPLE_MIXED_LEXER_ALTS : 'j' | 'k' | D ;
 
 g : G ;
 
