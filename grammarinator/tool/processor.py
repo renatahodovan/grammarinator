@@ -8,7 +8,7 @@
 
 import logging
 
-from collections import defaultdict, OrderedDict
+from collections import Counter, defaultdict, OrderedDict
 from itertools import chain
 from math import inf
 from os import getcwd
@@ -81,20 +81,12 @@ class RuleNode(Node):
         self.min_depth = None
 
         self.labels = {}
-        self.args = {}
-        self.locals = {}
-        self.returns = {}
-
-    @property
-    def has_var(self):
-        return self.labels or self.attributes
-
-    @property
-    def attributes(self):
-        return dict(self.args, **self.locals, **self.returns)
+        self.args = []
+        self.locals = []
+        self.returns = []
 
     def __str__(self):
-        return f'{super().__str__()}; name: {self.id}; var: {self.has_var}'
+        return f'{super().__str__()}; name: {self.id}'
 
 
 class UnlexerRuleNode(RuleNode):
@@ -732,14 +724,55 @@ class ProcessorTool(object):
 
             return ''.join(c for c in _iter_unescaped_chars(s))
 
-        def argActionBlock(node):
-            args = {}
+        def parse_arg_action_block(node, use_case):
+            args = []
+
+            def _save_pair(k, v):
+                # If we don't have both left and right handside, then the provided
+                # single value will be handled as if it were a variable name, except
+                # for the `call` use case, where it will be handled as a value.
+                if use_case != 'call' and k is None:
+                    k, v = v, None
+                if k == '':
+                    raise ValueError(f'name in {use_case} must not be empty')
+                if v == '':
+                    raise ValueError(f'value in {use_case} must not be empty')
+                args.append((k, v))
+
             if node and node.argActionBlock():
-                for arg in ''.join(str(chr_arg) for chr_arg in node.argActionBlock().ARGUMENT_CONTENT()).split(','):
-                    arg_name, arg_value = arg, None
-                    if '=' in arg_name:
-                        arg_name, arg_value = arg_name.split('=')
-                    args[arg_name.strip()] = arg_value.strip() if arg_value else arg_value
+                src = ''.join(str(chr_arg) for chr_arg in node.argActionBlock().ARGUMENT_CONTENT()).strip()
+                pairs = Counter()
+                start, offset, end = 0, 0, len(src)
+                lhs = None
+                # Find the argument boundaries.
+                while offset < end:
+                    c = src[offset]
+                    if c in ['\'', '"']:
+                        offset += 1
+                        while offset < end and src[offset] != c:
+                            if src[offset] == '\\' and offset + 1 < end and src[offset + 1] == c:
+                                offset += 1  # Skip \
+                            offset += 1  # Skip a non-quote/apostrophe or an escaped quote/apostrophe
+                    elif c in ['(', '[', '{']:
+                        pairs[c] += 1
+                    elif c in [')', ']', '}']:
+                        pairs[c] -= 1
+                    elif c == ',':
+                        if sum(pairs.values()) == 0:
+                            _save_pair(lhs, src[start:offset].strip())
+                            start = offset + 1
+                            lhs = None
+                    elif offset < end - 1 and src[offset:offset + 2] in ['==', '!=', '<=', '>=', '+=', '-=', '*=', '/=', '%=', '^=', ':=']:
+                        offset += 1
+                    elif c == '=' and lhs is None:
+                        lhs = src[start:offset].strip()
+                        start = offset + 1
+                    offset += 1
+
+                if sum(pairs.values()) != 0:
+                    raise ValueError(f'Non-matching pairs in action ({",".join((k for k, v in pairs if v > 0))})')
+
+                _save_pair(lhs, src[start:].strip())
             return args
 
         def build_rule(rule, node):
@@ -749,9 +782,9 @@ class ProcessorTool(object):
             def build_expr(node, parent_id):
                 if isinstance(node, ANTLRv4Parser.ParserRuleSpecContext):
                     if actions:
-                        rule.args = argActionBlock(node)
-                        rule.locals = argActionBlock(node.localsSpec())
-                        rule.returns = argActionBlock(node.ruleReturns())
+                        rule.args = parse_arg_action_block(node, 'args')
+                        rule.locals = parse_arg_action_block(node.localsSpec(), 'locals')
+                        rule.returns = parse_arg_action_block(node.ruleReturns(), 'returns')
                     build_expr(node.ruleBlock(), parent_id)
 
                 elif isinstance(node, (ANTLRv4Parser.RuleAltListContext, ANTLRv4Parser.AltListContext, ANTLRv4Parser.LexerAltListContext)):
@@ -823,7 +856,7 @@ class ProcessorTool(object):
                     rule.labels[name] = is_list
 
                 elif isinstance(node, ANTLRv4Parser.RulerefContext):
-                    graph.add_edge(frm=parent_id, to=str(node.RULE_REF()), args=argActionBlock(node) if actions else None)
+                    graph.add_edge(frm=parent_id, to=str(node.RULE_REF()), args=parse_arg_action_block(node, 'call') if actions else None)
 
                 elif isinstance(node, (ANTLRv4Parser.LexerAtomContext, ANTLRv4Parser.AtomContext)):
                     nonlocal chr_idx

@@ -31,7 +31,7 @@ start
     : res=expr '==' v=VAR {$v.src = str($res.result); assert(eval(str($res))) == float(str($res.result));}
     ;
 
-expr returns [result]
+expr returns [result=0]
     : '(' op1=expr op='*' op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
     | '(' op1=expr op=('+' | '-') op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
     | num=Number {$result = float(str($num))}
