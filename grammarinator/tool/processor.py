@@ -7,7 +7,6 @@
 # according to those terms.
 
 import logging
-import re
 
 from collections import defaultdict, OrderedDict
 from itertools import chain
@@ -19,6 +18,7 @@ from shutil import copy
 from sys import maxunicode
 
 import autopep8
+import regex as re
 
 from antlr4 import CommonTokenStream, FileStream, ParserRuleContext
 from jinja2 import Environment
@@ -529,15 +529,15 @@ class ProcessorTool(object):
         def character_range_interval(node):
             start = str(node.characterRange().STRING_LITERAL(0))[1:-1]
             end = str(node.characterRange().STRING_LITERAL(1))[1:-1]
-            start_cp, start_offset = process_lexer_char(start, 0)
-            end_cp, end_offset = process_lexer_char(end, 0)
+            start_cp, start_offset = process_lexer_char(start, 0, 'character range')
+            end_cp, end_offset = process_lexer_char(end, 0, 'character range')
 
             if start_offset < len(start) or end_offset < len(end):
                 raise ValueError(f'Only single characters are allowed in character ranges ({start!r}..{end!r})')
 
             return start_cp, end_cp + 1
 
-        def process_lexer_char(s, offset):
+        def process_lexer_char(s, offset, use_case):
             # To be kept in sync with org.antlr.v4.misc.EscapeSequenceParsing.parseEscape
 
             # Original Java code has to handle unicode codepoints which consist of more than one character,
@@ -558,9 +558,9 @@ class ProcessorTool(object):
                     hex_start_offset = offset + 1
                     hex_end_offset = s.find('}', hex_start_offset)
                     if hex_end_offset == -1:
-                        raise ValueError('Missing closing bracket for unicode escape')
+                        raise ValueError(f'Missing closing bracket for unicode escape ({s})')
                     if hex_start_offset == hex_end_offset:
-                        raise ValueError('Missing codepoint for unicode escape')
+                        raise ValueError(f'Missing codepoint for unicode escape ({s})')
 
                     offset = hex_end_offset + 1  # Skip over last bracket
                 else:
@@ -568,22 +568,95 @@ class ProcessorTool(object):
                     hex_start_offset = offset
                     hex_end_offset = hex_start_offset + 4
                     if hex_end_offset > len(s):
-                        raise ValueError('Non-bracketed unicode escape must be of form \\uXXXX')
+                        raise ValueError(f'Non-bracketed unicode escape must be of form \\uXXXX ({s})')
 
                     offset = hex_end_offset
 
                 try:
                     codepoint = int(s[hex_start_offset:hex_end_offset], 16)
                 except ValueError as exc:
-                    raise ValueError('Invalid hex value') from exc
+                    raise ValueError(f'Invalid hex value ({s})') from exc
 
                 if codepoint < 0 or codepoint > maxunicode:
-                    raise ValueError('Invalid unicode codepoint')
+                    raise ValueError(f'Invalid unicode codepoint ({s})')
 
                 return codepoint, offset
 
+            # \p{...}, \P{...}
             if escaped in ('p', 'P'):
-                raise ValueError('Unicode properties (\\p{...}) are not supported')
+                if use_case != 'lexer charset':
+                    raise ValueError(f'Unicode properties are allowed in lexer charsets only (not in {use_case})')
+
+                if s[offset] != '{':
+                    raise ValueError(f'Unicode properties must use the format: `\\p{{...}}` ({s})')
+
+                prop_start_offset = offset + 1
+                prop_end_offset = s.find('}', prop_start_offset)
+                if prop_end_offset == -1:
+                    raise ValueError(f'Missing closing bracket for unicode property escape ({s})')
+                if prop_start_offset == prop_end_offset:
+                    raise ValueError(f'Missing property name for unicode property escape ({s})')
+
+                offset = prop_end_offset + 1  # Skip over last bracket
+
+                def _name_to_codepoints(uni_prop):
+                    try:
+                        pattern = re.compile(uni_prop)
+                    except Exception as e:
+                        raise ValueError(f'Unknown property: {uni_prop}') from e
+                    return [cp for cp in range(maxunicode) if pattern.match(chr(cp))]
+
+                # Collect continous ranges.
+                def _codepoints_to_ranges(codepoints):
+                    ranges = []
+                    start, current = None, None
+                    last_cp_id = len(codepoints) - 1
+                    for i, code in enumerate(codepoints):
+                        if not start:
+                            start = current = code
+                        elif code == current + 1:
+                            current = code
+                            if i == last_cp_id:
+                                ranges.append((start, current + 1))
+                        else:
+                            ranges.append((start, current + 1))
+                            start = current = code
+                    return ranges
+
+                prop_name = s[prop_start_offset:prop_end_offset]
+
+                # The interpretation of 'Extended_Pictographic' differs between the `regex` lib and ANTLR.
+                # ANTLR defines the ranges below manually, hence we do the same.
+                if prop_name in ['Extended_Pictographic', 'EP']:
+                    ranges = [(0x2388, 0x2389), (0x2605, 0x2606), (0x2607, 0x260d), (0x260f, 0x2610), (0x2612, 0x2613), (0x2616, 0x2617), (0x2619, 0x261c), (0x261e, 0x261f), (0x2621, 0x2622), (0x2624, 0x2625), (0x2627, 0x2629), (0x262b, 0x262d), (0x2630, 0x2637), (0x263b, 0x2647), (0x2654, 0x265f), (0x2661, 0x2662), (0x2664, 0x2665), (0x2667, 0x2668), (0x2669, 0x267a), (0x267c, 0x267e), (0x2680, 0x2691), (0x2695, 0x2696), (0x2698, 0x2699), (0x269a, 0x269b), (0x269d, 0x269f), (0x26a2, 0x26a9), (0x26ac, 0x26af), (0x26b2, 0x26bc), (0x26bf, 0x26c3), (0x26c6, 0x26c7), (0x26c9, 0x26cd), (0x26d0, 0x26d1), (0x26d2, 0x26d3), (0x26d5, 0x26e8), (0x26eb, 0x26ef), (0x26f6, 0x26f7), (0x26fb, 0x26fc), (0x26fe, 0x26ff), (0x2700, 0x2701), (0x2703, 0x2704), (0x270e, 0x270f), (0x2710, 0x2711), (0x2765, 0x2767), (0x1f000, 0x1f003), (0x1f005, 0x1f02b), (0x1f02c, 0x1f02f), (0x1f030, 0x1f093), (0x1f094, 0x1f09f), (0x1f0a0, 0x1f0ae), (0x1f0af, 0x1f0b0), (0x1f0b1, 0x1f0bf), (0x1f0c0, 0x1f0c1), (0x1f0c1, 0x1f0cf), (0x1f0d0, 0x1f0d1), (0x1f0d1, 0x1f0f5), (0x1f0f6, 0x1f0ff), (0x1f10d, 0x1f10f), (0x1f12f, 0x1f130), (0x1f16c, 0x1f16f), (0x1f1ad, 0x1f1e5), (0x1f203, 0x1f20f), (0x1f23c, 0x1f23f), (0x1f249, 0x1f24f), (0x1f252, 0x1f25f), (0x1f260, 0x1f265), (0x1f266, 0x1f2ff), (0x1f322, 0x1f323), (0x1f394, 0x1f395), (0x1f398, 0x1f399), (0x1f39c, 0x1f39d), (0x1f3f1, 0x1f3f2), (0x1f3f6, 0x1f3f7), (0x1f4fe, 0x1f4ff), (0x1f53e, 0x1f548), (0x1f54f, 0x1f550), (0x1f568, 0x1f56e), (0x1f571, 0x1f572), (0x1f57b, 0x1f586), (0x1f588, 0x1f589), (0x1f58e, 0x1f58f), (0x1f591, 0x1f594), (0x1f597, 0x1f5a3), (0x1f5a6, 0x1f5a7), (0x1f5a9, 0x1f5b0), (0x1f5b3, 0x1f5bb), (0x1f5bd, 0x1f5c1), (0x1f5c5, 0x1f5d0), (0x1f5d4, 0x1f5db), (0x1f5df, 0x1f5e0), (0x1f5e2, 0x1f5e3), (0x1f5e4, 0x1f5e7), (0x1f5e9, 0x1f5ee), (0x1f5f0, 0x1f5f2), (0x1f5f4, 0x1f5f9), (0x1f6c6, 0x1f6ca), (0x1f6d3, 0x1f6d4), (0x1f6d5, 0x1f6df), (0x1f6e6, 0x1f6e8), (0x1f6ea, 0x1f6eb), (0x1f6ed, 0x1f6ef), (0x1f6f1, 0x1f6f2), (0x1f6f7, 0x1f6f8), (0x1f6f9, 0x1f6ff), (0x1f774, 0x1f77f), (0x1f7d5, 0x1f7ff), (0x1f80c, 0x1f80f), (0x1f848, 0x1f84f), (0x1f85a, 0x1f85f), (0x1f888, 0x1f88f), (0x1f8ae, 0x1f8ff), (0x1f900, 0x1f90b), (0x1f90c, 0x1f90f), (0x1f91f, 0x1f920), (0x1f928, 0x1f92f), (0x1f931, 0x1f932), (0x1f93f, 0x1f940), (0x1f94c, 0x1f94d), (0x1f94d, 0x1f94f), (0x1f95f, 0x1f96b), (0x1f96c, 0x1f97f), (0x1f992, 0x1f997), (0x1f998, 0x1f9bf), (0x1f9c1, 0x1f9cf), (0x1f9d0, 0x1f9e6), (0x1f9e7, 0x1f9ff), (0x1fa00, 0x1fffd)]
+                    return ranges if escaped == 'p' else multirange_diff(dot_charset.ranges, ranges), offset
+
+                codepoints = None
+                # [\\p{GCB=Regional_Indicator}\\*#0-9\\u00a9\\u00ae\\u2122\\u3030\\u303d]
+                if prop_name in ['EmojiRK', 'EmojiNRK']:
+                    emoji_rk_codepoints = _name_to_codepoints(r'\p{GCB=Regional_Indicator}')
+                    emoji_rk_codepoints.extend([ord(c) for c in ['*', '#', '\u00a9', '\u00ae', '\u2122', '\u3030', '\u303d'] + list(map(str, range(10)))])
+                    if prop_name == 'EmojiRK':
+                        codepoints = emoji_rk_codepoints
+                    else:
+                        # [\\p{Emoji=Yes}] - EmojiRK
+                        codepoints = set(_name_to_codepoints(r'\p{Emoji=Yes}')) - set(emoji_rk_codepoints)
+                # [[\\p{Emoji=Yes}]&[\\p{Emoji_Presentation=Yes}]]
+                elif prop_name == 'EmojiPresentation=EmojiDefault':
+                    codepoints = set(_name_to_codepoints(r'\p{Emoji=Yes}')) & set(_name_to_codepoints(r'\p{Emoji_Presentation=Yes}'))
+                # [[\\p{Emoji=Yes}]&[\\p{Emoji_Presentation=No}]]
+                elif prop_name == 'EmojiPresentation=TextDefault':
+                    codepoints = set(_name_to_codepoints(r'\p{Emoji=Yes}')) & set(_name_to_codepoints(r'\p{Emoji_Presentation=No}'))
+                # [\\p{Emoji=No}]
+                elif prop_name == 'EmojiPresentation=Text':
+                    codepoints = _name_to_codepoints(r'\p{Emoji=No}')
+
+                if codepoints:
+                    ranges = _codepoints_to_ranges(codepoints)
+                    return ranges if escaped == 'p' else multirange_diff(dot_charset.ranges, ranges), offset
+
+                # \p{...} and \P{...} are both handled by the regex lib in case of the supported properties.
+                return _codepoints_to_ranges(_name_to_codepoints(f'\\{escaped}{{{prop_name}}}')), offset
 
             # To be kept in sync with org.antlr.v4.misc.CharSupport.ANTLRLiteralEscapedCharValue
             escaped_values = {
@@ -616,9 +689,13 @@ class ProcessorTool(object):
                 if in_range:
                     offset += 1
 
-                codepoint, offset = process_lexer_char(s, offset)
+                codepoint, offset = process_lexer_char(s, offset, 'lexer charset')
 
-                if in_range:
+                if isinstance(codepoint, list):
+                    if in_range or (offset < len(s) - 1 and s[offset] == '-'):
+                        raise ValueError(f'Unicode property escapes are not allowed in lexer charset range ({s})')
+                    ranges.extend(codepoint)
+                elif in_range:
                     ranges[-1] = (ranges[-1][0], codepoint + 1)
                 else:
                     ranges.append((codepoint, codepoint + 1))
@@ -634,7 +711,7 @@ class ProcessorTool(object):
 
             if node.STRING_LITERAL():
                 char = str(node.STRING_LITERAL())[1:-1]
-                char_cp, char_offset = process_lexer_char(char, 0)
+                char_cp, char_offset = process_lexer_char(char, 0, 'not set literal')
                 if char_offset < len(char):
                     raise ValueError(f'Zero or multi-character literals are not allowed in lexer sets: {char!r}')
                 return [(char_cp, char_cp + 1)]
@@ -650,7 +727,7 @@ class ProcessorTool(object):
             def _iter_unescaped_chars(s):
                 offset = 0
                 while offset < len(s):
-                    codepoint, offset = process_lexer_char(s, offset)
+                    codepoint, offset = process_lexer_char(s, offset, 'string literal')
                     yield chr(codepoint)
 
             return ''.join(c for c in _iter_unescaped_chars(s))

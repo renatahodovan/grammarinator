@@ -20,7 +20,7 @@ extension-pkg-allow-list=math
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 disable=
-    useless-option-value,
+    useless-option-value, too-many-lines,
     line-too-long, fixme, missing-docstring, invalid-name, no-self-use, unused-argument,
     wildcard-import, unused-wildcard-import, ungrouped-imports,
     too-many-arguments, too-many-locals,
