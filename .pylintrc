@@ -21,7 +21,6 @@ extension-pkg-allow-list=math
 # --disable=W"
 disable=
     broad-except,
-    deprecated-module,
     fixme,
     invalid-name,
     line-too-long,
@@ -37,13 +36,9 @@ disable=
     too-many-locals,
     too-many-return-statements,
     too-many-statements,
-    ungrouped-imports,
     unspecified-encoding,
-    unused-argument,
-    unused-wildcard-import,
     useless-object-inheritance,
     useless-option-value,  # disables warning in recent pylint that does not check for no-self-use anymore
-    wildcard-import,
 
 [REPORTS]
 
