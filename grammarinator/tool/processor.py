@@ -715,6 +715,15 @@ class ProcessorTool(object):
 
             return []
 
+        def charset_from_ranges(ranges):
+            for charset in graph.charsets:
+                if charset.ranges == ranges:
+                    return charset
+
+            charset = Charset(ranges)
+            graph.charsets.append(charset)
+            return charset
+
         def unescape_string(s):
             def _iter_unescaped_chars(s):
                 offset = 0
@@ -886,8 +895,7 @@ class ProcessorTool(object):
                             for set_element in node.notSet().blockSet().setElement():
                                 not_ranges.extend(chars_from_set(set_element))
 
-                        charset = Charset(multirange_diff(dot_charset.ranges, sorted(not_ranges, key=lambda x: x[0])))
-                        graph.charsets.append(charset)
+                        charset = charset_from_ranges(multirange_diff(dot_charset.ranges, sorted(not_ranges, key=lambda x: x[0])))
                         graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
 
@@ -896,8 +904,7 @@ class ProcessorTool(object):
                         if lexer_rule:
                             rule.start_ranges.append((start, end))
 
-                        charset = Charset([(start, end)])
-                        graph.charsets.append(charset)
+                        charset = charset_from_ranges([(start, end)])
                         graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
 
@@ -906,8 +913,7 @@ class ProcessorTool(object):
                         if lexer_rule:
                             rule.start_ranges.extend(ranges)
 
-                        charset = Charset(sorted(ranges, key=lambda x: x[0]))
-                        graph.charsets.append(charset)
+                        charset = charset_from_ranges(sorted(ranges, key=lambda x: x[0]))
                         graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
                         chr_idx += 1
 
@@ -1026,8 +1032,7 @@ class ProcessorTool(object):
                 build_prequel(root)
         graph.options.update(options or {})
 
-        dot_charset = Charset(Charset.dot[graph.dot])
-        graph.charsets.append(dot_charset)
+        dot_charset = charset_from_ranges(Charset.dot[graph.dot])
 
         literal_lookup = {}
 
