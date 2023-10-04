@@ -10,21 +10,21 @@ from .rule import UnparserRule
 
 def simple_space_serializer(root):
     """
-    Simple serializer concatenating the children of :class:`UnparserRule` s with a single
-    space, while the children of :class:`UnlexerRule` s (tokens) are glued without any character.
+    Simple serializer concatenating the children of :class:`UnparserRule` s with
+    a single space.
 
     :param Rule root: The root node of the tree or subtree to serialize.
     :return: The serialized tree as string.
     :rtype: str
     """
 
-    def _walk(node):
-        if isinstance(node, UnparserRule):
-            for child in node.children:
-                _walk(child)
-        else:
-            tokens.append(node.src)
+    def _tokens():
+        stack = [root]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, UnparserRule):
+                stack.extend(reversed(node.children))
+            else:
+                yield node.src
 
-    tokens = []
-    _walk(root)
-    return ' '.join(tokens)
+    return ' '.join(token for token in _tokens())
