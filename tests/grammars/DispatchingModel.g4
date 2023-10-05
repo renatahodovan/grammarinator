@@ -28,10 +28,9 @@ class CustomModel(DispatchingModel):
         # Enforce choosing the third alternative (`c`).
         return 2
 
-    def quantify_start(self, node, idx, min, max):
+    def quantify_start(self, node, idx, cnt, min, max):
         # Enforce to repeat 3 times.
-        for i in range(3):
-            yield
+        return cnt < 3
 
     def charset_C(self, node, idx, chars):
         # Enforce to choose `c` from the charset.

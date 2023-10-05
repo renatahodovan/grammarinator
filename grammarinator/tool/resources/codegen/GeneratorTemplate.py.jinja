@@ -43,8 +43,8 @@ current.src += '{{ node.src | escape_string }}'
 
 
 {% macro processQuantifierNode(node, args) %}
-if self._max_depth >= {{ node.min_depth }}:
-    for _ in self._model.quantify(current, {{ node.idx }}, min={{ node.min }}, max={{ node.max }}):
+with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, {{ node.min_depth }}) as quant{{ node.idx }}:
+    while quant{{ node.idx }}(current):
     {% for edge in node.out_edges %}
         {{ processNode(edge.dst, edge.args) | indent | indent -}}
     {% endfor %}

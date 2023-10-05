@@ -29,11 +29,10 @@ class Model(object):
         """
         raise NotImplementedError()
 
-    def quantify(self, node, idx, min, max):
+    def quantify(self, node, idx, cnt, min, max):
         """
-        Guide the loop of subtree quantification. This has to be a generator
-        method in pythonic sense, i.e., it will be used in loops and it should
-        ``yield`` as many times as the loop should iterate.
+        Guide the loop of subtree quantification. This has to make a binary
+        decision to tell whether to enable the next iteration or stop the loop.
 
         Raises :exc:`NotImplementedError` by default.
 
@@ -41,12 +40,12 @@ class Model(object):
             field identifies the corresponding grammar rule, which contains the
             quantified subtree.
         :param int idx: Index of the quantified subtree inside the current rule.
+        :param int cnt: Number of the already generated subtrees, guaranteed
+            to be between ``min`` (inclusive) and ``max`` (exclusive).
         :param int min: Lower bound of the quantification range.
         :param int max: Upper bound of the quantification range.
-        :return: The value yielded is never used, but the number this generator
-            method yields is relevant (expected to be in the ``min``-``max``
-            range, inclusive).
-        :rtype: None
+        :return: Boolean value enabling the next iteration or stopping it.
+        :rtype: bool
         """
         raise NotImplementedError()
 

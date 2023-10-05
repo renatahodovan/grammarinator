@@ -78,6 +78,35 @@ class AlternationContext(object):
         self._gen._max_depth = self._orig_depth
 
 
+class QuantifierContext(object):
+
+    def __init__(self, gen, idx, min, max, min_depth):
+        self._gen = gen
+        self._idx = idx
+        self._min = min
+        self._max = max
+        self._min_depth = min_depth
+        self._cnt = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return None
+
+    def __call__(self, node):
+        if self._cnt < self._min:
+            self._cnt += 1
+            return True
+
+        # Check whether the quantified expression is available in the given size limits.
+        if self._cnt < self._max and self._min_depth <= self._gen._max_depth and self._gen._model.quantify(node, self._idx, self._cnt, self._min, self._max):
+            self._cnt += 1
+            return True
+
+        return False
+
+
 class Generator(object):
     """
     Base class of the generated Generators. Stores the decision model, the listeners,
