@@ -248,9 +248,9 @@ def multirange_diff(r1_list, r2_list):
         s2, e2 = r2
         endpoints = sorted((s1, s2, e1, e2))
         result = []
-        if endpoints[0] == s1:
+        if endpoints[0] == s1 and endpoints[0] != endpoints[1]:
             result.append((endpoints[0], endpoints[1]))
-        if endpoints[3] == e1:
+        if endpoints[3] == e1 and endpoints[2] != endpoints[3]:
             result.append((endpoints[2], endpoints[3]))
         return result
 
