@@ -40,7 +40,7 @@ RANGE
   ;
 
 UNICODE_NOTSET
-  : ~[\u0041-\u0050\n]
+  : ~[\u0041-\u0050\ntu]
   ;
 
 CHAR_RANGE
