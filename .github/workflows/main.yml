@@ -20,6 +20,7 @@ jobs:
         with:
           java-version: 17
           distribution: temurin
+        if: matrix.os == 'windows-latest'
       - run: pip install --upgrade tox
       - run: tox -v -e py
 
@@ -44,10 +45,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 17
-          distribution: temurin
       - run: pip install --upgrade tox coveralls
       - run: tox -v -e cov
       - run: coveralls --service=github
