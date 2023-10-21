@@ -52,8 +52,8 @@ with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, {{ 
 
 
 {% macro processAlternationNode(node, args) %}
-with AlternationContext(self, [{{ node.min_depths | join(', ') }}], [{{ resolveVarRefs(node.conditions | join(', ')) }}]) as weights{{ node.idx }}:
-    choice{{ node.idx }} = self._model.choice(current, {{ node.idx }}, weights{{ node.idx }})
+with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }}], [{{ resolveVarRefs(node.conditions | join(', ')) }}]) as alt{{ node.idx }}:
+    choice{{ node.idx }} = alt{{ node.idx }}(current)
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {% if simple_lits and simple_rules %}
     src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
