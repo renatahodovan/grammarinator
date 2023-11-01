@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.11'  # FIXME: experiencing SIGSEGV with py3.12.0
       - run: pip install --upgrade tox
       - run: tox -v -e lint
 
