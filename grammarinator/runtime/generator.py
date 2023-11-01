@@ -59,23 +59,29 @@ class AlternationContext(object):
     # then it temporarily raises the maximum depth to the minimum value
     # required to finish the generation.
 
-    def __init__(self, gen, min_depths, conditions):
+    def __init__(self, gen, idx, min_depths, conditions):
         self._gen = gen
+        self._idx = idx
         self._min_depths = min_depths
         self._conditions = conditions
         self._orig_depth = gen._max_depth
+        self._weights = None
 
     def __enter__(self):
-        filtered_weights = [w if self._min_depths[i] <= self._gen._max_depth else 0 for i, w in enumerate(self._conditions)]
-        if sum(filtered_weights) > 0:
-            return filtered_weights
+        self._weights = [w if self._min_depths[i] <= self._gen._max_depth else 0 for i, w in enumerate(self._conditions)]
+        if sum(self._weights) > 0:
+            return self
         max_depth = min(self._min_depths[i] if w > 0 else inf for i, w in enumerate(self._conditions))
         logger.debug('max_depth must be temporarily set from %s to %s', self._gen._max_depth, max_depth)
         self._gen._max_depth = max_depth
-        return [w if self._min_depths[i] <= self._gen._max_depth else 0 for i, w in enumerate(self._conditions)]
+        self._weights = [w if self._min_depths[i] <= self._gen._max_depth else 0 for i, w in enumerate(self._conditions)]
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._gen._max_depth = self._orig_depth
+
+    def __call__(self, node):
+        return self._gen._model.choice(node, self._idx, self._weights)
 
 
 class QuantifierContext(object):
