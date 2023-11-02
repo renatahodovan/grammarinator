@@ -74,7 +74,7 @@ def generator_tool_helper(args, weights, lock):
                                                                   if hasattr(method, 'min_depth')}) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
-                         cleanup=False, encoding=args.encoding, errors=args.encoding_errors)
+                         cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
 
 
 def create_test(generator_tool, index, *, seed):
@@ -131,6 +131,8 @@ def execute():
                         help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default).')
+    parser.add_argument('--dry-run', default=False, action='store_true',
+                        help='generate tests without writing them to file or printing to stdout (do not keep generated tests in population either)')
     add_encoding_argument(parser, help='output file encoding (default: %(default)s).')
     add_encoding_errors_argument(parser)
     add_jobs_argument(parser)
