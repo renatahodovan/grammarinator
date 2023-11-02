@@ -88,7 +88,7 @@ class GeneratorTool(object):
     def __init__(self, generator_factory, out_format, lock=None, rule=None, max_depth=inf,
                  population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
                  transformers=None, serializer=None,
-                 cleanup=True, encoding='utf-8', errors='strict'):
+                 cleanup=True, encoding='utf-8', errors='strict', dry_run=False):
         """
         :param generator_factory: A callable that can produce instances of a
             generator. It is a generalization of a generator class: it has to
@@ -120,6 +120,7 @@ class GeneratorTool(object):
         :param bool cleanup: Enable deleting the generated tests at :meth:`__exit__`.
         :param str encoding: Output file encoding.
         :param str errors: Encoding error handling scheme.
+        :param bool dry_run: Enable or disable the saving or printing of the result of generation.
         """
 
         self._generator_factory = generator_factory
@@ -127,7 +128,7 @@ class GeneratorTool(object):
         self._serializer = serializer or str
         self._rule = rule
 
-        if out_format:
+        if out_format and not dry_run:
             os.makedirs(abspath(dirname(out_format)), exist_ok=True)
 
         self._out_format = out_format
@@ -141,6 +142,7 @@ class GeneratorTool(object):
         self._cleanup = cleanup
         self._encoding = encoding
         self._errors = errors
+        self._dry_run = dry_run
 
     def __enter__(self):
         return self
@@ -149,7 +151,7 @@ class GeneratorTool(object):
         """
         Delete the output directory if the tests were saved to files and if ``cleanup`` was enabled.
         """
-        if self._cleanup and self._out_format:
+        if self._cleanup and self._out_format and not self._dry_run:
             rmtree(dirname(self._out_format))
 
     def create(self, index):
@@ -180,6 +182,9 @@ class GeneratorTool(object):
             root = transformer(root)
 
         test = self._serializer(root)
+        if self._dry_run:
+            return None
+
         test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
 
         if self._population and self._keep_trees:
