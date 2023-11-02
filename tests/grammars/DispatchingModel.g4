@@ -28,7 +28,7 @@ class CustomModel(DispatchingModel):
         # Enforce choosing the third alternative (`c`).
         return 2
 
-    def quantify_start(self, node, idx, cnt, min, max):
+    def quantify_start(self, node, idx, cnt, start, stop):
         # Enforce to repeat 3 times.
         return cnt < 3
 

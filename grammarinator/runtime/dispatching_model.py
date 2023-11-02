@@ -26,13 +26,13 @@ class DispatchingModel(DefaultModel):
         name = 'choice_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, weights)
 
-    def quantify(self, node, idx, cnt, min, max):
+    def quantify(self, node, idx, cnt, start, stop):
         """
         Trampoline to the ``quantify_{node.name}`` method of the subclassed model, if it exists.
         Otherwise, it calls the default implementation (:meth:`DefaultModel.quantify`).
         """
         name = 'quantify_' + node.name
-        return (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, cnt, min, max)
+        return (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, cnt, start, stop)
 
     def charset(self, node, idx, chars):
         """
