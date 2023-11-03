@@ -241,4 +241,8 @@ class DefaultPopulation(Population):
     # Filter items from ``nodes`` that can be regenerated within the current
     # maximum depth (except 'EOF' and '<INVALID>' nodes).
     def _filter_nodes(self, tree, nodes, max_depth):
-        return [node for node in nodes if node.name is not None and node.parent is not None and node.name not in ['EOF', '<INVALID>'] and tree.node_levels[node] + self._min_depths.get(node.name, 0) < max_depth]
+        return [node for node in nodes
+                if node.name is not None
+                and node.parent is not None
+                and node.name not in ['EOF', '<INVALID>']
+                and tree.node_levels[node] + self._min_depths.get(node.name, 0) < max_depth]
