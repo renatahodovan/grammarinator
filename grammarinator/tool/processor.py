@@ -152,7 +152,7 @@ class AlternationNode(Node):
 
     def simple_alternatives(self):
         # Check if an alternation contains simple alternatives only (simple
-        # literals or rule references), and return a 2-tuple. If the alternation
+        # literals or rule references without arguments), and return a 2-tuple. If the alternation
         # contains any non-simple alternatives, return None, None. If the
         # alternation contains simple literals only, the first element of the
         # tuple is a list of the literal values, while the second element is None.
@@ -161,7 +161,7 @@ class AlternationNode(Node):
         # contains both simple literals and rule references, then both elements of
         # the tuple are lists, which are of identical length, and exactly one of
         # them contains a non-None value at every index position.
-        if not self.out_neighbours or any(len(alt.out_neighbours) != 1 or not isinstance(alt.out_neighbours[0], (LiteralNode, RuleNode)) for alt in self.out_neighbours):
+        if not self.out_neighbours or any(len(alt.out_neighbours) != 1 or not isinstance(alt.out_neighbours[0], (LiteralNode, RuleNode)) or (isinstance(alt.out_neighbours[0], RuleNode) and alt.out_edges[0].args) for alt in self.out_neighbours):
             return None, None
 
         simple_lits = [alt.out_neighbours[0].src if isinstance(alt.out_neighbours[0], LiteralNode) else None for alt in self.out_neighbours]
