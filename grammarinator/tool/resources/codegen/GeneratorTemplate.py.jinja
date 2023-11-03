@@ -11,47 +11,48 @@
 {{ src | substitute('\$(?P<var_name>\\w+)', 'local_ctx[\'\\g<var_name>\']') -}}
 {% endmacro %}
 
-{% macro processVariableNode(node, args) %}
+
+{% macro processVariableNode(node, inedge) %}
 local_ctx['{{ node.name }}']{% if node.is_list %}.append(current.last_child){% else %} = current.last_child{% endif %}
 
 {% endmacro %}
 
 
-{% macro processActionNode(node, args) %}
+{% macro processActionNode(node, inedge) %}
 {{ resolveVarRefs(node.src) }}
 {% endmacro %}
 
 
-{% macro processLambdaNode(node, args) %}
+{% macro processLambdaNode(node, inedge) %}
 pass
 {% endmacro %}
 
 
-{% macro processRuleNode(node, args) %}
-self.{{ node.id }}({% if args %}{% for k, v in args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+{% macro processRuleNode(node, inedge) %}
+self.{{ node.id }}({% if inedge.args %}{% for k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% endmacro %}
 
 
-{% macro processCharsetNode(node, args) %}
+{% macro processCharsetNode(node, inedge) %}
 current.src += self._model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}])
 {% endmacro %}
 
 
-{% macro processLiteralNode(node, args) %}
+{% macro processLiteralNode(node, inedge) %}
 current.src += '{{ node.src | escape_string }}'
 {% endmacro %}
 
 
-{% macro processQuantifierNode(node, args) %}
+{% macro processQuantifierNode(node, inedge) %}
 with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, {{ node.min_depth }}) as quant{{ node.idx }}:
     while quant{{ node.idx }}(current):
     {% for edge in node.out_edges %}
-        {{ processNode(edge.dst, edge.args) | indent | indent -}}
+        {{ processNode(edge.dst, edge) | indent | indent -}}
     {% endfor %}
 {% endmacro %}
 
 
-{% macro processAlternationNode(node, args) %}
+{% macro processAlternationNode(node, inedge) %}
 with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }}], [{{ resolveVarRefs(node.conditions | join(', ')) }}]) as alt{{ node.idx }}:
     choice{{ node.idx }} = alt{{ node.idx }}(current)
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
@@ -69,20 +70,20 @@ with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }
     {% else %}
     {% for edge in node.out_edges %}
     {{ 'if' if loop.index0 == 0 else 'elif' }} choice{{ node.idx }} == {{ edge.dst.idx }}:
-        {{ processNode(edge.dst, edge.args) | indent | indent -}}
+        {{ processNode(edge.dst, edge) | indent | indent -}}
     {% endfor %}
     {% endif %}
 {% endmacro %}
 
 
-{% macro processAlternativeNode(node, args) %}
+{% macro processAlternativeNode(node, inedge) %}
 {% for edge in node.out_edges %}
-{{ processNode(edge.dst, edge.args) -}}
+{{ processNode(edge.dst, edge) -}}
 {% endfor %}
 {% endmacro %}
 
 
-{% macro processNode(node, args) %}
+{% macro processNode(node, inedge) %}
 {% set processors = {
     'QuantifierNode': processQuantifierNode,
     'UnlexerRuleNode': processRuleNode,
@@ -97,7 +98,7 @@ with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }
     'VariableNode': processVariableNode,
     }
 %}
-{{ processors[node.__class__.__name__](node, args) -}}
+{{ processors[node.__class__.__name__](node, inedge) -}}
 {% endmacro %}
 
 
@@ -141,7 +142,7 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% endif %}
         with {{ rule.type }}Context(self, name='{{ rule.id }}', parent=parent) as current:
             {% for edge in rule.out_edges %}
-            {{ processNode(edge.dst, edge.args) | indent | indent | indent -}}
+            {{ processNode(edge.dst, edge) | indent | indent | indent -}}
             {% endfor %}
             {% for k, _ in rule.returns %}
             current.{{ k }} = local_ctx['{{ k }}']
