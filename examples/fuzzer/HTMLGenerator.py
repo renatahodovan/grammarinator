@@ -301,8 +301,7 @@ class HTMLGenerator(Generator):
     def ATTRIBUTE(self, parent=None):
         with UnlexerRuleContext(self, 'ATTRIBUTE', parent) as current:
             with AlternationContext(self, 0, [1, 1, 2, 1, 1], [1, 1, 1, 1, 1]) as alt0:
-                choice0 = alt0(current)
-                [self.DOUBLE_QUOTE_STRING, self.SINGLE_QUOTE_STRING, self.ATTCHARS, self.HEXCHARS, self.DECCHARS][choice0](parent=current)
+                [self.DOUBLE_QUOTE_STRING, self.SINGLE_QUOTE_STRING, self.ATTCHARS, self.HEXCHARS, self.DECCHARS][alt0(current)](parent=current)
             return current
     ATTRIBUTE.min_depth = 1
 
@@ -393,24 +392,21 @@ class HTMLGenerator(Generator):
             with QuantifierContext(self, 0, 0, inf, 1) as quant0:
                 while quant0(current):
                     with AlternationContext(self, 0, [2, 1], [1, 1]) as alt0:
-                        choice0 = alt0(current)
-                        [self.scriptlet, self.SEA_WS][choice0](parent=current)
+                        [self.scriptlet, self.SEA_WS][alt0(current)](parent=current)
             with QuantifierContext(self, 1, 0, 1, 2) as quant1:
                 while quant1(current):
                     self.xml(parent=current)
             with QuantifierContext(self, 2, 0, inf, 1) as quant2:
                 while quant2(current):
                     with AlternationContext(self, 1, [2, 1], [1, 1]) as alt1:
-                        choice1 = alt1(current)
-                        [self.scriptlet, self.SEA_WS][choice1](parent=current)
+                        [self.scriptlet, self.SEA_WS][alt1(current)](parent=current)
             with QuantifierContext(self, 3, 0, 1, 2) as quant3:
                 while quant3(current):
                     self.dtd(parent=current)
             with QuantifierContext(self, 4, 0, inf, 1) as quant4:
                 while quant4(current):
                     with AlternationContext(self, 2, [2, 1], [1, 1]) as alt2:
-                        choice2 = alt2(current)
-                        [self.scriptlet, self.SEA_WS][choice2](parent=current)
+                        [self.scriptlet, self.SEA_WS][alt2(current)](parent=current)
             with QuantifierContext(self, 5, 0, inf, 4) as quant5:
                 while quant5(current):
                     self.htmlElements(parent=current)
@@ -484,8 +480,7 @@ class HTMLGenerator(Generator):
             with QuantifierContext(self, 1, 0, inf, 2) as quant1:
                 while quant1(current):
                     with AlternationContext(self, 0, [3, 2, 2], [1, 1, 1]) as alt0:
-                        choice0 = alt0(current)
-                        [self.htmlElement, self.xhtmlCDATA, self.htmlComment][choice0](parent=current)
+                        [self.htmlElement, self.xhtmlCDATA, self.htmlComment][alt0(current)](parent=current)
                     with QuantifierContext(self, 2, 0, 1, 2) as quant2:
                         while quant2(current):
                             self.htmlChardata(parent=current)
@@ -529,24 +524,21 @@ class HTMLGenerator(Generator):
     def htmlChardata(self, parent=None):
         with UnparserRuleContext(self, 'htmlChardata', parent) as current:
             with AlternationContext(self, 0, [1, 1], [1, 1]) as alt0:
-                choice0 = alt0(current)
-                [self.HTML_TEXT, self.SEA_WS][choice0](parent=current)
+                [self.HTML_TEXT, self.SEA_WS][alt0(current)](parent=current)
             return current
     htmlChardata.min_depth = 1
 
     def htmlMisc(self, parent=None):
         with UnparserRuleContext(self, 'htmlMisc', parent) as current:
             with AlternationContext(self, 0, [2, 1], [1, 1]) as alt0:
-                choice0 = alt0(current)
-                [self.htmlComment, self.SEA_WS][choice0](parent=current)
+                [self.htmlComment, self.SEA_WS][alt0(current)](parent=current)
             return current
     htmlMisc.min_depth = 1
 
     def htmlComment(self, parent=None):
         with UnparserRuleContext(self, 'htmlComment', parent) as current:
             with AlternationContext(self, 0, [1, 1], [1, 1]) as alt0:
-                choice0 = alt0(current)
-                [self.HTML_COMMENT, self.HTML_CONDITIONAL_COMMENT][choice0](parent=current)
+                [self.HTML_COMMENT, self.HTML_CONDITIONAL_COMMENT][alt0(current)](parent=current)
             return current
     htmlComment.min_depth = 1
 
@@ -578,8 +570,7 @@ class HTMLGenerator(Generator):
         with UnparserRuleContext(self, 'script', parent) as current:
             self.SCRIPT_OPEN(parent=current)
             with AlternationContext(self, 0, [1, 1], [1, 1]) as alt0:
-                choice0 = alt0(current)
-                [self.SCRIPT_BODY, self.SCRIPT_SHORT_BODY][choice0](parent=current)
+                [self.SCRIPT_BODY, self.SCRIPT_SHORT_BODY][alt0(current)](parent=current)
             return current
     script.min_depth = 1
 
@@ -587,8 +578,7 @@ class HTMLGenerator(Generator):
         with UnparserRuleContext(self, 'style', parent) as current:
             self.STYLE_OPEN(parent=current)
             with AlternationContext(self, 0, [1, 1], [1, 1]) as alt0:
-                choice0 = alt0(current)
-                [self.STYLE_BODY, self.STYLE_SHORT_BODY][choice0](parent=current)
+                [self.STYLE_BODY, self.STYLE_SHORT_BODY][alt0(current)](parent=current)
             return current
     style.min_depth = 1
 
