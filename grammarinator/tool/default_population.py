@@ -15,7 +15,7 @@ from copy import deepcopy
 from os.path import basename, join
 from uuid import uuid4
 
-from ..runtime import Population, UnparserRule
+from ..runtime import Population, RuleSize, UnparserRule
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class DefaultTree(object):
         self.nodes_by_name = None
         self.node_levels = None
         self.node_depths = None
+        self.token_counts = None
 
     def __deepcopy__(self, memo):
         tree = DefaultTree(deepcopy(self.root, memo=memo))
@@ -51,14 +52,17 @@ class DefaultTree(object):
             self.nodes_by_name[current.name].add(current)
 
             self.node_depths[current] = 0
-            if isinstance(current, UnparserRule) and current.children:
+            self.token_counts[current] = 0
+            if isinstance(current, UnparserRule):
                 for child in current.children:
                     _annotate(child, level + 1)
                     self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)
+                    self.token_counts[current] += self.token_counts[child] if isinstance(child, UnparserRule) else child.size.tokens + 1
 
         self.nodes_by_name = {}
         self.node_levels = {}
         self.node_depths = {}
+        self.token_counts = {}
         _annotate(self.root, 0)
 
     @staticmethod
@@ -134,15 +138,15 @@ class DefaultPopulation(Population):
 
     _extension = 'grt'
 
-    def __init__(self, directory, min_depths=None):
+    def __init__(self, directory, min_sizes=None):
         """
         :param str directory: Path to the directory containing the trees.
-        :param dict[str,int] min_depths: Minimum generation depth of rules.
+        :param dict[str,RuleSize] min_sizes: Minimum size of rules.
         """
         self._directory = directory
         os.makedirs(directory, exist_ok=True)
         self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
-        self._min_depths = min_depths or {}
+        self._min_sizes = min_sizes or {}
 
     def can_mutate(self):
         """
@@ -156,7 +160,7 @@ class DefaultPopulation(Population):
         """
         return len(self._files) > 1
 
-    def select_to_mutate(self, max_depth, root=None):
+    def select_to_mutate(self, limit, root=None):
         """
         Randomly select an individual of the population to be mutated (unless
         ``root`` is not None, in which case the tree to be mutated is fixed).
@@ -169,17 +173,18 @@ class DefaultPopulation(Population):
             tree_fn = self._random_individuals(n=1)[0]
             tree = DefaultTree.load(tree_fn)
 
-        options = self._filter_nodes(tree, (node for name in tree.nodes_by_name for node in tree.nodes_by_name[name]), max_depth)
+        options = self._filter_nodes(tree, (node for name in tree.nodes_by_name for node in tree.nodes_by_name[name]), limit)
         if options:
-            return random.choice(options)
+            mutated_node = random.choice(options)
+            return mutated_node, RuleSize(depth=tree.node_levels[mutated_node], tokens=tree.token_counts[tree.root] - tree.token_counts[mutated_node])
 
         # If selection strategy fails, we return the root of the loaded tree.
         # This will practically cause a fallback to discard the whole tree and
         # generate a brand new one instead.
         logger.debug('Could not choose node to mutate.')
-        return tree.root
+        return tree.root, RuleSize()
 
-    def select_to_recombine(self, max_depth, *roots):
+    def select_to_recombine(self, limit, *roots):
         """
         Randomly select two individuals of the population to be recombined
         (unless maximum two ``roots`` positional arguments are specified, in
@@ -199,13 +204,14 @@ class DefaultPopulation(Population):
         recipient_tree, donor_tree = trees[0], trees[1]
 
         common_types = set(recipient_tree.nodes_by_name.keys()).intersection(set(donor_tree.nodes_by_name.keys()))
-        recipient_options = self._filter_nodes(recipient_tree, (node for rule_name in common_types for node in recipient_tree.nodes_by_name[rule_name]), max_depth)
+        recipient_options = self._filter_nodes(recipient_tree, (node for rule_name in common_types for node in recipient_tree.nodes_by_name[rule_name]), limit)
         # Shuffle suitable nodes with sample.
         for recipient_node in random.sample(recipient_options, k=len(recipient_options)):
             donor_options = tuple(donor_tree.nodes_by_name[recipient_node.name])
             for donor_node in random.sample(donor_options, k=len(donor_options)):
                 # Make sure that the output tree won't exceed the depth limit.
-                if recipient_tree.node_levels[recipient_node] + donor_tree.node_depths[donor_node] <= max_depth:
+                if (recipient_tree.node_levels[recipient_node] + donor_tree.node_depths[donor_node] <= limit.depth
+                        and recipient_tree.token_counts[recipient_tree.root] - recipient_tree.token_counts[recipient_node] + donor_tree.token_counts[donor_node] < limit.tokens):
                     return recipient_node, donor_node
 
         # If selection strategy fails, we return the roots of the two loaded
@@ -239,10 +245,11 @@ class DefaultPopulation(Population):
         return random.sample(self._files, n)
 
     # Filter items from ``nodes`` that can be regenerated within the current
-    # maximum depth (except 'EOF' and '<INVALID>' nodes).
-    def _filter_nodes(self, tree, nodes, max_depth):
+    # maximum depth and token limit (except 'EOF' and '<INVALID>' nodes).
+    def _filter_nodes(self, tree, nodes, limit):
         return [node for node in nodes
                 if node.name is not None
                 and node.parent is not None
                 and node.name not in ['EOF', '<INVALID>']
-                and tree.node_levels[node] + self._min_depths.get(node.name, 0) < max_depth]
+                and tree.node_levels[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).depth < limit.depth
+                and tree.token_counts[tree.root] - tree.token_counts[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).tokens < limit.tokens]

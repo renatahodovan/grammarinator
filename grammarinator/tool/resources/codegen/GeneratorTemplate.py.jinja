@@ -29,7 +29,11 @@ pass
 
 
 {% macro processRuleNode(node, inedge) %}
+{% if inedge.reserve != 0 %}
+self._reserve({{ inedge.reserve }}, self.{{ node.id }}, {% if inedge.args %}{% for k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+{% else %}
 self.{{ node.id }}({% if inedge.args %}{% for k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+{% endif %}
 {% endmacro %}
 
 
@@ -44,7 +48,7 @@ current.src += '{{ node.src | escape_string }}'
 
 
 {% macro processQuantifierNode(node, inedge) %}
-with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, {{ node.min_depth }}) as quant{{ node.idx }}:
+with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, RuleSize({{ node.min_size.depth }}, {{ node.min_size.tokens }}), {{ inedge.reserve }}) as quant{{ node.idx }}:
     while quant{{ node.idx }}(current):
     {% for edge in node.out_edges %}
         {{ processNode(edge.dst, edge) | indent | indent -}}
@@ -53,8 +57,9 @@ with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, {{ 
 
 
 {% macro processAlternationNode(node, inedge) %}
-with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }}], [{{ resolveVarRefs(node.conditions | join(', ')) }}]) as alt{{ node.idx }}:
+with AlternationContext(self, {{ node.idx }}, ({% for size in node.min_sizes %}RuleSize({{ size.depth }}, {{ size.tokens }}){% if not loop.last %}, {% endif%}{% endfor %}), {{ inedge.reserve }}, ({{ resolveVarRefs(node.conditions | join(', ')) }})) as alt{{ node.idx }}:
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
+    {# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
     {% if simple_lits and simple_rules %}
     choice{{ node.idx }} = alt{{ node.idx }}(current)
     src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
@@ -152,7 +157,7 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% else %}
         pass
         {% endif %}
-    {{ rule.id }}.min_depth = {{ rule.min_depth }}
+    {{ rule.id }}.min_size = RuleSize({{ rule.min_size.depth }}, {{ rule.min_size.tokens }})
 
     {% endfor %}
     _default_rule = {{ graph.default_rule }}
