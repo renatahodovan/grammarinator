@@ -6,7 +6,7 @@
 # according to those terms.
 
 
-class Listener(object):
+class Listener:
     """
     Base class of listeners that get notified by generators whenever a rule is
     entered or exited. which needs to be subclassed.

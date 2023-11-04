@@ -20,7 +20,7 @@ from ..runtime import Population, RuleSize, UnparserRule
 logger = logging.getLogger(__name__)
 
 
-class DefaultTree(object):
+class DefaultTree:
 
     def __init__(self, root):
         """

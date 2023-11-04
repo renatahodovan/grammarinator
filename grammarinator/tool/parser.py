@@ -31,7 +31,7 @@ class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
-class ParserTool(object):
+class ParserTool:
     """
     Class to parse existing sources and create a tree pool from them. These
     trees can be reused later by generation.

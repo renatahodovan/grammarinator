@@ -15,7 +15,7 @@ from .rule import RuleSize, UnlexerRule, UnparserRule
 logger = logging.getLogger(__name__)
 
 
-class RuleContext(object):
+class RuleContext:
     # Context manager wrapping rule generations. It is responsible for
     # keeping track of the value of `max_depth` and for transitively calling the
     # enter and exit methods of the registered listeners.
@@ -72,7 +72,7 @@ class UnparserRuleContext(RuleContext):
         super().__init__(gen, UnparserRule(name=name, parent=parent))
 
 
-class AlternationContext(object):
+class AlternationContext:
     # Context manager wrapping alternations. It is responsible for filtering
     # the alternatives available within the maximum depth, token size and
     # decisions. Otherwise, if nothing is available (possibly due to some
@@ -117,7 +117,7 @@ class AlternationContext(object):
         return self._gen._model.choice(node, self._idx, self._weights)
 
 
-class QuantifierContext(object):
+class QuantifierContext:
 
     def __init__(self, gen, idx, min, max, min_size, reserve):
         self._gen = gen
@@ -153,7 +153,7 @@ class QuantifierContext(object):
         return False
 
 
-class Generator(object):
+class Generator:
     """
     Base class of the generated Generators. Stores the decision model, the listeners,
     and additional internal state used during generation.

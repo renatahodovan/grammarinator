@@ -5,7 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-class Population(object):
+class Population:
     """
     Base class of populations that store test cases in tree form (i.e.,
     individuals) and can select trees (and nodes in trees) for mutation or

@@ -29,7 +29,7 @@ from .g4 import ANTLRv4Lexer, ANTLRv4Parser
 logger = logging.getLogger(__name__)
 
 
-class Edge(object):
+class Edge:
 
     def __init__(self, dst, args=None):
         self.dst = dst
@@ -37,7 +37,7 @@ class Edge(object):
         self.reserve = 0
 
 
-class Node(object):
+class Node:
 
     _cnt = 0
 
@@ -73,7 +73,7 @@ class Node(object):
         return f'cls: {self.__class__.__name__}'
 
 
-class NodeSize(object):
+class NodeSize:
     def __init__(self, depth, tokens):
         self.depth = depth
         self.tokens = tokens
@@ -270,7 +270,7 @@ def multirange_diff(r1_list, r2_list):
     return r1_list
 
 
-class Charset(object):
+class Charset:
 
     dot = {
         'any_ascii_letter': [(ord('A'), ord('Z') + 1), (ord('a'), ord('z') + 1)],
@@ -291,7 +291,7 @@ class Charset(object):
         self.ranges = ranges
 
 
-class GrammarGraph(object):
+class GrammarGraph:
 
     def __init__(self):
         self.name = None
@@ -408,7 +408,7 @@ def escape_string(s):
     return ''.join(c for c in _iter_escaped_chars(s))
 
 
-class ProcessorTool(object):
+class ProcessorTool:
     """
     Class to process ANTLRv4 grammar files, build an internal representation
     from them and create a generator class that is able to produce textual data
