@@ -54,9 +54,9 @@ with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, {{ 
 
 {% macro processAlternationNode(node, inedge) %}
 with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }}], [{{ resolveVarRefs(node.conditions | join(', ')) }}]) as alt{{ node.idx }}:
-    choice{{ node.idx }} = alt{{ node.idx }}(current)
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {% if simple_lits and simple_rules %}
+    choice{{ node.idx }} = alt{{ node.idx }}(current)
     src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     if src is not None:
@@ -64,10 +64,11 @@ with AlternationContext(self, {{ node.idx }}, [{{ node.min_depths | join(', ') }
     else:
         rule(parent=current)
     {% elif simple_lits %}
-    current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
+    current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}(current)]
     {% elif simple_rules %}
-    [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}](parent=current)
+    [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}(current)](parent=current)
     {% else %}
+    choice{{ node.idx }} = alt{{ node.idx }}(current)
     {% for edge in node.out_edges %}
     {{ 'if' if loop.index0 == 0 else 'elif' }} choice{{ node.idx }} == {{ edge.dst.idx }}:
         {{ processNode(edge.dst, edge) | indent | indent -}}
