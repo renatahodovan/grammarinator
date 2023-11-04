@@ -6,7 +6,7 @@
 # according to those terms.
 
 
-class RuleSize(object):
+class RuleSize:
 
     def __init__(self, depth=0, tokens=0):
         self.depth = depth
@@ -40,7 +40,7 @@ class RuleSize(object):
         return self.depth < other.depth and self.tokens < other.tokens
 
 
-class Rule(object):
+class Rule:
     """
     Base class of tree nodes.
     """

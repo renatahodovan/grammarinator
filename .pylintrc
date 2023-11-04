@@ -37,7 +37,6 @@ disable=
     too-many-return-statements,
     too-many-statements,
     unspecified-encoding,
-    useless-object-inheritance,
     useless-option-value,  # disables warning in recent pylint that does not check for no-self-use anymore
 
 [REPORTS]

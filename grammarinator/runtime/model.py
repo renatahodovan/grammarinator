@@ -6,7 +6,7 @@
 # according to those terms.
 
 
-class Model(object):
+class Model:
     """
     Abstract base class of models that make decisions for generators at
     alternations, quantifiers, and charsets.

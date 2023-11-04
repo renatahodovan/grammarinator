@@ -20,7 +20,7 @@ from ..runtime import CooldownModel, DefaultModel, RuleSize
 logger = logging.getLogger(__name__)
 
 
-class DefaultGeneratorFactory(object):
+class DefaultGeneratorFactory:
     """
     The default generator factory implementation. Instances of
     ``DefaultGeneratorFactory`` are callable. When called, a new generator
@@ -85,7 +85,7 @@ class DefaultGeneratorFactory(object):
         return generator
 
 
-class GeneratorTool(object):
+class GeneratorTool:
     """
     Class to create new test cases using the generator produced by ``grammarinator-process``.
     """
