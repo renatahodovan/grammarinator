@@ -161,7 +161,11 @@ class AlternationNode(Node):
         # contains both simple literals and rule references, then both elements of
         # the tuple are lists, which are of identical length, and exactly one of
         # them contains a non-None value at every index position.
-        if not self.out_neighbours or any(len(alt.out_neighbours) != 1 or not isinstance(alt.out_neighbours[0], (LiteralNode, RuleNode)) or (isinstance(alt.out_neighbours[0], RuleNode) and alt.out_edges[0].args) for alt in self.out_neighbours):
+        if (not self.out_neighbours
+            or any(len(alt.out_neighbours) != 1
+                   or not isinstance(alt.out_neighbours[0], (LiteralNode, RuleNode))
+                   or (isinstance(alt.out_neighbours[0], RuleNode) and alt.out_edges[0].args)
+                   for alt in self.out_neighbours)):
             return None, None
 
         simple_lits = [alt.out_neighbours[0].src if isinstance(alt.out_neighbours[0], LiteralNode) else None for alt in self.out_neighbours]
