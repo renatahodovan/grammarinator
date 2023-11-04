@@ -38,7 +38,7 @@ self.{{ node.id }}({% if inedge.args %}{% for k, v in inedge.args %}{% if k %}{{
 
 
 {% macro processCharsetNode(node, inedge) %}
-current.src += self._model.charset(current, {{ node.idx }}, self._charsets[{{ node.charset }}])
+current.src += self._model.charset(current, {{ node.idx }}, {{ graph.name }}._charsets[{{ node.charset }}])
 {% endmacro %}
 
 
@@ -48,7 +48,7 @@ current.src += '{{ node.src | escape_string }}'
 
 
 {% macro processQuantifierNode(node, inedge) %}
-with QuantifierContext(self, {{ node.idx }}, {{ node.start }}, {{ node.stop }}, RuleSize({{ node.min_size.depth }}, {{ node.min_size.tokens }}), {{ inedge.reserve }}) as quant{{ node.idx }}:
+with QuantifierContext(self, {{ node.idx }}, {{ node.start }}, {{ node.stop }}, {{ graph.name }}._quant_sizes[{{ node.min_size }}], {{ inedge.reserve }}) as quant{{ node.idx }}:
     while quant{{ node.idx }}(current):
     {% for edge in node.out_edges %}
         {{ processNode(edge.dst, edge) | indent | indent -}}
@@ -57,7 +57,7 @@ with QuantifierContext(self, {{ node.idx }}, {{ node.start }}, {{ node.stop }}, 
 
 
 {% macro processAlternationNode(node, inedge) %}
-with AlternationContext(self, {{ node.idx }}, ({% for size in node.min_sizes %}RuleSize({{ size.depth }}, {{ size.tokens }}){% if not loop.last %}, {% endif%}{% endfor %}), {{ inedge.reserve }}, ({{ resolveVarRefs(node.conditions | join(', ')) }})) as alt{{ node.idx }}:
+with AlternationContext(self, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}({{ resolveVarRefs(node.conditions | join(', ')) }}){% else %}{{ graph.name }}._alt_conds[{{ node.conditions }}]{% endif %}) as alt{{ node.idx }}:
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
     {% if simple_lits and simple_rules %}
@@ -162,9 +162,27 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endfor %}
     _default_rule = {{ graph.default_rule }}
 
-    _charsets = {
-        {% for charset in graph.charsets %}
-        {{ charset.id }}: list(itertools.chain.from_iterable([{% for range in charset.ranges %}range({{ "0x%x, 0x%x" % (range[0], range[1]) }}){% if not loop.last %}, {% endif %}{% endfor %}])),
+    _alt_sizes = (
+        {% for alt_size in graph.alt_sizes %}
+        ({% for size in alt_size %}RuleSize({{ size.depth }}, {{ size.tokens }}){% if not loop.last %}, {% endif %}{% endfor %}),  # {{ loop.index0 }}
         {% endfor %}
-    }
+    )
+
+    _alt_conds = (
+        {% for alt_cond in graph.alt_conds %}
+        ({{ alt_cond | join(', ') }}),  # {{ loop.index0 }}
+        {% endfor %}
+    )
+
+    _quant_sizes = (
+        {% for size in graph.quant_sizes %}
+        RuleSize({{ size.depth }}, {{ size.tokens }}),  # {{ loop.index0 }}
+        {% endfor %}
+    )
+
+    _charsets = (
+        {% for charset in graph.charsets %}
+        tuple(itertools.chain.from_iterable(({% for range in charset.ranges %}range({{ "0x%x, 0x%x" % (range[0], range[1]) }}), {% endfor %}))),  # {{ loop.index0 }}
+        {% endfor %}
+    )
 {# Ensure newline at end of file #}

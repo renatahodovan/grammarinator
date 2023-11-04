@@ -78,6 +78,12 @@ class NodeSize:
         self.depth = depth
         self.tokens = tokens
 
+    def __eq__(self, other):
+        return self.depth == other.depth and self.tokens == other.tokens
+
+    def __repr__(self):
+        return f'NodeSize({self.depth}, {self.tokens})'
+
 
 class RuleNode(Node):
 
@@ -270,6 +276,14 @@ def multirange_diff(r1_list, r2_list):
     return r1_list
 
 
+def append_unique(container, element):
+    if element in container:
+        return container.index(element)
+
+    container.append(element)
+    return len(container) - 1
+
+
 class Charset:
 
     dot = {
@@ -298,6 +312,9 @@ class GrammarGraph:
         self.vertices = OrderedDict()
         self.options = {}
         self.charsets = []
+        self.alt_conds = []
+        self.alt_sizes = []
+        self.quant_sizes = []
         self.header = ''
         self.members = ''
         self.default_rule = None
@@ -360,12 +377,14 @@ class GrammarGraph:
 
         # Assign the calculated size metric values to the vertices participating in generator decisions.
         for ident, node in self.vertices.items():
-            if isinstance(node, (QuantifierNode, RuleNode)):
+            if isinstance(node, QuantifierNode):
+                node.min_size = append_unique(self.quant_sizes, min_sizes[ident])
+            elif isinstance(node, RuleNode):
                 node.min_size = min_sizes[ident]
             elif isinstance(node, AlternationNode):
                 # Lift the minimal size of the alternatives to the alternations, where the decision will happen.
                 # The sizes of the alternatives are 0 if the alternation is inside a token.
-                node.min_sizes = [min_sizes[alt.id] for alt in node.out_neighbours]
+                node.min_sizes = append_unique(self.alt_sizes, [min_sizes[alt.id] for alt in node.out_neighbours])
 
         # In case of token size metric, calculate the minimum needed cost of finishing the generation (everything after the current node).
         for node in self.vertices.values():
@@ -833,7 +852,8 @@ class ProcessorTool:
                         return
 
                     nonlocal alt_idx
-                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=[find_conditions(child) for child in children], rule_id=rule.id))
+                    conditions = [find_conditions(child) for child in children]
+                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=append_unique(graph.alt_conds, conditions) if all(cond.isnumeric() for cond in conditions) else conditions, rule_id=rule.id))
                     alt_idx += 1
                     graph.add_edge(frm=parent_id, to=alt_id)
 
@@ -1104,7 +1124,7 @@ class ProcessorTool:
         for ident, node in graph.vertices.items():
             if isinstance(node, AlternationNode):
                 for alternative_idx, alternative_node in enumerate(node.out_neighbours):
-                    if node.min_sizes[alternative_idx].depth == inf:
+                    if graph.alt_sizes[node.min_sizes][alternative_idx].depth == inf:
                         # Generate human-readable description for an alternative in the graph. The output is a
                         # (rule node, alternation node, alternative node) string, where `rule` defines the container
                         # rule and the (alternation node, alternative node) sequence defines a derivation reaching the alternative.
