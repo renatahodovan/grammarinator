@@ -48,7 +48,7 @@ current.src += '{{ node.src | escape_string }}'
 
 
 {% macro processQuantifierNode(node, inedge) %}
-with QuantifierContext(self, {{ node.idx }}, {{ node.min }}, {{ node.max }}, RuleSize({{ node.min_size.depth }}, {{ node.min_size.tokens }}), {{ inedge.reserve }}) as quant{{ node.idx }}:
+with QuantifierContext(self, {{ node.idx }}, {{ node.start }}, {{ node.stop }}, RuleSize({{ node.min_size.depth }}, {{ node.min_size.tokens }}), {{ inedge.reserve }}) as quant{{ node.idx }}:
     while quant{{ node.idx }}(current):
     {% for edge in node.out_edges %}
         {{ processNode(edge.dst, edge) | indent | indent -}}

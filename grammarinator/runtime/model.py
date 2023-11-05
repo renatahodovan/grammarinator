@@ -29,7 +29,7 @@ class Model:
         """
         raise NotImplementedError()
 
-    def quantify(self, node, idx, cnt, min, max):
+    def quantify(self, node, idx, cnt, start, stop):
         """
         Guide the loop of subtree quantification. This has to make a binary
         decision to tell whether to enable the next iteration or stop the loop.
@@ -41,9 +41,9 @@ class Model:
             quantified subtree.
         :param int idx: Index of the quantified subtree inside the current rule.
         :param int cnt: Number of the already generated subtrees, guaranteed
-            to be between ``min`` (inclusive) and ``max`` (exclusive).
-        :param int min: Lower bound of the quantification range.
-        :param int max: Upper bound of the quantification range.
+            to be between ``start`` (inclusive) and ``stop`` (exclusive).
+        :param int start: Lower bound of the quantification range.
+        :param int stop: Upper bound of the quantification range.
         :return: Boolean value enabling the next iteration or stopping it.
         :rtype: bool
         """

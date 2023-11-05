@@ -24,13 +24,14 @@ class DefaultModel(Model):
         # assert sum(weights) > 0, 'Sum of weights is zero.'
         return random.choices(range(len(weights)), weights=weights)[0]
 
-    def quantify(self, node, idx, cnt, min, max):
+    def quantify(self, node, idx, cnt, start, stop):
         """
-        After generating the minimum expected items (``min``) and before
-        reaching the maximum expected items (``max``), quantify decides about
+        After generating the minimum expected items (``start``) and before
+        reaching the maximum expected items (``stop``), quantify decides about
         the expansion of the optional items based on a random binary decision.
 
-        Parameters ``node``, ``idx``, ``cnt``, ``min`` and ``max`` are unused.
+        Parameters ``node``, ``idx``, ``cnt``, ``start``, and ``stop`` are
+        unused.
         """
         return bool(random.getrandbits(1))
 

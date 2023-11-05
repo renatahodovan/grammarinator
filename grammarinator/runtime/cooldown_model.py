@@ -51,11 +51,11 @@ class CooldownModel(Model):
                     self._weights[(node.name, idx, i)] = self._weights.get((node.name, idx, i), 1) / wsum
         return c
 
-    def quantify(self, node, idx, cnt, min, max):
+    def quantify(self, node, idx, cnt, start, stop):
         """
         Trampoline to the ``quantify`` method of the underlying model.
         """
-        return self._model.quantify(node, idx, cnt, min, max)
+        return self._model.quantify(node, idx, cnt, start, stop)
 
     def charset(self, node, idx, chars):
         """

@@ -203,16 +203,16 @@ class AlternativeNode(Node):
 
 class QuantifierNode(Node):
 
-    def __init__(self, rule_id, idx, min, max):
+    def __init__(self, rule_id, idx, start, stop):
         super().__init__()
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the quantifier in the container rule.
-        self.min = min
-        self.max = max
+        self.start = start
+        self.stop = stop
         self.min_size = None
 
     def __str__(self):
-        return f'{super().__str__()}; idx: {self.idx}; min: {self.min}; max: {self.max}'
+        return f'{super().__str__()}; idx: {self.idx}; start: {self.start}; stop: {self.stop}'
 
 
 class ActionNode(Node):
@@ -342,7 +342,7 @@ class GrammarGraph:
             for ident, node in self.vertices.items():
                 children_sizes = [NodeSize(depth=min_sizes[out_node.id].depth + int(isinstance(out_node, RuleNode)),
                                            tokens=min_sizes[out_node.id].tokens + int(isinstance(out_node, UnlexerRuleNode)))
-                                  for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.min > 0]
+                                  for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.start > 0]
 
                 if isinstance(node, AlternationNode):
                     min_size = NodeSize(depth=min((c.depth for c in children_sizes), default=0),
@@ -372,7 +372,7 @@ class GrammarGraph:
             reserve = 0
             for edge in reversed(node.out_edges):
                 edge.reserve = reserve
-                if not isinstance(node, AlternationNode) and (not isinstance(edge.dst, QuantifierNode) or edge.dst.min > 0):
+                if not isinstance(node, AlternationNode) and (not isinstance(edge.dst, QuantifierNode) or edge.dst.start > 0):
                     reserve += min_sizes[edge.dst.id].tokens + int(isinstance(edge.dst, UnlexerRuleNode))
 
 
@@ -880,7 +880,7 @@ class ProcessorTool:
 
                     nonlocal quant_idx
                     suffix = str(suffix.children[0])
-                    quant_ranges = {'?': {'min': 0, 'max': 1}, '*': {'min': 0, 'max': 'inf'}, '+': {'min': 1, 'max': 'inf'}}
+                    quant_ranges = {'?': {'start': 0, 'stop': 1}, '*': {'start': 0, 'stop': 'inf'}, '+': {'start': 1, 'stop': 'inf'}}
                     quant_id = graph.add_node(QuantifierNode(rule_id=rule.id, idx=quant_idx, **quant_ranges[suffix]))
                     quant_idx += 1
                     graph.add_edge(frm=parent_id, to=quant_id)

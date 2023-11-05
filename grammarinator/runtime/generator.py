@@ -119,12 +119,12 @@ class AlternationContext:
 
 class QuantifierContext:
 
-    def __init__(self, gen, idx, min, max, min_size, reserve):
+    def __init__(self, gen, idx, start, stop, min_size, reserve):
         self._gen = gen
         self._idx = idx
         self._cnt = 0
-        self._min = min
-        self._max = max
+        self._start = start
+        self._stop = stop
         self._min_size = min_size
         self._reserve = reserve
 
@@ -138,15 +138,15 @@ class QuantifierContext:
         self._gen._size.tokens -= self._reserve
 
     def __call__(self, node):
-        if self._cnt < self._min:
+        if self._cnt < self._start:
             self._cnt += 1
             return True
 
-        # Generate optional items if the current repeat count is between ``_min`` and ``_max`` and
+        # Generate optional items if the current repeat count is between ``_start`` and ``_stop`` and
         # if size limits allows the generation and if the current model decides so, too.
-        if (self._cnt < self._max
+        if (self._cnt < self._stop
                 and self._gen._size + self._min_size <= self._gen._limit
-                and self._gen._model.quantify(node, self._idx, self._cnt, self._min, self._max)):
+                and self._gen._model.quantify(node, self._idx, self._cnt, self._start, self._stop)):
             self._cnt += 1
             return True
 
