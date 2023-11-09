@@ -415,7 +415,7 @@ def escape_string(s):
 
 class ProcessorTool:
     """
-    Class to process ANTLRv4 grammar files, build an internal representation
+    Tool to process ANTLRv4 grammar files, build an internal representation
     from them and create a generator class that is able to produce textual data
     according to the grammar files.
     """

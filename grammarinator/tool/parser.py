@@ -33,7 +33,7 @@ error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 class ParserTool:
     """
-    Class to parse existing sources and create a tree pool from them. These
+    Tool to parse existing sources and create a tree pool from them. These
     trees can be reused later by generation.
     """
 
@@ -44,8 +44,9 @@ class ParserTool:
         :param list[str] grammars: List of resources (grammars and additional sources) needed to parse the input.
         :param str parser_dir: Directory where grammars and the generated parser will be placed.
         :param str antlr: Path to the ANTLR4 tool (Java jar binary).
-        :param ~grammarinator.tool.Population population: Tree pool where the
-            trees will be saved.
+        :param ~grammarinator.runtime.Population population: Tree pool where the
+            trees will be saved, e.g., an instance of
+            :class:`DefaultPopulation`.
         :param str rule: Name of the rule to start parsing with (default: first
             parser rule in the grammar).
         :param list[str] hidden: List of hidden rule names that are expected to be added to the grammar tree (hidden rules are skipped by default).

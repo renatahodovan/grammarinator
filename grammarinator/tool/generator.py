@@ -87,7 +87,7 @@ class DefaultGeneratorFactory:
 
 class GeneratorTool:
     """
-    Class to create new test cases using the generator produced by ``grammarinator-process``.
+    Tool to create new test cases using the generator produced by ``grammarinator-process``.
     """
 
     def __init__(self, generator_factory, out_format, lock=None, rule=None, limit=None,
@@ -114,8 +114,9 @@ class GeneratorTool:
             possible to finish generation from the selected node so that the
             overall depth and token count of the tree does not exceed these
             limits (default values: ``inf`` and ``inf``).
-        :param ~grammarinator.tool.Population population: Tree pool for mutation
-            and recombination.
+        :param ~grammarinator.runtime.Population population: Tree pool for
+            mutation and recombination, e.g., an instance of
+            :class:`DefaultPopulation`.
         :param bool generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
         :param bool mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
         :param bool recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
@@ -168,12 +169,12 @@ class GeneratorTool:
         Create new test case with a randomly selected generator method from the available
         options (i.e., via :meth:`generate`, :meth:`mutate`, or :meth:`recombine`). The
         generated tree is transformed, serialized and saved according to the parameters
-        used to initialize the current generator object.
+        used to initialize the current tool object.
 
         :param int index: Index of the test case to be generated.
         :return: Tuple of the path to the generated serialized test file and the path to the tree file. The second item,
                (i.e., the path to the tree file) might be ``None``, if either ``population`` or ``keep_trees`` were not set
-               in :meth:`__init__` and hence the tree object was not saved either.
+               to initialize the tool object and hence the tree object was not saved either.
         :rtype: tuple[str, str]
         """
         creators = []
