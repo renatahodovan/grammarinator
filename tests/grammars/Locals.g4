@@ -18,7 +18,7 @@
 
 grammar Locals;
 
-start locals[cnt=0]
+start locals[cnt=0, unused_and_uninitialized]
     : (Char {$cnt += 1})+ {assert(len(str(current)) == $cnt)}
     ;
 
