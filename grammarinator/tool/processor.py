@@ -284,25 +284,11 @@ def append_unique(container, element):
     return len(container) - 1
 
 
-class Charset:
-
-    dot = {
-        'any_ascii_letter': [(ord('A'), ord('Z') + 1), (ord('a'), ord('z') + 1)],
-        'any_ascii_char': printable_ranges(0x00, 0x80),
-        'any_unicode_char': printable_ranges(0, maxunicode + 1),
-    }
-
-    _cnt = 0
-
-    def __init__(self, ranges):
-        if not ranges:
-            raise ValueError('Charset must contain at least one range')
-        for start, end in ranges:
-            if end <= start:
-                raise ValueError(f"Charset range must not be empty: '\\u{{{start:x}}}'..'\\u{{{end - 1:x}}}', '{chr(start)}'..'{chr(end - 1)}'")
-        self.id = Charset._cnt
-        Charset._cnt += 1
-        self.ranges = ranges
+dot_ranges = {
+    'any_ascii_letter': [(ord('A'), ord('Z') + 1), (ord('a'), ord('z') + 1)],
+    'any_ascii_char': printable_ranges(0x00, 0x80),
+    'any_unicode_char': printable_ranges(0, maxunicode + 1),
+}
 
 
 class GrammarGraph:
@@ -670,7 +656,7 @@ class ProcessorTool:
                 # ANTLR defines the ranges below manually, hence we do the same.
                 if prop_name in ['Extended_Pictographic', 'EP']:
                     ranges = [(0x2388, 0x2389), (0x2605, 0x2606), (0x2607, 0x260d), (0x260f, 0x2610), (0x2612, 0x2613), (0x2616, 0x2617), (0x2619, 0x261c), (0x261e, 0x261f), (0x2621, 0x2622), (0x2624, 0x2625), (0x2627, 0x2629), (0x262b, 0x262d), (0x2630, 0x2637), (0x263b, 0x2647), (0x2654, 0x265f), (0x2661, 0x2662), (0x2664, 0x2665), (0x2667, 0x2668), (0x2669, 0x267a), (0x267c, 0x267e), (0x2680, 0x2691), (0x2695, 0x2696), (0x2698, 0x2699), (0x269a, 0x269b), (0x269d, 0x269f), (0x26a2, 0x26a9), (0x26ac, 0x26af), (0x26b2, 0x26bc), (0x26bf, 0x26c3), (0x26c6, 0x26c7), (0x26c9, 0x26cd), (0x26d0, 0x26d1), (0x26d2, 0x26d3), (0x26d5, 0x26e8), (0x26eb, 0x26ef), (0x26f6, 0x26f7), (0x26fb, 0x26fc), (0x26fe, 0x26ff), (0x2700, 0x2701), (0x2703, 0x2704), (0x270e, 0x270f), (0x2710, 0x2711), (0x2765, 0x2767), (0x1f000, 0x1f003), (0x1f005, 0x1f02b), (0x1f02c, 0x1f02f), (0x1f030, 0x1f093), (0x1f094, 0x1f09f), (0x1f0a0, 0x1f0ae), (0x1f0af, 0x1f0b0), (0x1f0b1, 0x1f0bf), (0x1f0c0, 0x1f0c1), (0x1f0c1, 0x1f0cf), (0x1f0d0, 0x1f0d1), (0x1f0d1, 0x1f0f5), (0x1f0f6, 0x1f0ff), (0x1f10d, 0x1f10f), (0x1f12f, 0x1f130), (0x1f16c, 0x1f16f), (0x1f1ad, 0x1f1e5), (0x1f203, 0x1f20f), (0x1f23c, 0x1f23f), (0x1f249, 0x1f24f), (0x1f252, 0x1f25f), (0x1f260, 0x1f265), (0x1f266, 0x1f2ff), (0x1f322, 0x1f323), (0x1f394, 0x1f395), (0x1f398, 0x1f399), (0x1f39c, 0x1f39d), (0x1f3f1, 0x1f3f2), (0x1f3f6, 0x1f3f7), (0x1f4fe, 0x1f4ff), (0x1f53e, 0x1f548), (0x1f54f, 0x1f550), (0x1f568, 0x1f56e), (0x1f571, 0x1f572), (0x1f57b, 0x1f586), (0x1f588, 0x1f589), (0x1f58e, 0x1f58f), (0x1f591, 0x1f594), (0x1f597, 0x1f5a3), (0x1f5a6, 0x1f5a7), (0x1f5a9, 0x1f5b0), (0x1f5b3, 0x1f5bb), (0x1f5bd, 0x1f5c1), (0x1f5c5, 0x1f5d0), (0x1f5d4, 0x1f5db), (0x1f5df, 0x1f5e0), (0x1f5e2, 0x1f5e3), (0x1f5e4, 0x1f5e7), (0x1f5e9, 0x1f5ee), (0x1f5f0, 0x1f5f2), (0x1f5f4, 0x1f5f9), (0x1f6c6, 0x1f6ca), (0x1f6d3, 0x1f6d4), (0x1f6d5, 0x1f6df), (0x1f6e6, 0x1f6e8), (0x1f6ea, 0x1f6eb), (0x1f6ed, 0x1f6ef), (0x1f6f1, 0x1f6f2), (0x1f6f7, 0x1f6f8), (0x1f6f9, 0x1f6ff), (0x1f774, 0x1f77f), (0x1f7d5, 0x1f7ff), (0x1f80c, 0x1f80f), (0x1f848, 0x1f84f), (0x1f85a, 0x1f85f), (0x1f888, 0x1f88f), (0x1f8ae, 0x1f8ff), (0x1f900, 0x1f90b), (0x1f90c, 0x1f90f), (0x1f91f, 0x1f920), (0x1f928, 0x1f92f), (0x1f931, 0x1f932), (0x1f93f, 0x1f940), (0x1f94c, 0x1f94d), (0x1f94d, 0x1f94f), (0x1f95f, 0x1f96b), (0x1f96c, 0x1f97f), (0x1f992, 0x1f997), (0x1f998, 0x1f9bf), (0x1f9c1, 0x1f9cf), (0x1f9d0, 0x1f9e6), (0x1f9e7, 0x1f9ff), (0x1fa00, 0x1fffd)]
-                    return ranges if escaped == 'p' else multirange_diff(dot_charset.ranges, ranges), offset
+                    return ranges if escaped == 'p' else multirange_diff(graph.charsets[dot_charset], ranges), offset
 
                 codepoints = None
                 # [\\p{GCB=Regional_Indicator}\\*#0-9\\u00a9\\u00ae\\u2122\\u3030\\u303d]
@@ -694,7 +680,7 @@ class ProcessorTool:
 
                 if codepoints:
                     ranges = _codepoints_to_ranges(codepoints)
-                    return ranges if escaped == 'p' else multirange_diff(dot_charset.ranges, ranges), offset
+                    return ranges if escaped == 'p' else multirange_diff(graph.charsets[dot_charset], ranges), offset
 
                 # \p{...} and \P{...} are both handled by the regex lib in case of the supported properties.
                 return _codepoints_to_ranges(_name_to_codepoints(f'\\{escaped}{{{prop_name}}}')), offset
@@ -764,14 +750,14 @@ class ProcessorTool:
 
             return []
 
-        def charset_from_ranges(ranges):
-            for charset in graph.charsets:
-                if charset.ranges == ranges:
-                    return charset
+        def unique_charset(ranges):
+            if not ranges:
+                raise ValueError('Charset must contain at least one range')
+            for start, end in ranges:
+                if end <= start:
+                    raise ValueError(f"Charset range must not be empty: '\\u{{{start:x}}}'..'\\u{{{end - 1:x}}}', '{chr(start)}'..'{chr(end - 1)}'")
 
-            charset = Charset(ranges)
-            graph.charsets.append(charset)
-            return charset
+            return append_unique(graph.charsets, ranges)
 
         def unescape_string(s):
             def _iter_unescaped_chars(s):
@@ -922,7 +908,7 @@ class ProcessorTool:
 
                     if node.DOT():
                         if isinstance(node, ANTLRv4Parser.LexerAtomContext):
-                            graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=dot_charset.id)))
+                            graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=dot_charset)))
                             chr_idx += 1
                         else:
                             if '_dot' not in graph.vertices:
@@ -945,8 +931,8 @@ class ProcessorTool:
                             for set_element in node.notSet().blockSet().setElement():
                                 not_ranges.extend(chars_from_set(set_element))
 
-                        charset = charset_from_ranges(multirange_diff(dot_charset.ranges, sorted(not_ranges, key=lambda x: x[0])))
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
+                        charset = unique_charset(multirange_diff(graph.charsets[dot_charset], sorted(not_ranges, key=lambda x: x[0])))
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset)))
                         chr_idx += 1
 
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.characterRange():
@@ -954,8 +940,8 @@ class ProcessorTool:
                         if lexer_rule:
                             rule.start_ranges.append((start, end))
 
-                        charset = charset_from_ranges([(start, end)])
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
+                        charset = unique_charset([(start, end)])
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset)))
                         chr_idx += 1
 
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.LEXER_CHAR_SET():
@@ -963,8 +949,8 @@ class ProcessorTool:
                         if lexer_rule:
                             rule.start_ranges.extend(ranges)
 
-                        charset = charset_from_ranges(sorted(ranges, key=lambda x: x[0]))
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset.id)))
+                        charset = unique_charset(sorted(ranges, key=lambda x: x[0]))
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset)))
                         chr_idx += 1
 
                     for child in node.children:
@@ -1082,7 +1068,7 @@ class ProcessorTool:
                 build_prequel(root)
         graph.options.update(options or {})
 
-        dot_charset = charset_from_ranges(Charset.dot[graph.dot])
+        dot_charset = unique_charset(dot_ranges[graph.dot])
 
         literal_lookup = {}
 

@@ -182,7 +182,7 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     _charsets = (
         {% for charset in graph.charsets %}
-        tuple(itertools.chain.from_iterable(({% for range in charset.ranges %}range({{ "0x%x, 0x%x" % (range[0], range[1]) }}), {% endfor %}))),  # {{ loop.index0 }}
+        tuple(itertools.chain.from_iterable(({% for range in charset %}range({{ "0x%x, 0x%x" % (range[0], range[1]) }}), {% endfor %}))),  # {{ loop.index0 }}
         {% endfor %}
     )
 {# Ensure newline at end of file #}
