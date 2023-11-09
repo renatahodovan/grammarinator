@@ -10,7 +10,7 @@ import random
 
 from os.path import dirname, join
 
-from grammarinator.runtime import *
+from grammarinator.runtime import UnlexerRule, UnparserRuleContext
 
 from HTMLGenerator import HTMLGenerator
 
