@@ -7,7 +7,7 @@
 
 # This custom unparser is used by Custom.g4
 
-from grammarinator.runtime import *
+from grammarinator.runtime import UnlexerRule, UnparserRuleContext
 
 from CustomGenerator import CustomGenerator
 

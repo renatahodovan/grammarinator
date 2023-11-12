@@ -6,7 +6,6 @@
 # according to those terms.
 
 import glob
-import importlib
 import logging
 import sys
 
@@ -14,7 +13,8 @@ from argparse import ArgumentParser
 from os import getcwd
 from os.path import basename, dirname, join, splitext
 
-from antlr4 import *
+from antlr4 import CommonTokenStream, FileStream
+from inators.imp import import_object
 
 logger = logging.getLogger('grammarinator')
 
@@ -28,14 +28,6 @@ def parse(lexer_cls, parser_cls, rule, infile, encoding):
     if parser._syntaxErrors > 0:
         logger.error('Parse error in %s', infile)
     return parser._syntaxErrors
-
-
-def import_entity(name):
-    steps = name.split('.')
-    module_name = '.'.join(steps[0:-1])
-    entity_name = steps[-1]
-    module = importlib.import_module(module_name)
-    return eval('module.' + entity_name)
 
 
 def execute():
@@ -67,8 +59,8 @@ def execute():
     lexer = splitext(basename(args.lexer))[0]
     parser = splitext(basename(args.parser))[0]
 
-    lexer_cls = import_entity('.'.join([lexer, lexer]))
-    parser_cls = import_entity('.'.join([parser, parser]))
+    lexer_cls = import_object(f'{lexer}.{lexer}')
+    parser_cls = import_object(f'{parser}.{parser}')
 
     parsed = 0
     errors = 0
