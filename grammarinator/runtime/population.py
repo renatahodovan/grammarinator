@@ -7,7 +7,7 @@
 
 class Population:
     """
-    Base class of populations that store test cases in tree form (i.e.,
+    Abstract base class of populations that store test cases in tree form (i.e.,
     individuals) and can select trees (and nodes in trees) for mutation or
     recombination based on some strategy.
     """

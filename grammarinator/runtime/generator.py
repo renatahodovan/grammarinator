@@ -37,9 +37,7 @@ class RuleContext:
 
 
 class UnlexerRuleContext(RuleContext):
-    """
-    Subclass of :class:`RuleContext` handling unlexer rules.
-    """
+    # Subclass of :class:`RuleContext` handling unlexer rules.
 
     def __init__(self, gen, name, parent=None):
         unlexer_parent = isinstance(parent, UnlexerRule)
@@ -64,9 +62,7 @@ class UnlexerRuleContext(RuleContext):
 
 
 class UnparserRuleContext(RuleContext):
-    """
-    Subclass of :class:`RuleContext` handling unparser rules.
-    """
+    # Subclass of :class:`RuleContext` handling unparser rules.
 
     def __init__(self, gen, name, parent=None):
         super().__init__(gen, UnparserRule(name=name, parent=parent))
