@@ -72,7 +72,8 @@ def generator_tool_helper(args, weights, lock):
                          population=DefaultPopulation(args.population,
                                                       min_sizes={name: method.min_size
                                                                  for name, method in inspect.getmembers(args.generator, inspect.ismethod)
-                                                                 if hasattr(method, 'min_size')}) if args.population else None,
+                                                                 if hasattr(method, 'min_size')},
+                                                      immutable_rules=args.generator._immutable_rules) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)

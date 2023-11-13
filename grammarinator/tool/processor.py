@@ -301,6 +301,7 @@ class GrammarGraph:
         self.alt_conds = []
         self.alt_sizes = []
         self.quant_sizes = []
+        self.immutables = None
         self.header = ''
         self.members = ''
         self.default_rule = None
@@ -379,6 +380,18 @@ class GrammarGraph:
                 edge.reserve = reserve
                 if not isinstance(node, AlternationNode) and (not isinstance(edge.dst, QuantifierNode) or edge.dst.start > 0):
                     reserve += min_sizes[edge.dst.id].tokens + int(isinstance(edge.dst, UnlexerRuleNode))
+
+    def find_immutable_rules(self):
+        changed = True
+        immutables = set()
+        while changed:
+            changed = False
+            for vertex in self.vertices.values():
+                if isinstance(vertex, RuleNode) and all(isinstance(vout, LiteralNode) or vout.id in immutables for vout in vertex.out_neighbours):
+                    if vertex.id not in immutables:
+                        immutables.add(vertex.id)
+                        changed = True
+        self.immutables = sorted(immutables)
 
 
 def escape_string(s):
@@ -1081,6 +1094,7 @@ class ProcessorTool:
                 build_rules(root)
 
         graph.calc_min_sizes()
+        graph.find_immutable_rules()
         return graph
 
     # Calculates the distance of every rule node from the start node. As a result, it can

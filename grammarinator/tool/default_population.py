@@ -127,15 +127,17 @@ class DefaultPopulation(Population):
 
     _extension = 'grt'
 
-    def __init__(self, directory, min_sizes=None):
+    def __init__(self, directory, min_sizes=None, immutable_rules=None):
         """
         :param str directory: Path to the directory containing the trees.
         :param dict[str,RuleSize] min_sizes: Minimum size of rules.
+        :param set[str] immutable_rules: Set of immutable rule names.
         """
         self._directory = directory
         os.makedirs(directory, exist_ok=True)
         self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
         self._min_sizes = min_sizes or {}
+        self._immutable_rules = set(immutable_rules) if immutable_rules else set()
 
     def can_mutate(self):
         """
@@ -237,8 +239,8 @@ class DefaultPopulation(Population):
     # maximum depth and token limit (except 'EOF' and '<INVALID>' nodes).
     def _filter_nodes(self, tree, nodes, limit):
         return [node for node in nodes
-                if node.name is not None
-                and node.parent is not None
-                and node.name not in ['EOF', '<INVALID>']
+                if node.parent is not None
+                and node.name not in self._immutable_rules
+                and node.name not in [None, '<INVALID>']
                 and tree.node_levels[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).depth < limit.depth
                 and tree.token_counts[tree.root] - tree.token_counts[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).tokens < limit.tokens]
