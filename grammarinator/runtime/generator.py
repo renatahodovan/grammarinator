@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import itertools
 import logging
 
 from math import inf
@@ -185,3 +186,7 @@ class Generator:
     def _exit_rule(self, node):
         for listener in reversed(self._listeners):
             listener.exit_rule(node)
+
+    @staticmethod
+    def _charset(ranges):
+        return tuple(itertools.chain.from_iterable(range(start, stop) for start, stop in ranges))
