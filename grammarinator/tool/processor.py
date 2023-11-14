@@ -894,6 +894,10 @@ class ProcessorTool:
 
                 elif isinstance(node, ANTLRv4Parser.LabeledElementContext):
                     build_expr(node.atom() or node.block(), parent_id)
+                    # Do not save variables if actions are not allowed.
+                    if not actions:
+                        return
+
                     ident = node.identifier()
                     name = str(ident.RULE_REF() or ident.TOKEN_REF())
                     is_list = node.PLUS_ASSIGN() is not None
