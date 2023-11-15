@@ -160,6 +160,8 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endfor %}
     _default_rule = {{ graph.default_rule }}
 
+    _immutable_rules = ({% for name in graph.immutables %}'{{ name }}'{% if not loop.last or loop.length == 1 %}, {% endif%}{% endfor %})
+
     _alt_sizes = (
         {% for alt_size in graph.alt_sizes %}
         ({% for size in alt_size %}RuleSize({{ size.depth }}, {{ size.tokens }}){% if not loop.last %}, {% endif %}{% endfor %}),  # {{ loop.index0 }}
