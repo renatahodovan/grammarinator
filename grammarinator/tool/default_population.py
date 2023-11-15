@@ -48,8 +48,9 @@ class DefaultTree:
             self.node_levels[current] = level
 
             if current.name not in self.nodes_by_name:
-                self.nodes_by_name[current.name] = set()
-            self.nodes_by_name[current.name].add(current)
+                self.nodes_by_name[current.name] = {}
+            # Emulating ordered set with dict in order to ensure reproducibility.
+            self.nodes_by_name[current.name][current] = None
 
             self.node_depths[current] = 0
             self.token_counts[current] = 0
@@ -64,6 +65,8 @@ class DefaultTree:
         self.node_depths = {}
         self.token_counts = {}
         _annotate(self.root, 0)
+        for name in self.nodes_by_name:
+            self.nodes_by_name[name] = list(self.nodes_by_name[name].keys())
 
     @staticmethod
     def load(fn):
@@ -194,7 +197,7 @@ class DefaultPopulation(Population):
             trees.append(tree)
         recipient_tree, donor_tree = trees[0], trees[1]
 
-        common_types = set(recipient_tree.nodes_by_name.keys()).intersection(set(donor_tree.nodes_by_name.keys()))
+        common_types = sorted(set(recipient_tree.nodes_by_name.keys()).intersection(set(donor_tree.nodes_by_name.keys())))
         recipient_options = self._filter_nodes(recipient_tree, (node for rule_name in common_types for node in recipient_tree.nodes_by_name[rule_name]), limit)
         # Shuffle suitable nodes with sample.
         for recipient_node in random.sample(recipient_options, k=len(recipient_options)):
