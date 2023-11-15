@@ -95,25 +95,14 @@ class DefaultTree:
             nonlocal indent
 
             if isinstance(node, UnparserRule):
-                print(f'{"  " * indent}{node.name}')
+                print(f'{"|  " * indent}{node.name}')
                 indent += 1
                 for child in node.children:
                     _walk(child)
                 indent -= 1
 
             else:
-                toplevel_unlexerrule = not node.parent or isinstance(node.parent, UnparserRule)
-                if toplevel_unlexerrule:
-                    print(f'{"  " * indent}{node.name or ""}{":" if node.name else ""}"', end='')
-
-                if node.src is not None:
-                    print(node.src, end='')
-                else:
-                    for child in node.children:
-                        _walk(child)
-
-                if toplevel_unlexerrule:
-                    print('"')
+                print(f'{"|  " * indent}{node.name or ""}{":" if node.name else ""}{node.src!r}')
 
         indent = 0
         _walk(self.root)
