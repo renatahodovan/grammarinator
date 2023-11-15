@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import inspect
 import json
 import os
 import random
@@ -70,9 +69,7 @@ def generator_tool_helper(args, weights, lock):
                          rule=args.rule, out_format=args.out,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
                          population=DefaultPopulation(args.population,
-                                                      min_sizes={name: method.min_size
-                                                                 for name, method in inspect.getmembers(args.generator, inspect.ismethod)
-                                                                 if hasattr(method, 'min_size')},
+                                                      min_sizes=args.generator._rule_sizes,
                                                       immutable_rules=args.generator._immutable_rules) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,

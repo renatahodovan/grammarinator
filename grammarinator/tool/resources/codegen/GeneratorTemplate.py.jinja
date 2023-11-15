@@ -155,12 +155,17 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% else %}
         pass
         {% endif %}
-    {{ rule.id }}.min_size = RuleSize({{ rule.min_size.depth }}, {{ rule.min_size.tokens }})
 
     {% endfor %}
     _default_rule = {{ graph.default_rule }}
 
     _immutable_rules = ({% for name in graph.immutables %}'{{ name }}'{% if not loop.last or loop.length == 1 %}, {% endif%}{% endfor %})
+
+    _rule_sizes = {
+        {% for rule in graph.rules %}
+        '{{ rule.id }}': RuleSize({{ rule.min_size.depth }}, {{ rule.min_size.tokens }}),
+        {% endfor %}
+    }
 
     _alt_sizes = (
         {% for alt_size in graph.alt_sizes %}

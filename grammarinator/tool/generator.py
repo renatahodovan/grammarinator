@@ -225,16 +225,16 @@ class GeneratorTool:
         generator = self._generator_factory(limit=limit)
 
         rule = rule or self._rule or generator._default_rule.__name__
-        start_rule = getattr(generator, rule)
+        rule_size = generator._rule_sizes.get(rule, None)
 
-        if not hasattr(start_rule, 'min_size'):
-            logger.warning('The \'min_size\' property of %s is not set.', rule)
-        elif start_rule.min_size.depth > limit.depth:
-            raise ValueError(f'{rule} cannot be generated within the given depth: {limit.depth} (min needed: {start_rule.min_size.depth}).')
-        elif start_rule.min_size.tokens > limit.tokens:
-            raise ValueError(f'{rule} cannot be generated within the given token count: {limit.tokens} (min needed: {start_rule.min_size.tokens}).')
+        if not rule_size:
+            logger.warning('The size limits of %r are not known.', rule)
+        elif rule_size.depth > limit.depth:
+            raise ValueError(f'{rule!r} cannot be generated within the given depth: {limit.depth} (min needed: {rule_size.depth}).')
+        elif rule_size.tokens > limit.tokens:
+            raise ValueError(f'{rule!r} cannot be generated within the given token count: {limit.tokens} (min needed: {rule_size.tokens}).')
 
-        return start_rule()
+        return getattr(generator, rule)()
 
     def mutate(self, mutated_node, reserve):
         """
