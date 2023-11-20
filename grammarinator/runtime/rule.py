@@ -121,6 +121,20 @@ class Rule:
         except ValueError:
             return None
 
+    @property
+    def root(self):
+        """
+        Return the root of the node, i.e., the node at the top of the parent
+        chain.
+
+        :return: The root of the current node.
+        :rtype: Rule
+        """
+        node = self
+        while node.parent:
+            node = node.parent
+        return node
+
     def replace(self, node):
         """
         Replace the current node with ``node``.
