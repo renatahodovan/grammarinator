@@ -21,6 +21,7 @@ extension-pkg-allow-list=math
 # --disable=W"
 disable=
     broad-except,
+    comparison-with-callable,
     fixme,
     invalid-name,
     line-too-long,

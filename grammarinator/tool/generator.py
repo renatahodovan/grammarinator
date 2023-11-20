@@ -172,22 +172,31 @@ class GeneratorTool:
         used to initialize the current tool object.
 
         :param int index: Index of the test case to be generated.
-        :return: Tuple of the path to the generated serialized test file and the path to the tree file. The second item,
-               (i.e., the path to the tree file) might be ``None``, if either ``population`` or ``keep_trees`` were not set
-               to initialize the tool object and hence the tree object was not saved either.
-        :rtype: tuple[str, str]
+        :return: Path to the generated serialized test file. It may be empty if
+            the tool object was initialized with an empty ``out_format`` or
+            ``None`` if ``dry_run`` was enabled, and hence the test file was not
+            saved.
+        :rtype: str
         """
         creators = []
         if self._enable_generation:
             creators.append(self.generate)
         if self._population:
             if self._enable_mutation and self._population.can_mutate():
-                creators.append(lambda: self.mutate(*self._population.select_to_mutate(self._limit)))
+                creators.append(self.mutate)
             if self._enable_recombination and self._population.can_recombine():
-                creators.append(lambda: self.recombine(*self._population.select_to_recombine(self._limit)))
+                creators.append(self.recombine)
         creator = random.choice(creators)
 
-        root = creator()
+        if creator == self.generate:
+            root = creator()
+        elif creator == self.mutate:
+            mutated_node, reserve = self._population.select_to_mutate(self._limit)
+            root = creator(mutated_node, reserve)
+        elif creator == self.recombine:
+            recipient_node, donor_node = self._population.select_to_recombine(self._limit)
+            root = creator(recipient_node, donor_node)
+
         for transformer in self._transformers:
             root = transformer(root)
 
