@@ -178,23 +178,24 @@ class DefaultPopulation(Population):
         logger.debug('Could not choose node to mutate.')
         return tree.root, RuleSize()
 
-    def select_to_recombine(self, limit, *roots):
+    def select_to_recombine(self, limit, recipient_root=None, donor_root=None):
         """
         Randomly select two individuals of the population to be recombined
-        (unless maximum two ``roots`` positional arguments are specified, in
-        which case one or both of the trees to be recombined are fixed). Then
-        randomly select two compatible nodes from each.
+        (unless ``recipient_root`` or ``donor_root`` is not None, in which case
+        one or both of the trees to be recombined are fixed). Then randomly
+        select two compatible nodes from each.
         """
-        if len(roots) > 2:
-            raise ValueError(f'too many roots ({len(roots)})')
-        trees = []
-        for root in roots:
-            tree = DefaultTree(root)
-            tree.annotate()
-            trees.append(tree)
-        for tree_fn in self._random_individuals(n=2 - len(trees)):
-            tree = DefaultTree.load(tree_fn)
-            trees.append(tree)
+        trees = [None, None]
+        tree_fns = self._random_individuals(n=int(not recipient_root) + int(not donor_root))
+        n = 0
+        for i, root in enumerate([recipient_root, donor_root]):
+            if root:
+                tree = DefaultTree(root)
+                tree.annotate()
+                trees[i] = tree
+            else:
+                trees[i] = DefaultTree.load(tree_fns[n])
+                n += 1
         recipient_tree, donor_tree = trees[0], trees[1]
 
         common_types = sorted(set(recipient_tree.nodes_by_name.keys()).intersection(set(donor_tree.nodes_by_name.keys())))
