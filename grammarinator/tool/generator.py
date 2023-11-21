@@ -260,11 +260,7 @@ class GeneratorTool:
         :rtype: Rule
         """
         mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))
-
-        node = mutated_node
-        while node.parent:
-            node = node.parent
-        return node
+        return mutated_node.root
 
     def recombine(self, recipient_node, donor_node):
         """
@@ -282,7 +278,5 @@ class GeneratorTool:
         if recipient_node.name != donor_node.name:
             raise ValueError(f'{recipient_node.name} cannot be replaced with {donor_node.name}')
 
-        node = recipient_node.replace(donor_node)
-        while node.parent:
-            node = node.parent
-        return node
+        recipient_node = recipient_node.replace(donor_node)
+        return recipient_node.root
