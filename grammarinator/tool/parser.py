@@ -10,14 +10,13 @@ import os
 import shutil
 import sys
 
-from math import inf
 from os import listdir
 from os.path import basename, commonprefix, split, splitext
 from subprocess import CalledProcessError, PIPE, run
 
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
 
-from ..runtime import UnlexerRule, UnparserRule
+from ..runtime import RuleSize, UnlexerRule, UnparserRule
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class ParserTool:
     """
 
     def __init__(self, grammars, parser_dir, antlr, population,
-                 rule=None, hidden=None, transformers=None, max_depth=inf, cleanup=True,
+                 rule=None, hidden=None, transformers=None, max_depth=RuleSize.max.depth, cleanup=True,
                  encoding='utf-8', errors='strict'):
         """
         :param list[str] grammars: List of resources (grammars and additional sources) needed to parse the input.

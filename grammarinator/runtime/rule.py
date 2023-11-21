@@ -5,6 +5,8 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+from math import inf
+
 
 class RuleSize:
     """
@@ -67,6 +69,9 @@ class RuleSize:
         # This defines a strict partial order (i.e., irreflexive, asymmetric, and transitive).
         # Not every pair of objects are comparable.
         return self.depth < other.depth and self.tokens < other.tokens
+
+
+RuleSize.max = RuleSize(inf, inf)  #: All size metrics set to ``inf``.
 
 
 class Rule:

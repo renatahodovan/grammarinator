@@ -101,9 +101,9 @@ def execute():
                              '(the result of these transformers will be saved into the serialized tree, e.g., variable matching).')
     parser.add_argument('-s', '--serializer', metavar='NAME',
                         help='reference to a seralizer (in package.module.function format) that takes a tree and produces a string from it.')
-    parser.add_argument('-d', '--max-depth', default=inf, type=int, metavar='NUM',
+    parser.add_argument('-d', '--max-depth', default=RuleSize.max.depth, type=int, metavar='NUM',
                         help='maximum recursion depth during generation (default: %(default)f).')
-    parser.add_argument('--max-tokens', default=inf, type=int, metavar='NUM',
+    parser.add_argument('--max-tokens', default=RuleSize.max.tokens, type=int, metavar='NUM',
                         help='maximum token number during generation (default: %(default)f).')
     parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
                         help='cool-down factor defines how much the probability of an alternative should decrease '
