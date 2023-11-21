@@ -11,7 +11,6 @@ import os
 import pickle
 import random
 
-from copy import deepcopy
 from os.path import basename, join
 from uuid import uuid4
 
@@ -31,11 +30,7 @@ class DefaultTree:
         self.node_levels = None
         self.node_depths = None
         self.token_counts = None
-
-    def __deepcopy__(self, memo):
-        tree = DefaultTree(deepcopy(self.root, memo=memo))
-        tree.annotate()
-        return tree
+        self.annotate()
 
     def annotate(self):
         """
@@ -82,11 +77,10 @@ class DefaultTree:
 
     def save(self, fn):
         """
-        Annotate and save a tree into file if its depth is less than ``max_depth``.
+        Save a tree into file.
 
         :param str fn: File path to save the tree to.
         """
-        self.annotate()
         with open(fn, 'wb') as f:
             pickle.dump(self, f)
 
@@ -160,12 +154,7 @@ class DefaultPopulation(Population):
         ``root`` is not None, in which case the tree to be mutated is fixed).
         Then randomly select a node that should be re-generated.
         """
-        if root:
-            tree = DefaultTree(root)
-            tree.annotate()
-        else:
-            tree_fn = self._random_individuals(n=1)[0]
-            tree = DefaultTree.load(tree_fn)
+        tree = DefaultTree(root) if root else DefaultTree.load(self._random_individuals(n=1)[0])
 
         options = self._filter_nodes(tree, (node for name in tree.nodes_by_name for node in tree.nodes_by_name[name]), limit)
         if options:
@@ -190,9 +179,7 @@ class DefaultPopulation(Population):
         n = 0
         for i, root in enumerate([recipient_root, donor_root]):
             if root:
-                tree = DefaultTree(root)
-                tree.annotate()
-                trees[i] = tree
+                trees[i] = DefaultTree(root)
             else:
                 trees[i] = DefaultTree.load(tree_fns[n])
                 n += 1
