@@ -8,7 +8,6 @@
 import os
 
 from argparse import ArgumentParser
-from math import inf
 from multiprocessing import Pool
 from os.path import exists, join
 
@@ -17,6 +16,7 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 
 from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
 from .pkgdata import __version__
+from .runtime import RuleSize
 from .tool import DefaultPopulation, ParserTool
 
 
@@ -48,7 +48,7 @@ def execute():
                         help='reference to a transformer (in package.module.function format) to postprocess the parsed tree.')
     parser.add_argument('--hidden', metavar='NAME', action='append', default=[],
                         help='list of hidden tokens to be built into the parsed tree.')
-    parser.add_argument('--max-depth', type=int, default=inf,
+    parser.add_argument('--max-depth', type=int, default=RuleSize.max.depth,
                         help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
                         help='directory to save the trees (default: %(default)s).')

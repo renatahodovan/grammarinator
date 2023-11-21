@@ -8,8 +8,6 @@
 import itertools
 import logging
 
-from math import inf
-
 from .default_model import DefaultModel
 from .rule import RuleSize, UnlexerRule, UnparserRule
 
@@ -166,12 +164,11 @@ class Generator:
                number of tokens (number of unlexer rule calls), i.e., it must
                be possible to finish generation from the selected node so that
                the overall depth and token count of the tree does not exceed
-               these limits.
-               (default values: ``inf`` and ``inf``).
+               these limits (default value: :attr:`RuleSize.max`).
         """
         self._model = model or DefaultModel()
         self._size = RuleSize()
-        self._limit = limit or RuleSize(inf, inf)
+        self._limit = limit or RuleSize.max
         self._listeners = listeners or []
 
     def _reserve(self, reserve, fn, *args, **kwargs):

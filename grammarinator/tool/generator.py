@@ -11,7 +11,6 @@ import os
 import random
 
 from contextlib import nullcontext
-from math import inf
 from os.path import abspath, dirname
 from shutil import rmtree
 
@@ -66,8 +65,7 @@ class DefaultGeneratorFactory:
             number of tokens (number of unlexer rule calls), i.e., it must be
             possible to finish generation from the selected node so that the
             overall depth and token count of the tree does not exceed these
-            limits.
-            (default values: ``inf`` and ``inf``).
+            limits (default value: :attr:`RuleSize.max`).
             Used to instantiate the generator.
         :return: The created generator instance.
         :rtype: ~grammarinator.runtime.Generator
@@ -113,7 +111,7 @@ class GeneratorTool:
             number of tokens (number of unlexer rule calls), i.e., it must be
             possible to finish generation from the selected node so that the
             overall depth and token count of the tree does not exceed these
-            limits (default values: ``inf`` and ``inf``).
+            limits (default value: :attr:`RuleSize.max`).
         :param ~grammarinator.runtime.Population population: Tree pool for
             mutation and recombination, e.g., an instance of
             :class:`DefaultPopulation`.
@@ -143,7 +141,7 @@ class GeneratorTool:
 
         self._out_format = out_format
         self._lock = lock or nullcontext()
-        self._limit = limit or RuleSize(depth=inf, tokens=inf)
+        self._limit = limit or RuleSize.max
         self._population = population
         self._enable_generation = generate
         self._enable_mutation = mutate
