@@ -6,6 +6,7 @@
 # according to those terms.
 
 from math import inf
+from textwrap import indent
 
 
 class RuleSize:
@@ -72,13 +73,49 @@ class RuleSize:
         # Not every pair of objects are comparable.
         return self.depth < other.depth and self.tokens < other.tokens
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(depth={self.depth!r}, tokens={self.tokens!r})'
+
 
 RuleSize.max = RuleSize(inf, inf)
 
 
 class Rule:
     """
-    Base class of tree nodes.
+    Abstract base class of tree nodes.
+
+    Tree nodes support various string representations:
+
+    - The "informal" representation of a node consists of the concatenation of
+      the string contents of all tokens found in the tree rooted at the node in
+      depth-first order. No extra whitespace is inserted for separation.
+    - The "official" representation of a node is an (almost) valid Python
+      expression to recreate the tree rooted at the node. If the node has any
+      children, the representation consists of multiple lines.
+    - The "debug" representation of a node is a multi-line string with the most
+      important attributes of the tree rooted at the node, using vertical bars
+      for visual guidance.
+
+    The builtins :class:`str` and :func:`repr` can be used to compute the
+    "informal" and "official" representations, respectively, while
+    :func:`format` can produce all of the above. When string formatting is used,
+    the following format specifiers are recognized:
+
+    ================= ==========================
+    Specifier         Meaning
+    ================= ==========================
+    ``''`` or ``'s'`` "Informal" representation.
+    ``'r'``           "Official" representation.
+    ``'|'``           "Debug" representation.
+    ================= ==========================
+
+    Thus, if ``n`` is a node, the following expressions give equivalent results:
+
+    - ``str(n)``, ``f'{n}'``, ``f'{n!s}'``, ``f'{n:s}'``,
+      ``'{}'.format(n)``, ``'{!s}'.format(n)``, and ``'{:s}'.format(n)``
+    - ``repr(n)``, ``f'{n!r}'``, ``f'{n:r}'``, ``'{!r}'.format(n)``, and
+      ``'{:r}'.format(n)``
+    - ``f'{n:|}'`` and ``'{:|}'.format(n)``
     """
 
     def __init__(self, *, name):
@@ -161,6 +198,22 @@ class Rule:
             self.parent.children.remove(self)
             self.parent = None
 
+    def _dbg_(self):
+        """
+        Called by :meth:`__format__` to compute the "debug" string
+        representation of a node.
+        """
+        raise NotImplementedError()
+
+    def __format__(self, format_spec):
+        if format_spec in ['', 's']:
+            return str(self)
+        if format_spec == 'r':
+            return repr(self)
+        if format_spec == '|':
+            return self._dbg_()
+        raise TypeError
+
 
 class UnparserRule(Rule):
     """
@@ -239,13 +292,18 @@ class UnparserRule(Rule):
         return self
 
     def __str__(self):
-        """
-        Concatenates the string representation of the children.
-
-        :return: String representation of the current rule.
-        :rtype: str
-        """
         return ''.join(str(child) for child in self.children)
+
+    def __repr__(self):
+        parts = [
+            f'name={self.name!r}',
+        ]
+        if self.children:
+            parts.append('children=[\n{children}\n]'.format(children=indent(',\n'.join(repr(child) for child in self.children), '  ')))
+        return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def _dbg_(self):
+        return '{name}\n{children}'.format(name=self.name, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
 
     def __getattr__(self, item):
         # This check is needed to avoid infinite recursions when loading a tree
@@ -285,15 +343,22 @@ class UnlexerRule(Rule):
             token fragments it is composed of.
         """
         self.src = src or ''
-        self.size = RuleSize(depth=1 if src else 0, tokens=1 if src else 0)
+        self.size = RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0)
 
         super().__init__(name=name)
 
     def __str__(self):
-        """
-        Return the string representation of an ``UnlexerRule``, which is simply ``self.src``.
-
-        :return: String representation of ``UnlexerRule``.
-        :rtype: str
-        """
         return self.src
+
+    def __repr__(self):
+        parts = []
+        if self.name:
+            parts.append(f'name={self.name!r}')
+        if self.src:
+            parts.append(f'src={self.src!r}')
+        if (self.src and self.size != RuleSize(1, 1)) or (not self.src and self.size != RuleSize(0, 0)):
+            parts.append(f'size={self.size!r}')
+        return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def _dbg_(self):
+        return f'{self.name or ""}{":" if self.name else ""}{self.src!r}'
