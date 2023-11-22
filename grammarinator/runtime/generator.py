@@ -39,9 +39,15 @@ class UnlexerRuleContext(RuleContext):
     # Subclass of :class:`RuleContext` handling unlexer rules.
 
     def __init__(self, gen, name, parent=None):
-        unlexer_parent = isinstance(parent, UnlexerRule)
-        super().__init__(gen, parent if unlexer_parent else UnlexerRule(name=name, parent=parent))
-        self._start_depth = None if unlexer_parent else self._gen._size.depth
+        if isinstance(parent, UnlexerRule):
+            super().__init__(gen, parent)
+            self._start_depth = None
+        else:
+            node = UnlexerRule(name=name)
+            if parent:
+                parent += node
+            super().__init__(gen, node)
+            self._start_depth = self._gen._size.depth
 
     def __enter__(self):
         node = super().__enter__()
@@ -64,7 +70,10 @@ class UnparserRuleContext(RuleContext):
     # Subclass of :class:`RuleContext` handling unparser rules.
 
     def __init__(self, gen, name, parent=None):
-        super().__init__(gen, UnparserRule(name=name, parent=parent))
+        node = UnparserRule(name=name)
+        if parent:
+            parent += node
+        super().__init__(gen, node)
 
 
 class AlternationContext:

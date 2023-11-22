@@ -131,7 +131,8 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     {% for rule in graph.imag_rules %}
     def {{ rule.id }}(self, parent=None):
-        return UnlexerRule(name='{{ rule.id }}', parent=parent)
+        with UnlexerRuleContext(self, '{{ rule.id }}', parent) as current:
+            return current
     {% endfor %}
 
     {%- if graph.members %}

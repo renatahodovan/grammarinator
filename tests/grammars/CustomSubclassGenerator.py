@@ -15,8 +15,8 @@ from CustomGenerator import CustomGenerator
 class CustomSubclassGenerator(CustomGenerator):
 
     def tagname(self, parent=None):
-        with UnparserRuleContext(gen=self, name='tagname', parent=parent) as current:
-            UnlexerRule(src='customtag', parent=current)
+        with UnparserRuleContext(self, 'tagname', parent) as current:
+            current += UnlexerRule(src='customtag')
             return current
 
     def _custom_lexer_content(self):
