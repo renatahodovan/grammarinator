@@ -19,7 +19,10 @@ grammar ImagToken;
 
 @lexer::members {
 def REDEFINED(self, parent=None):
-    return UnlexerRule(name='REDEFINED', src='redefined', parent=parent)
+    current = UnlexerRule(name='REDEFINED', src='redefined')
+    if parent:
+        parent += current
+    return current
 }
 
 tokens { IMAG, REDEFINED }

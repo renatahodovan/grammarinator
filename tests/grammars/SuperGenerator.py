@@ -13,4 +13,7 @@ from grammarinator.runtime import Generator, UnlexerRule
 class SuperGenerator(Generator):
 
     def inheritedRule(self, parent=None):
-        return UnlexerRule(src='I was inherited.', parent=parent)
+        current = UnlexerRule(src='I was inherited.')
+        if parent:
+            parent += current
+        return current

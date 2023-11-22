@@ -79,18 +79,15 @@ class Rule:
     Base class of tree nodes.
     """
 
-    def __init__(self, *, name, parent=None):
+    def __init__(self, *, name):
         """
         :param str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        :param UnparserRule parent: Parent node object (default: None).
 
         :ivar str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
         :ivar UnparserRule parent: Parent node object.
         """
         self.name = name
-        self.parent = parent
-        if parent:
-            parent += self
+        self.parent = None
 
     @property
     def left_sibling(self):
@@ -169,14 +166,13 @@ class UnparserRule(Rule):
     :class:`UnlexerRule` children.
     """
 
-    def __init__(self, name, parent=None):
+    def __init__(self, *, name):
         """
         :param str name: Name of the corresponding parser rule in the grammar.
-        :param UnparserRule parent: Parent node object (default: None).
 
         :ivar list[Rule] children: Children of the rule.
         """
-        super().__init__(name=name, parent=parent)
+        super().__init__(name=name)
         self.children = []
 
     @property
@@ -277,10 +273,9 @@ class UnlexerRule(Rule):
     Tree node representing a lexer rule or token. It has a string constant set in its ``src`` field.
     """
 
-    def __init__(self, *, name=None, parent=None, src=None):
+    def __init__(self, *, name=None, src=None):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
-        :param UnparserRule parent: Parent node object (default: None).
         :param str src: String content of the lexer rule (default: "").
 
         :ivar str src: String content of the lexer rule.
@@ -290,7 +285,7 @@ class UnlexerRule(Rule):
         self.src = src or ''
         self.size = RuleSize(depth=1 if src else 0, tokens=1 if src else 0)
 
-        super().__init__(name=name, parent=parent)
+        super().__init__(name=name)
 
     def __str__(self):
         """
