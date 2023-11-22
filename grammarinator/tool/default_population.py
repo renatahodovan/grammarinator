@@ -8,37 +8,20 @@
 import glob
 import logging
 import os
-import pickle
 import random
 
 from os.path import basename, join
 from uuid import uuid4
 
-from ..runtime import Population, RuleSize, UnparserRule
+from ..runtime import Population, Rule, RuleSize, UnparserRule
+from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec
 
 logger = logging.getLogger(__name__)
 
 
-class DefaultTree:
+class Annotations:
 
     def __init__(self, root):
-        """
-        :param Rule root: Root of the tree.
-        """
-        self.root = root
-        self.nodes_by_name = None
-        self.node_levels = None
-        self.node_depths = None
-        self.token_counts = None
-        self.annotate()
-
-    def annotate(self):
-        """
-        Build a lookup table to index nodes by their name. Furthermore, compute
-        various depth information of nodes needed by
-        :meth:`Population.select_to_mutate` and
-        :meth:`Population.select_to_recombine`.
-        """
         def _annotate(current, level):
             self.node_levels[current] = level
 
@@ -59,52 +42,34 @@ class DefaultTree:
         self.node_levels = {}
         self.node_depths = {}
         self.token_counts = {}
-        _annotate(self.root, 0)
+        _annotate(root, 0)
         for name in self.nodes_by_name:
             self.nodes_by_name[name] = list(self.nodes_by_name[name].keys())
-
-    @staticmethod
-    def load(fn):
-        """
-        Load tree from file.
-
-        :param str fn: Path to the file containing the tree.
-        :return: The loaded tree.
-        :rtype: DefaultTree
-        """
-        with open(fn, 'rb') as f:
-            return pickle.load(f)
-
-    def save(self, fn):
-        """
-        Save a tree into file.
-
-        :param str fn: File path to save the tree to.
-        """
-        with open(fn, 'wb') as f:
-            pickle.dump(self, f)
 
 
 class DefaultPopulation(Population):
     """
-    File system-based population that pickles trees to ``.grt`` files in a
-    directory. The selection strategy used for mutation and recombination is
-    purely random.
+    File system-based population that saves trees into files in a directory. The
+    selection strategy used for mutation and recombination is purely random.
     """
 
-    _extension = 'grt'
-
-    def __init__(self, directory, min_sizes=None, immutable_rules=None):
+    def __init__(self, directory, extension, min_sizes=None, immutable_rules=None, codec=None):
         """
         :param str directory: Path to the directory containing the trees.
+        :param str extension: Extension of the files containing the trees.
         :param dict[str,RuleSize] min_sizes: Minimum size of rules.
         :param set[str] immutable_rules: Set of immutable rule names.
+        :param TreeCodec codec: Codec used to save trees into files (default:
+            :class:`PickleTreeCodec`).
         """
         self._directory = directory
-        os.makedirs(directory, exist_ok=True)
-        self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
+        self._extension = extension
         self._min_sizes = min_sizes or {}
         self._immutable_rules = set(immutable_rules) if immutable_rules else set()
+        self._codec = codec or PickleTreeCodec()
+
+        os.makedirs(directory, exist_ok=True)
+        self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
 
     def can_mutate(self):
         """
@@ -124,18 +89,21 @@ class DefaultPopulation(Population):
         ``root`` is not None, in which case the tree to be mutated is fixed).
         Then randomly select a node that should be re-generated.
         """
-        tree = DefaultTree(root) if root else DefaultTree.load(self._random_individuals(n=1)[0])
+        if root:
+            annot = Annotations(root)
+        else:
+            root, annot = self._load_tree(self._random_individuals(n=1)[0])
 
-        options = self._filter_nodes(tree, (node for name in tree.nodes_by_name for node in tree.nodes_by_name[name]), limit)
+        options = self._filter_nodes((node for name in annot.nodes_by_name for node in annot.nodes_by_name[name]), root, annot, limit)
         if options:
             mutated_node = random.choice(options)
-            return mutated_node, RuleSize(depth=tree.node_levels[mutated_node], tokens=tree.token_counts[tree.root] - tree.token_counts[mutated_node])
+            return mutated_node, RuleSize(depth=annot.node_levels[mutated_node], tokens=annot.token_counts[root] - annot.token_counts[mutated_node])
 
         # If selection strategy fails, we return the root of the loaded tree.
         # This will practically cause a fallback to discard the whole tree and
         # generate a brand new one instead.
         logger.debug('Could not choose node to mutate.')
-        return tree.root, RuleSize()
+        return root, RuleSize()
 
     def select_to_recombine(self, limit, recipient_root=None, donor_root=None):
         """
@@ -144,33 +112,35 @@ class DefaultPopulation(Population):
         one or both of the trees to be recombined are fixed). Then randomly
         select two compatible nodes from each.
         """
-        trees = [None, None]
+        roots = [recipient_root, donor_root]
+        annots = [None, None]
         tree_fns = self._random_individuals(n=int(not recipient_root) + int(not donor_root))
         n = 0
-        for i, root in enumerate([recipient_root, donor_root]):
+        for i, root in enumerate(roots):
             if root:
-                trees[i] = DefaultTree(root)
+                annots[i] = Annotations(root)
             else:
-                trees[i] = DefaultTree.load(tree_fns[n])
+                roots[i], annots[i] = self._load_tree(tree_fns[n])
                 n += 1
-        recipient_tree, donor_tree = trees[0], trees[1]
+        recipient_root, recipient_annot = roots[0], annots[0]
+        donor_root, donor_annot = roots[1], annots[1]
 
-        common_types = sorted(set(recipient_tree.nodes_by_name.keys()).intersection(set(donor_tree.nodes_by_name.keys())))
-        recipient_options = self._filter_nodes(recipient_tree, (node for rule_name in common_types for node in recipient_tree.nodes_by_name[rule_name]), limit)
+        common_types = sorted(set(recipient_annot.nodes_by_name.keys()).intersection(set(donor_annot.nodes_by_name.keys())))
+        recipient_options = self._filter_nodes((node for rule_name in common_types for node in recipient_annot.nodes_by_name[rule_name]), recipient_root, recipient_annot, limit)
         # Shuffle suitable nodes with sample.
         for recipient_node in random.sample(recipient_options, k=len(recipient_options)):
-            donor_options = tuple(donor_tree.nodes_by_name[recipient_node.name])
+            donor_options = tuple(donor_annot.nodes_by_name[recipient_node.name])
             for donor_node in random.sample(donor_options, k=len(donor_options)):
                 # Make sure that the output tree won't exceed the depth limit.
-                if (recipient_tree.node_levels[recipient_node] + donor_tree.node_depths[donor_node] <= limit.depth
-                        and recipient_tree.token_counts[recipient_tree.root] - recipient_tree.token_counts[recipient_node] + donor_tree.token_counts[donor_node] < limit.tokens):
+                if (recipient_annot.node_levels[recipient_node] + donor_annot.node_depths[donor_node] <= limit.depth
+                        and recipient_annot.token_counts[recipient_root] - recipient_annot.token_counts[recipient_node] + donor_annot.token_counts[donor_node] < limit.tokens):
                     return recipient_node, donor_node
 
         # If selection strategy fails, we return the roots of the two loaded
         # trees. This will practically cause the whole donor tree to be the
         # result of recombination.
         logger.debug('Could not find node pairs to recombine.')
-        return recipient_tree.root, donor_tree.root
+        return recipient_root, donor_root
 
     def add_individual(self, root, path=None):
         """
@@ -189,7 +159,7 @@ class DefaultPopulation(Population):
             path = type(self).__name__
 
         tree_path = join(self._directory, f'{path}.{uuid4().hex}.{self._extension}')
-        DefaultTree(root).save(tree_path)
+        self._save_tree(tree_path, root)
         self._files.append(tree_path)
 
     # Select ``n`` individuals from the population.
@@ -198,10 +168,29 @@ class DefaultPopulation(Population):
 
     # Filter items from ``nodes`` that can be regenerated within the current
     # maximum depth and token limit (except 'EOF' and '<INVALID>' nodes).
-    def _filter_nodes(self, tree, nodes, limit):
+    def _filter_nodes(self, nodes, root, annot, limit):
         return [node for node in nodes
                 if node.parent is not None
                 and node.name not in self._immutable_rules
                 and node.name not in [None, '<INVALID>']
-                and tree.node_levels[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).depth < limit.depth
-                and tree.token_counts[tree.root] - tree.token_counts[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).tokens < limit.tokens]
+                and annot.node_levels[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).depth < limit.depth
+                and annot.token_counts[root] - annot.token_counts[node] + self._min_sizes.get(node.name, RuleSize(0, 0)).tokens < limit.tokens]
+
+    def _load_tree(self, fn):
+        with open(fn, 'rb') as f:
+            if isinstance(self._codec, AnnotatedTreeCodec):
+                root, annot = self._codec.decode_annotated(f.read())
+            else:
+                root, annot = self._codec.decode(f.read()), None
+            if not annot:
+                annot = Annotations(root)
+            assert isinstance(root, Rule), root
+            assert isinstance(annot, Annotations), annot
+            return root, annot
+
+    def _save_tree(self, fn, root):
+        with open(fn, 'wb') as f:
+            if isinstance(self._codec, AnnotatedTreeCodec):
+                f.write(self._codec.encode_annotated(root, Annotations(root)))
+            else:
+                f.write(self._codec.encode(root))

@@ -10,6 +10,8 @@ import os
 
 from inators.imp import import_object
 
+from .tool import JsonTreeCodec, PickleTreeCodec
+
 logger = logging.getLogger('grammarinator')
 
 
@@ -39,3 +41,20 @@ def add_encoding_argument(parser, help):
 def add_encoding_errors_argument(parser):
     parser.add_argument('--encoding-errors', metavar='NAME', default='strict',
                         help='encoding error handling scheme (default: %(default)s).')
+
+
+tree_formats = {
+    'pickle': {'extension': 'grtp', 'codec_class': PickleTreeCodec},
+    'json': {'extension': 'grtj', 'codec_class': JsonTreeCodec},
+}
+
+
+def add_tree_format_argument(parser):
+    parser.add_argument('--tree-format', metavar='NAME', choices=sorted(tree_formats.keys()), default='pickle',
+                        help='format of the saved trees (choices: %(choices)s, default: %(default)s)')
+
+
+def process_tree_format_argument(args):
+    tree_format = tree_formats[args.tree_format]
+    args.tree_extension = tree_format['extension']
+    args.tree_codec = tree_format['codec_class']()
