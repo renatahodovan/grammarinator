@@ -39,6 +39,8 @@ class RuleSize:
 
         :ivar int or float depth: Derivation length.
         :ivar int or float tokens: Token count.
+
+        :cvar RuleSize max: All size metrics set to ``inf``.
         """
         self.depth = depth
         self.tokens = tokens
@@ -71,7 +73,7 @@ class RuleSize:
         return self.depth < other.depth and self.tokens < other.tokens
 
 
-RuleSize.max = RuleSize(inf, inf)  #: All size metrics set to ``inf``.
+RuleSize.max = RuleSize(inf, inf)
 
 
 class Rule:
