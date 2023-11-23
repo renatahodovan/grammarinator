@@ -477,21 +477,9 @@ class ProcessorTool:
                generated from them).
         :param bool pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
         """
-        lexer_root, parser_root = None, None
-
-        for grammar in grammars:
-            if grammar.endswith('.g4'):
-                root = self._parse_grammar(grammar, encoding, errors, lib_dir)
-                # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
-                if root.grammarDecl().grammarType().LEXER() or not root.grammarDecl().grammarType().PARSER():
-                    lexer_root = root
-                else:
-                    parser_root = root
-            else:
-                copy(grammar, self._work_dir)
-
-        graph = self._build_graph(actions, lexer_root, parser_root, options, default_rule)
-        self._analyze_graph(graph)
+        lexer_root, parser_root = ProcessorTool.parse_grammars(grammars, self._work_dir, encoding, errors, lib_dir)
+        graph = ProcessorTool.build_graph(actions, lexer_root, parser_root, options, default_rule)
+        ProcessorTool._analyze_graph(graph)
 
         src = self._template.render(graph=graph, version=__version__).lstrip()
         with open(join(self._work_dir, graph.name + '.' + self._lang), 'w') as f:
@@ -499,7 +487,25 @@ class ProcessorTool:
                 src = autopep8.fix_code(src)
             f.write(src)
 
-    def _parse_grammar(self, grammar, encoding, errors, lib_dir):
+    @staticmethod
+    def parse_grammars(grammars, work_dir, encoding='utf-8', errors='strict', lib_dir=None):
+        lexer_root, parser_root = None, None
+
+        for grammar in grammars:
+            if grammar.endswith('.g4'):
+                root = ProcessorTool._parse_grammar(grammar, encoding, errors, lib_dir)
+                # Lexer and/or combined grammars are processed first to evaluate TOKEN_REF-s.
+                if root.grammarDecl().grammarType().LEXER() or not root.grammarDecl().grammarType().PARSER():
+                    lexer_root = root
+                else:
+                    parser_root = root
+            else:
+                copy(grammar, work_dir)
+
+        return lexer_root, parser_root
+
+    @staticmethod
+    def _parse_grammar(grammar, encoding, errors, lib_dir):
         work_list = {grammar}
         root = None
 
@@ -518,7 +524,7 @@ class ProcessorTool:
                 for rule in current_root.rules().ruleSpec():
                     root.rules().addChild(rule)
 
-            work_list |= self._collect_imports(current_root, dirname(grammar), lib_dir)
+            work_list |= ProcessorTool._collect_imports(current_root, dirname(grammar), lib_dir)
 
         return root
 
@@ -537,7 +543,7 @@ class ProcessorTool:
         return imports
 
     @staticmethod
-    def _build_graph(actions, lexer_root, parser_root, options, default_rule):
+    def build_graph(actions, lexer_root, parser_root, options, default_rule):
 
         def find_conditions(node):
             if not actions:
