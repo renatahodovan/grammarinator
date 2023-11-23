@@ -173,7 +173,7 @@ class Generator:
                number of tokens (number of unlexer rule calls), i.e., it must
                be possible to finish generation from the selected node so that
                the overall depth and token count of the tree does not exceed
-               these limits (default value: :attr:`RuleSize.max`).
+               these limits (default: :class:`RuleSize`. ``max``).
         """
         self._model = model or DefaultModel()
         self._size = RuleSize()

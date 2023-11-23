@@ -65,7 +65,7 @@ class DefaultGeneratorFactory:
             number of tokens (number of unlexer rule calls), i.e., it must be
             possible to finish generation from the selected node so that the
             overall depth and token count of the tree does not exceed these
-            limits (default value: :attr:`RuleSize.max`).
+            limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
             Used to instantiate the generator.
         :return: The created generator instance.
         :rtype: ~grammarinator.runtime.Generator
@@ -111,7 +111,7 @@ class GeneratorTool:
             number of tokens (number of unlexer rule calls), i.e., it must be
             possible to finish generation from the selected node so that the
             overall depth and token count of the tree does not exceed these
-            limits (default value: :attr:`RuleSize.max`).
+            limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
         :param ~grammarinator.runtime.Population population: Tree pool for
             mutation and recombination, e.g., an instance of
             :class:`DefaultPopulation`.
