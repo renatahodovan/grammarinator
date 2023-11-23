@@ -5,7 +5,9 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import itertools
 import logging
+import math
 import os
 import shutil
 import sys
@@ -16,7 +18,9 @@ from subprocess import CalledProcessError, PIPE, run
 
 from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
 
-from ..runtime import RuleSize, UnlexerRule, UnparserRule
+from ..runtime import RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
+from .processor import AlternationNode, AlternativeNode, LambdaNode, ProcessorTool, QuantifierNode, UnlexerRuleNode, UnparserRuleNode
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,7 @@ class ParserTool:
     """
 
     def __init__(self, grammars, parser_dir, antlr, population,
-                 rule=None, hidden=None, transformers=None, max_depth=RuleSize.max.depth, cleanup=True,
+                 rule=None, hidden=None, transformers=None, max_depth=RuleSize.max.depth, lib_dir=None, cleanup=True,
                  encoding='utf-8', errors='strict'):
         """
         :param list[str] grammars: List of resources (grammars and additional sources) needed to parse the input.
@@ -52,6 +56,7 @@ class ParserTool:
         :param list transformers: List of transformers to be applied to postprocess
                the parsed tree before serializing it.
         :param int or float max_depth: Maximum depth of trees. Deeper trees are not saved.
+        :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
         :param bool cleanup: Boolean to enable the removal of the helper parser resources after processing the inputs.
         :param str encoding: Encoding of the input file.
         :param str errors: Encoding error handling scheme.
@@ -67,11 +72,14 @@ class ParserTool:
         self._parser_dir = parser_dir
         os.makedirs(self._parser_dir, exist_ok=True)
 
+        lexer_root, parser_root = ProcessorTool.parse_grammars(grammars, parser_dir, encoding, errors, lib_dir)
+        self._graph = ProcessorTool.build_graph(False, lexer_root, parser_root, None, rule)
+
         for i, grammar in enumerate(grammars):
             shutil.copy(grammar, self._parser_dir)
             grammars[i] = basename(grammar)
 
-        self._lexer_cls, self._parser_cls, self._listener_cls = self._build_grammars(grammars, self._parser_dir, antlr)
+        self._lexer_cls, self._parser_cls, self._listener_cls = self._build_grammars(grammars, self._parser_dir, antlr, lib_dir)
 
         self._rule = rule or self._parser_cls.ruleNames[0]
 
@@ -83,13 +91,14 @@ class ParserTool:
             shutil.rmtree(self._parser_dir, ignore_errors=True)
 
     @staticmethod
-    def _build_grammars(in_files, out, antlr):
+    def _build_grammars(in_files, out, antlr, lib_dir=None):
         """
         Build lexer and grammar from ANTLRv4 grammar files in Python3 target.
 
         :param in_files: List resources (grammars and additional sources) needed to parse the input.
         :param out: Directory where grammars are placed and where the output will be generated to.
         :param antlr: Path to the ANTLR4 tool (Java jar binary).
+        :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
         :return: List of references/names of the lexer, parser and listener classes of the target.
         """
         try:
@@ -105,7 +114,7 @@ class ParserTool:
             # Generate parser and lexer in the target language and return either with
             # python class ref or the name of java classes.
             try:
-                run(('java', '-jar', antlr, languages['python']['antlr_arg']) + grammars,
+                run(('java', '-jar', antlr, languages['python']['antlr_arg']) + (('-lib', lib_dir) if lib_dir else ()) + grammars,
                     stdout=PIPE, stderr=PIPE, cwd=out, check=True)
             except CalledProcessError as e:
                 logger.error('Building grammars %r failed!\n%s\n%s\n', grammars,
@@ -143,29 +152,35 @@ class ParserTool:
         :param antlr4.Parser parser: Parser object that created the ANTLR tree.
         :param set visited: Set of visited ANTLR nodes in the tree to be transformed.
         """
+        rules = set()
+
         if visited is None:
             visited = set()
 
         if isinstance(antlr_node, ParserRuleContext):
             rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
             class_name = antlr_node.__class__.__name__
-            node = UnparserRule(name=rule_name)
+            # Temporary use tuples as rule names to ease their comparison with grammar nodes,
+            # while adjusting the decision nodes. However, they will be stringified eventually.
+            node = UnparserRule(name=(rule_name,))
+            rules.add(node)
             parent_node = node
 
             # Check if the rule is a labeled alternative.
             if class_name.endswith('Context') and class_name.lower() != rule_name.lower() + 'context':
                 alt_name = class_name[:-len('Context')]
-                rule_name = f'{rule_name}_{alt_name[0].upper()}{alt_name[1:]}'
-                labeled_alt_node = UnparserRule(name=rule_name)
+                labeled_alt_node = UnparserRule(name=(rule_name, alt_name[0].upper() + alt_name[1:]))
+                rules.add(labeled_alt_node)
                 node += labeled_alt_node
                 parent_node = labeled_alt_node
 
             assert node.name, 'Node name of a parser rule is empty or None.'
             depth = 0
             for antlr_child in (antlr_node.children or []):
-                child, child_depth = self._antlr_to_grammarinator_tree(antlr_child, parser, visited)
+                child, child_depth, child_rules = self._antlr_to_grammarinator_tree(antlr_child, parser, visited)
                 if not child:
                     continue
+                rules.update(child_rules)
                 parent_node += child
                 depth = max(depth, child_depth + 1)
         else:
@@ -173,28 +188,180 @@ class ParserTool:
             name, text = parser.symbolicNames[antlr_node.symbol.type] if len(parser.symbolicNames) >= antlr_node.symbol.type else '<INVALID>', antlr_node.symbol.text
             assert name, f'{name} is None or empty'
             if antlr_node.symbol.type == Token.EOF:
-                return None, 0
+                return None, 0, []
 
             if not self._hidden:
-                node = UnlexerRule(name=name, src=text)
+                node = UnlexerRule(name=(name,), src=text)
+                rules.add(node)
             else:
                 node = []
                 hidden_tokens_to_left = parser.getTokenStream().getHiddenTokensToLeft(antlr_node.symbol.tokenIndex, -1) or []
                 for token in hidden_tokens_to_left:
                     if parser.symbolicNames[token.type] in self._hidden:
                         if token not in visited:
-                            node.append(UnlexerRule(name=parser.symbolicNames[token.type], src=token.text))
+                            node.append(UnlexerRule(name=(parser.symbolicNames[token.type],), src=token.text))
                             visited.add(token)
 
-                node.append(UnlexerRule(name=name, src=text))
+                node.append(UnlexerRule(name=(name,), src=text))
                 hidden_tokens_to_right = parser.getTokenStream().getHiddenTokensToRight(antlr_node.symbol.tokenIndex, -1) or []
                 for token in hidden_tokens_to_right:
                     if parser.symbolicNames[token.type] in self._hidden:
                         if token not in visited:
-                            node.append(UnlexerRule(name=parser.symbolicNames[token.type], src=token.text))
+                            node.append(UnlexerRule(name=(parser.symbolicNames[token.type],), src=token.text))
                             visited.add(token)
+                rules.update(node)
             depth = 0
-        return node, depth
+        return node, depth, rules
+
+    # The parse trees generated by the ANTLR parser consist solely of a rule hierarchy, lacking
+    # information about the decisions made during parsing. As a result, they do not include
+    # alternative, quantifier, or quantified nodes in the output tree, unlike the generator tool.
+    # The function below reconstructs such structures. The concept is that since we can assign
+    # to every tree node a grammar rule that produced it, it is sufficient to perform the
+    # matching - and hence the reconstruction - on a single rule level. In other words, there is
+    # no need to recursively match the entire tree.
+    def _adjust_tree_to_generator(self, rules):
+
+        def _adjust_rule(rule):
+            def _match_seq(grammar_vertices, tree_node_pos):
+                seq_children = []
+
+                for vertex_pos, vertex in enumerate(grammar_vertices):
+                    if vertex is None:  # end-of-rule marker
+                        return seq_children if tree_node_pos == len(tree_nodes) else None, tree_node_pos
+
+                    if isinstance(vertex, LambdaNode):
+                        continue
+
+                    if isinstance(vertex, UnparserRuleNode):
+                        if tree_node_pos < len(tree_nodes) and isinstance(tree_nodes[tree_node_pos], UnparserRule) and vertex.name == '_'.join(tree_nodes[tree_node_pos].name):
+                            seq_children += [tree_nodes[tree_node_pos]]
+                            tree_node_pos += 1
+                            continue
+                        return None, tree_node_pos
+
+                    if isinstance(vertex, UnlexerRuleNode):
+                        if tree_node_pos < len(tree_nodes) and isinstance(tree_nodes[tree_node_pos], UnlexerRule) and (vertex.name == '_'.join(tree_nodes[tree_node_pos].name)
+                                                                                                                       or tree_nodes[tree_node_pos].name == ('<INVALID>',) and tree_nodes[tree_node_pos].src == vertex.out_neighbours[0].src):
+                            seq_children += [tree_nodes[tree_node_pos]]
+                            tree_node_pos += 1
+                            continue
+                        return None, tree_node_pos
+
+                    if isinstance(vertex, AlternationNode):
+                        for alternative_vertex in vertex.out_neighbours:
+                            assert isinstance(alternative_vertex, AlternativeNode), alternative_vertex
+                            out_neighbours = alternative_vertex.out_neighbours
+                            # If the next alternative is a labelled alternative with recurring name, then
+                            # compare the tree nodes to the children of this alternative.
+                            if (len(out_neighbours) == 1 and isinstance(out_neighbours[0], UnparserRuleNode)
+                                    and len(out_neighbours[0].id) == 3 and out_neighbours[0].name == '_'.join(vertex.rule_id)):
+                                out_neighbours = out_neighbours[0].out_neighbours
+                            alt_children, alt_tree_node_pos = _match_seq(out_neighbours, tree_node_pos)
+                            if alt_children is not None:
+                                rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], alt_tree_node_pos)
+                                if rest_children is not None:
+                                    return seq_children + [(UnparserRuleAlternative(alt_idx=alternative_vertex.alt_idx, idx=alternative_vertex.idx), alt_children)] + rest_children, rest_tree_node_pos
+                        return None, tree_node_pos
+
+                    if isinstance(vertex, QuantifierNode):
+                        quantifier_children = []
+
+                        for _ in range(0, int(vertex.start)):
+                            quant_children, quant_tree_node_pos = _match_seq(vertex.out_neighbours, tree_node_pos)
+                            if quant_children is None:
+                                return None, tree_node_pos
+                            quantifier_children += [(UnparserRuleQuantified(), quant_children)]
+                            tree_node_pos = quant_tree_node_pos
+
+                        for _ in range(int(vertex.start), int(vertex.stop)) if vertex.stop != 'inf' else itertools.count():
+                            quant_children, quant_tree_node_pos = _match_seq(vertex.out_neighbours, tree_node_pos)
+                            if quant_children is None:
+                                rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], tree_node_pos)
+                                if rest_children is not None:
+                                    return seq_children + [(UnparserRuleQuantifier(idx=vertex.idx, start=vertex.start, stop=vertex.stop if vertex.stop != 'inf' else math.inf), quantifier_children)] + rest_children, rest_tree_node_pos
+                                return None, tree_node_pos
+                            quantifier_children += [(UnparserRuleQuantified(), quant_children)]
+                            tree_node_pos = quant_tree_node_pos
+
+                        rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], tree_node_pos)
+                        if rest_children is not None:
+                            return seq_children + [(UnparserRuleQuantifier(idx=vertex.idx, start=vertex.start, stop=vertex.stop), quantifier_children)] + rest_children, rest_tree_node_pos
+
+                        return None, tree_node_pos
+
+                    assert False, vertex
+
+                return seq_children, tree_node_pos
+
+            # Separate regular and hidden children of a tree node
+            tree_nodes, hidden_nodes = [], []
+            prev_child = None
+            for child in rule.children:
+                if isinstance(child, UnlexerRule) and '_'.join(child.name) in self._hidden:
+                    hidden_nodes.append((child, prev_child))
+                else:
+                    tree_nodes.append(child)
+                prev_child = child
+
+            # Match the right-hand side of the parser rule to the regular children of the tree node
+            # They MUST match, since ANTLR has already parsed them
+            # During matching, quantifier and alternation structures are identified
+            rule_children, rule_tree_node_pos = _match_seq(self._graph.vertices[rule.name].out_neighbours + [None], 0)
+            assert rule_children is not None, f'Failed to match {rule.name} tree node to the related grammar rule at {rule_tree_node_pos}.'
+
+            # Detach all children from the tree node so that they can be reattached
+            # in a structured way afterwards
+            for child in rule.children:
+                child.parent = None
+            rule.children = []
+
+            # Reattach all regular children
+            def _reattach_children(rule, children):
+                for child in children:
+                    if isinstance(child, tuple):
+                        child, grandchildren = child
+                        _reattach_children(child, grandchildren)
+                    rule.add_child(child)
+
+            _reattach_children(rule, rule_children)
+
+            # Reattach all hidden children
+            for child, prev_child in hidden_nodes:
+                if prev_child is None:
+                    rule.insert_child(0, child)
+                else:
+                    prev_child.parent.insert_child(prev_child.parent.children.index(prev_child) + 1, child)
+
+        # Adjust all rules ...
+        for rule in rules:
+            # ... except for unlexer rules.
+            if isinstance(rule, UnlexerRule) or not rule.children:
+                continue
+            _adjust_rule(rule)
+
+        # Post-process parser rules to remove the artificial alternative inserted
+        # above labelled alternatives with recurring label and fix the alternative
+        # index of the root alternative of such constructs.
+        for rule in rules:
+            if not isinstance(rule, UnparserRule):
+                continue
+
+            for child in rule.children:
+                if (isinstance(child, UnparserRuleAlternative)
+                        and len(child.children) == 1 and isinstance(grandchild := child.children[0], UnparserRule)
+                        and len(grandchild.children) == 1 and isinstance(grandgrandchild := grandchild.children[0], UnparserRuleAlternative)
+                        and len(rule.name) == 1 and len(grandchild.name) == 2 and rule.name[0] == grandchild.name[0]
+                        and child.alt_idx == grandgrandchild.alt_idx):
+                    child.idx = grandgrandchild.idx
+                    children_to_hoist = list(grandgrandchild.children)
+                    grandgrandchild.remove()
+                    grandchild.add_children(children_to_hoist)
+
+        # Stringify rule names.
+        for rule in rules:
+            assert isinstance(rule.name, tuple), rule.name
+            rule.name = '_'.join(rule.name)
 
     # Create an ANTLR tree from the input stream and convert it to Grammarinator tree.
     def _create_tree(self, input_stream, fn):
@@ -202,13 +369,15 @@ class ParserTool:
             parser = self._parser_cls(CommonTokenStream(self._lexer_cls(input_stream)))
             parse_tree_root = getattr(parser, self._rule)()
             if not parser._syntaxErrors:
-                root, depth = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
+                root, depth, rules = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
                 if depth > self._max_depth:
                     logger.info('The tree representation of %s is %s, too deep. Skipping.', fn, depth)
                     return None
 
+                self._adjust_tree_to_generator(rules)
                 for transformer in self._transformers:
                     root = transformer(root)
+
                 return root
 
             logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
