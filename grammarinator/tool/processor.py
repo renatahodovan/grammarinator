@@ -790,11 +790,28 @@ class ProcessorTool:
                 # for the `call` use case, where it will be handled as a value.
                 if use_case != 'call' and k is None:
                     k, v = v, None
+                t = None
+                if k:
+                    m = re.fullmatch(r'(\w+)\s*:([^:].*)', k)  # postfix type notation (name: type)
+                    if m:
+                        t, k = m.group(2, 1)
+                        t = t.strip()
+                    else:
+                        m = re.fullmatch(r'(.+)\s+(\w+)', k)  # prefix type notation (type name)
+                        if m:
+                            t, k = m.group(1, 2)
+                            t = t.strip()
+                        else:
+                            m = re.fullmatch(r'(\w+)', k)  # no-type notation (name)
+                            if not m:
+                                raise ValueError(f'unsupported type notation {k} in {use_case}')
+                if t == '':
+                    raise ValueError(f'type in {use_case} must not be empty')
                 if k == '':
                     raise ValueError(f'name in {use_case} must not be empty')
                 if v == '':
                     raise ValueError(f'value in {use_case} must not be empty')
-                args.append((k, v))
+                args.append((t, k, v))
 
             if node and node.argActionBlock():
                 src = ''.join(str(chr_arg) for chr_arg in node.argActionBlock().ARGUMENT_CONTENT()).strip()

@@ -8,8 +8,8 @@
  */
 
 /*
- * This test checks whether parser rule returns are propagated
- * properly up in the tree.
+ * This test checks whether parser rule returns are propagated properly up in
+ * the tree. Plus it checks the parsing of type notation in returns.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
@@ -31,7 +31,7 @@ start
     : res=expr '==' v=VAR {$v.src = str($res.result); assert(eval(str($res))) == float(str($res.result));}
     ;
 
-expr returns [result=0, unused_and_uninitialized]
+expr returns [result=0, int unused_and_uninitialized]
     : '(' op1=expr op='*' op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
     | '(' op1=expr op=('+' | '-') op2=expr ')' {$result = exec_op($op1.result, str($op), $op2.result)}
     | num=Number {$result = float(str($num))}
