@@ -14,7 +14,7 @@ from functools import partial
 from itertools import count
 from math import inf
 from multiprocessing import Manager, Pool
-from os.path import abspath, exists, isdir, join
+from os.path import abspath, exists, join
 
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from inators.imp import import_object
@@ -54,8 +54,6 @@ def process_args(args):
         args.weights = {}
 
     if args.population:
-        if not isdir(args.population):
-            raise ValueError('Population must point to an existing directory.')
         args.population = abspath(args.population)
 
 

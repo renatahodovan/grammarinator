@@ -26,9 +26,8 @@ class Annotations:
             self.node_levels[current] = level
 
             if current.name not in self.nodes_by_name:
-                self.nodes_by_name[current.name] = {}
-            # Emulating ordered set with dict in order to ensure reproducibility.
-            self.nodes_by_name[current.name][current] = None
+                self.nodes_by_name[current.name] = []
+            self.nodes_by_name[current.name].append(current)
 
             self.node_depths[current] = 0
             self.token_counts[current] = 0
@@ -43,8 +42,6 @@ class Annotations:
         self.node_depths = {}
         self.token_counts = {}
         _annotate(root, 0)
-        for name in self.nodes_by_name:
-            self.nodes_by_name[name] = list(self.nodes_by_name[name].keys())
 
 
 class DefaultPopulation(Population):
@@ -94,7 +91,7 @@ class DefaultPopulation(Population):
         else:
             root, annot = self._load_tree(self._random_individuals(n=1)[0])
 
-        options = self._filter_nodes((node for name in annot.nodes_by_name for node in annot.nodes_by_name[name]), root, annot, limit)
+        options = self._filter_nodes((node for nodes in annot.nodes_by_name.values() for node in nodes), root, annot, limit)
         if options:
             mutated_node = random.choice(options)
             return mutated_node, RuleSize(depth=annot.node_levels[mutated_node], tokens=annot.token_counts[root] - annot.token_counts[mutated_node])
@@ -129,7 +126,7 @@ class DefaultPopulation(Population):
         recipient_options = self._filter_nodes((node for rule_name in common_types for node in recipient_annot.nodes_by_name[rule_name]), recipient_root, recipient_annot, limit)
         # Shuffle suitable nodes with sample.
         for recipient_node in random.sample(recipient_options, k=len(recipient_options)):
-            donor_options = tuple(donor_annot.nodes_by_name[recipient_node.name])
+            donor_options = donor_annot.nodes_by_name[recipient_node.name]
             for donor_node in random.sample(donor_options, k=len(donor_options)):
                 # Make sure that the output tree won't exceed the depth limit.
                 if (recipient_annot.node_levels[recipient_node] + donor_annot.node_depths[donor_node] <= limit.depth
