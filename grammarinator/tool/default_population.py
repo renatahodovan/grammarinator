@@ -84,36 +84,6 @@ class DefaultTree:
         with open(fn, 'wb') as f:
             pickle.dump(self, f)
 
-    def print(self):
-        """
-        Print the structure of the tree (for debugging purposes).
-        """
-        def _walk(node):
-            nonlocal indent
-
-            if isinstance(node, UnparserRule):
-                print(f'{"|  " * indent}{node.name}')
-                indent += 1
-                for child in node.children:
-                    _walk(child)
-                indent -= 1
-
-            else:
-                print(f'{"|  " * indent}{node.name or ""}{":" if node.name else ""}{node.src!r}')
-
-        indent = 0
-        _walk(self.root)
-
-    def __str__(self):
-        """
-        Create the string representation of the tree starting from the
-        root node. Return a raw token sequence without any formatting.
-
-        :return: String representation of the tree.
-        :rtype: str
-        """
-        return str(self.root)
-
 
 class DefaultPopulation(Population):
     """

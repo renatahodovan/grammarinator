@@ -22,6 +22,7 @@ extension-pkg-allow-list=math
 disable=
     broad-except,
     comparison-with-callable,
+    consider-using-f-string,
     fixme,
     invalid-name,
     line-too-long,

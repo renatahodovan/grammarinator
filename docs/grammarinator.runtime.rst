@@ -5,5 +5,5 @@ Runtime API: package ``grammarinator.runtime``
 .. automodule:: grammarinator.runtime
    :members:
    :imported-members:
-   :special-members: __call__, __enter__, __exit__, __iadd__, __str__
+   :special-members: __call__, __enter__, __exit__, __iadd__
    :show-inheritance:
