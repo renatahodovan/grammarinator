@@ -19,7 +19,7 @@ from os.path import abspath, exists, isdir, join
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from inators.imp import import_object
 
-from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
+from .cli import add_encoding_argument, add_encoding_errors_argument, add_tree_format_argument, add_jobs_argument, import_list, init_logging, logger, process_tree_format_argument
 from .pkgdata import __version__
 from .runtime import RuleSize
 from .tool import DefaultGeneratorFactory, DefaultPopulation, GeneratorTool
@@ -69,8 +69,10 @@ def generator_tool_helper(args, weights, lock):
                          rule=args.rule, out_format=args.out,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
                          population=DefaultPopulation(args.population,
+                                                      args.tree_extension,
                                                       min_sizes=args.generator._rule_sizes,
-                                                      immutable_rules=args.generator._immutable_rules) if args.population else None,
+                                                      immutable_rules=args.generator._immutable_rules,
+                                                      codec=args.tree_codec) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
@@ -122,6 +124,7 @@ def execute():
                         help='disable test generation by recombination (disabled by default if no population is given).')
     parser.add_argument('--keep-trees', default=False, action='store_true',
                         help='keep generated tests to participate in further mutations or recombinations (only if population is given).')
+    add_tree_format_argument(parser)
 
     # Auxiliary settings.
     parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', 'test_%d'),
@@ -147,6 +150,7 @@ def execute():
     process_log_level_argument(args, logger)
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
+    process_tree_format_argument(args)
     try:
         process_args(args)
     except ValueError as e:

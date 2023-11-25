@@ -20,14 +20,20 @@
  *    - Next, create tests with recombination only and keep the output trees.
  *    - Third, use both mutation and recombination on the population extended
  *      with the previously generated trees.
+ * Population-related tasks (parsing, mutation, recombination) are checked using
+ * both available tree file formats.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 -s grammarinator.runtime.simple_space_serializer -o {tmpdir}/{grammar}A%d.txt
-// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/ -o {tmpdir}/{grammar}B%d.txt --keep-trees --no-generate --no-recombine
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/ -o {tmpdir}/{grammar}C%d.txt --keep-trees --no-generate --no-mutate
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/ -o {tmpdir}/{grammar}D%d.txt --no-generate
+// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/p/ --tree-format pickle
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/p/ --tree-format pickle -o {tmpdir}/{grammar}PB%d.txt --keep-trees --no-generate --no-recombine
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/p/ --tree-format pickle -o {tmpdir}/{grammar}PC%d.txt --keep-trees --no-generate --no-mutate
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/p/ --tree-format pickle -o {tmpdir}/{grammar}PD%d.txt --no-generate
+// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/j/ --tree-format json
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JB%d.txt --keep-trees --no-generate --no-recombine
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JC%d.txt --keep-trees --no-generate --no-mutate
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JD%d.txt --no-generate
 
 grammar LifeCycle;
 

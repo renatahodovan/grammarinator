@@ -14,7 +14,7 @@ from os.path import exists, join
 from antlerinator import add_antlr_argument, process_antlr_argument
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 
-from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, import_list, init_logging, logger
+from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_tree_format_argument, add_jobs_argument, import_list, init_logging, logger, process_tree_format_argument
 from .pkgdata import __version__
 from .runtime import RuleSize
 from .tool import DefaultPopulation, ParserTool
@@ -54,6 +54,7 @@ def execute():
                         help='directory to save the trees (default: %(default)s).')
     parser.add_argument('--parser-dir', metavar='DIR',
                         help='directory to save the parser grammars (default: <OUTDIR>/grammars).')
+    add_tree_format_argument(parser)
     add_encoding_argument(parser, help='input file encoding (default: %(default)s).')
     add_encoding_errors_argument(parser)
     add_disable_cleanup_argument(parser)
@@ -70,13 +71,14 @@ def execute():
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
     process_antlr_argument(args)
+    process_tree_format_argument(args)
     try:
         process_args(args)
     except ValueError as e:
         parser.error(e)
 
     with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                    population=DefaultPopulation(args.out), max_depth=args.max_depth, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
+                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
                 for _ in pool.imap_unordered(parser.parse, args.input):

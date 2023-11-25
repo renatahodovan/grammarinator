@@ -9,3 +9,4 @@ from .default_population import DefaultPopulation
 from .generator import DefaultGeneratorFactory, GeneratorTool
 from .parser import ParserTool
 from .processor import ProcessorTool
+from .tree_codec import AnnotatedTreeCodec, JsonTreeCodec, PickleTreeCodec, TreeCodec
