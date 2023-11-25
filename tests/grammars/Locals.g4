@@ -9,7 +9,7 @@
 
 /*
  * This test checks whether parser rule local variables are declared
- * and handled correctly.
+ * and handled correctly (even in the presence of type information).
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
@@ -18,7 +18,7 @@
 
 grammar Locals;
 
-start locals[cnt=0, unused_and_uninitialized]
+start locals[cnt=0, unused_and_uninitialized:int]
     : (Char {$cnt += 1})+ {assert(len(str(current)) == $cnt)}
     ;
 

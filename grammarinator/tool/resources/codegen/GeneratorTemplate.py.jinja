@@ -30,9 +30,9 @@ pass
 
 {% macro processRuleNode(node, inedge) %}
 {% if inedge.reserve != 0 %}
-self._reserve({{ inedge.reserve }}, self.{{ node.id }}, {% if inedge.args %}{% for k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+self._reserve({{ inedge.reserve }}, self.{{ node.id }}, {% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% else %}
-self.{{ node.id }}({% if inedge.args %}{% for k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+self.{{ node.id }}({% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% endif %}
 {% endmacro %}
 
@@ -140,16 +140,16 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endif %}
 
     {% for rule in graph.rules %}
-    def {{ rule.id }}(self, {% for k, v in rule.args %}{{ k }}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent=None):
+    def {{ rule.id }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}:{{ t }}{% endif %}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent=None):
         {% if rule.id != 'EOF' %}
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
-        local_ctx = {{ '{' }}{% for k, _ in rule.args %}'{{ k }}': {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if rule.args and (rule.locals + rule.returns) %}, {% endif %}{% for k, v in (rule.locals + rule.returns) %}'{{ k }}': {% if v %}{{ resolveVarRefs(v) }}{% else %}None{% endif %}{% if not loop.last or rule.labels %}, {% endif %}{% endfor %}{% for name, is_list in rule.labels.items() %}'{{ name }}': {% if is_list %}[]{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }}
+        local_ctx = {{ '{' }}{% for _, k, _ in rule.args %}'{{ k }}': {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if rule.args and (rule.locals + rule.returns) %}, {% endif %}{% for _, k, v in (rule.locals + rule.returns) %}'{{ k }}': {% if v %}{{ resolveVarRefs(v) }}{% else %}None{% endif %}{% if not loop.last or rule.labels %}, {% endif %}{% endfor %}{% for name, is_list in rule.labels.items() %}'{{ name }}': {% if is_list %}[]{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }}
         {% endif %}
         with {{ rule.type }}Context(self, '{{ rule.id }}', parent) as current:
             {% for edge in rule.out_edges %}
             {{ processNode(edge.dst, edge) | indent | indent | indent -}}
             {% endfor %}
-            {% for k, _ in rule.returns %}
+            {% for _, k, _ in rule.returns %}
             current.{{ k }} = local_ctx['{{ k }}']
             {% endfor %}
             return current

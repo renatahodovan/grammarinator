@@ -10,7 +10,8 @@
 /*
  * This test checks whether parser rule arguments are propagated properly down
  * the tree, even in an alternation that seems to contain "simple" alternatives
- * only.
+ * only. Plus it checks the parsing of prefix and postfix type notation and
+ * no-type notation in arguments.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
@@ -20,4 +21,4 @@ grammar ArgumentsInAlternations;
 
 start : a[1] | b[1, 1];
 a[x=0] : 'a' {assert $x == 1};
-b[x=0, y=0] : 'b' {assert $x == 1 and $y == 1};
+b[x:int=0, int y=0] : 'b' {assert $x == 1 and $y == 1};
