@@ -154,7 +154,7 @@ class {{ graph.name }}({{ graph.superclass }}):
             {% endfor %}
             return current
         {% else %}
-        pass
+        return None
         {% endif %}
 
     {% endfor %}
