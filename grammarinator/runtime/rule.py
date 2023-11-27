@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+from copy import deepcopy
 from math import inf
 from textwrap import indent
 
@@ -84,6 +85,11 @@ class Rule:
     """
     Abstract base class of tree nodes.
 
+    Tree nodes support deep copying via :func:`copy.deepcopy` (but no shallow
+    copying via :func:`copy.copy`). A deep copy of a node is the copy of the
+    whole subtree rooted at that node. However, the parent of a copy node is
+    always None, even if the original node had a parent.
+
     Tree nodes support various string representations:
 
     - The "informal" representation of a node consists of the concatenation of
@@ -131,42 +137,39 @@ class Rule:
     @property
     def left_sibling(self):
         """
-        Returns the left sibling of the node if any.
+        Get the left sibling of the node if any. Return ``None`` if the node has
+        no parent or is the leftmost child of its parent.
 
-        :raises ValueError: if the current node has no parent or if it is
-          detached from its parent (it is not among the children of the parent).
-
-        :return: The left sibling of the current node.
+        :return: The left sibling of the current node or ``None``.
         :rtype: Rule
         """
-        try:
-            self_idx = self.parent.children.index(self)
-            return self.parent.children[self_idx - 1] if self_idx > 0 else None
-        except ValueError:
+        if not self.parent:
             return None
+        self_idx = self.parent.children.index(self)
+        if self_idx == 0:
+            return None
+        return self.parent.children[self_idx - 1]
 
     @property
     def right_sibling(self):
         """
-        Returns the left sibling of the node if any.
+        Get the right sibling of the node if any. Return ``None`` if the node
+        has no parent or is the rightmost child of its parent.
 
-        :raises ValueError: if the current node has no parent or if it is
-          detached from its parent (it is not among the children of the parent).
-
-        :return: The right sibling of the current node.
+        :return: The right sibling of the current node or ``None``.
         :rtype: Rule
         """
-        try:
-            self_idx = self.parent.children.index(self)
-            return self.parent.children[self_idx + 1] if self_idx < len(self.parent.children) - 1 else None
-        except ValueError:
+        if not self.parent:
             return None
+        self_idx = self.parent.children.index(self)
+        if self_idx == len(self.parent.children) - 1:
+            return None
+        return self.parent.children[self_idx + 1]
 
     @property
     def root(self):
         """
-        Return the root of the node, i.e., the node at the top of the parent
-        chain.
+        Get the root of the node, i.e., the node at the top of the parent chain.
 
         :return: The root of the current node.
         :rtype: Rule
@@ -178,21 +181,22 @@ class Rule:
 
     def replace(self, node):
         """
-        Replace the current node with ``node``.
+        Replace the current node with ``node`` among its siblings.
 
         :param Rule node: The replacement node.
         :return: ``node``
         :rtype: Rule
         """
+        node.remove()
         if self.parent and node is not self:
             self.parent.children[self.parent.children.index(self)] = node
             node.parent = self.parent
             self.parent = None
         return node
 
-    def delete(self):
+    def remove(self):
         """
-        Delete the current node from the tree.
+        Remove the current node from its parent.
         """
         if self.parent:
             self.parent.children.remove(self)
@@ -214,6 +218,12 @@ class Rule:
             return self._dbg_()
         raise TypeError
 
+    def __copy__(self):
+        raise TypeError('shallow copy not supported')
+
+    def __deepcopy__(self, memo):
+        raise NotImplementedError()
+
 
 class UnparserRule(Rule):
     """
@@ -221,39 +231,38 @@ class UnparserRule(Rule):
     :class:`UnlexerRule` children.
     """
 
-    def __init__(self, *, name):
+    def __init__(self, *, name, children=None):
         """
         :param str name: Name of the corresponding parser rule in the grammar.
+        :param list[Rule] children: Children of the rule (default: no children).
 
         :ivar list[Rule] children: Children of the rule.
         """
         super().__init__(name=name)
         self.children = []
+        if children:
+            self.add_children(children)
 
     @property
     def last_child(self):
         """
-        Get or replace the last child of the current node.
+        Get the last child of the current node if any. Return ``None`` if the
+        node has no children.
         """
         return self.children[-1] if self.children else None
-
-    @last_child.setter
-    def last_child(self, node):
-        self.children.pop().parent = None
-        self.add_child(node)
 
     def insert_child(self, idx, node):
         """
         Insert node as child at position.
 
-        :param int idx: Index of position to insert ``node`` to.
-        :param Rule node: Node object to be inserted.
+        :param int idx: Index of position to insert ``node`` at.
+        :param Rule node: Node to be inserted.
         """
         if not node:
             return
-
-        node.parent = self
+        node.remove()
         self.children.insert(idx, node)
+        node.parent = self
 
     def add_child(self, node):
         """
@@ -263,7 +272,7 @@ class UnparserRule(Rule):
         """
         if node is None:
             return
-
+        node.remove()
         self.children.append(node)
         node.parent = self
 
@@ -327,25 +336,29 @@ class UnparserRule(Rule):
 
         return result[0] if len(result) == 1 else result
 
+    def __deepcopy__(self, memo):
+        return UnparserRule(name=deepcopy(self.name, memo), children=[deepcopy(child, memo) for child in self.children])
+
 
 class UnlexerRule(Rule):
     """
     Tree node representing a lexer rule or token. It has a string constant set in its ``src`` field.
     """
 
-    def __init__(self, *, name=None, src=None):
+    def __init__(self, *, name=None, src=None, size=None):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
         :param str src: String content of the lexer rule (default: "").
+        :param RuleSize size: Size of the lexer rule (default: (1,1) if ``src``
+            is not empty, (0,0) otherwise).
 
         :ivar str src: String content of the lexer rule.
         :ivar RuleSize size: Size of the lexer rule, aggregated from the
             token fragments it is composed of.
         """
-        self.src = src or ''
-        self.size = RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0)
-
         super().__init__(name=name)
+        self.src = src or ''
+        self.size = size or (RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0))
 
     def __str__(self):
         return self.src
@@ -362,3 +375,6 @@ class UnlexerRule(Rule):
 
     def _dbg_(self):
         return f'{self.name or ""}{":" if self.name else ""}{self.src!r}'
+
+    def __deepcopy__(self, memo):
+        return UnlexerRule(name=deepcopy(self.name, memo), src=deepcopy(self.src, memo), size=deepcopy(self.size, memo))
