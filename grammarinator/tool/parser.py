@@ -153,8 +153,8 @@ class ParserTool:
             parent_node = node
 
             # Check if the rule is a labeled alternative.
-            if not class_name.lower().startswith(rule_name.lower()):
-                alt_name = class_name[:-len('Context')] if class_name.endswith('Context') else class_name
+            if class_name.endswith('Context') and class_name.lower() != rule_name.lower() + 'context':
+                alt_name = class_name[:-len('Context')]
                 rule_name = f'{rule_name}_{alt_name[0].upper()}{alt_name[1:]}'
                 labeled_alt_node = UnparserRule(name=rule_name)
                 node += labeled_alt_node

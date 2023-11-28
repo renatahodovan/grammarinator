@@ -9,7 +9,8 @@
 
 /*
  * This test checks whether the labeled alternatives are handled correctly
- * (including the handling of variables within labeled alternatives).
+ * (including the handling of variables within labeled alternatives and
+ * labels starting with the name of the containing rule).
  *
  * Note:
  *  - Because this test generates multiple outputs files, it exercises both
@@ -28,6 +29,7 @@ grammar LabeledAlternatives;
 start
     : x=Hello World           # HelloAlternative
     | Grammarinator y=Rulez   # GrammarinatorAlternative
+    | Hello Grammarinator     # StartLastOption
     ;
 
 Hello : 'hello' ;
