@@ -149,18 +149,22 @@ class ParserTool:
         if isinstance(antlr_node, ParserRuleContext):
             rule_name = parser.ruleNames[antlr_node.getRuleIndex()]
             class_name = antlr_node.__class__.__name__
+            node = UnparserRule(name=rule_name)
+            parent_node = node
 
             # Check if the rule is a labeled alternative.
             if not class_name.lower().startswith(rule_name.lower()):
                 alt_name = class_name[:-len('Context')] if class_name.endswith('Context') else class_name
                 rule_name = f'{rule_name}_{alt_name[0].upper()}{alt_name[1:]}'
+                labeled_alt_node = UnparserRule(name=rule_name)
+                node += labeled_alt_node
+                parent_node = labeled_alt_node
 
-            node = UnparserRule(name=rule_name)
             assert node.name, 'Node name of a parser rule is empty or None.'
             depth = 0
             for antlr_child in (antlr_node.children or []):
                 child, child_depth = self._antlr_to_grammarinator_tree(antlr_child, parser, visited)
-                node += child
+                parent_node += child
                 depth = max(depth, child_depth + 1)
         else:
             assert isinstance(antlr_node, TerminalNode), f'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {antlr_node.__class__.__name__} was found.'
