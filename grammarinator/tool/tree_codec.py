@@ -131,14 +131,9 @@ class JsonTreeCodec(TreeCodec):
     def decode(self, data):
         def _dict_to_rule(dct):
             if dct['t'] == 'l':
-                obj = UnlexerRule(name=dct['n'], src=dct['s'])
-                obj.size = RuleSize(depth=dct['z'][0], tokens=dct['z'][1])
-                return obj
+                return UnlexerRule(name=dct['n'], src=dct['s'], size=RuleSize(depth=dct['z'][0], tokens=dct['z'][1]))
             if dct['t'] == 'p':
-                obj = UnparserRule(name=dct['n'])
-                for child in dct['c']:
-                    obj += child
-                return obj
+                return UnparserRule(name=dct['n'], children=dct['c'])
             raise json.JSONDecodeError
 
         try:
