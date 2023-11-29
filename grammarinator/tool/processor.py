@@ -192,7 +192,7 @@ class AlternationNode(Node):
         return simple_lits, simple_rules
 
     def __str__(self):
-        return f'{super().__str__()}; idx: {self.idx}; cond: {", ".join(self.conditions)}'
+        return f'{super().__str__()}; idx: {self.idx}; conditions: {self.conditions}'
 
 
 class AlternativeNode(Node):
