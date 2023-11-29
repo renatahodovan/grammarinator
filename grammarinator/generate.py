@@ -66,11 +66,7 @@ def generator_tool_helper(args, weights, lock):
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
-                         population=DefaultPopulation(args.population,
-                                                      args.tree_extension,
-                                                      min_sizes=args.generator._rule_sizes,
-                                                      immutable_rules=args.generator._immutable_rules,
-                                                      codec=args.tree_codec) if args.population else None,
+                         population=DefaultPopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
