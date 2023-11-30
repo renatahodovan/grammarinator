@@ -74,7 +74,7 @@ with AlternationContext(self, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ nod
     [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}(current)](parent=current)
     {% else %}
     choice{{ node.idx }} = alt{{ node.idx }}(current)
-    {% for edge in node.out_edges %}
+    {% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
     {{ 'if' if loop.index0 == 0 else 'elif' }} choice{{ node.idx }} == {{ edge.dst.idx }}:
         {{ processNode(edge.dst, edge) | indent | indent -}}
     {% endfor %}
