@@ -157,7 +157,7 @@ class LambdaNode(Node):
 class AlternationNode(Node):
 
     def __init__(self, rule_id, idx, conditions):
-        super().__init__()
+        super().__init__(f'{rule_id}_alt{idx}')
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the alternation in the container rule.
         self.conditions = conditions
@@ -198,7 +198,7 @@ class AlternationNode(Node):
 class AlternativeNode(Node):
 
     def __init__(self, rule_id, alt_idx, idx):
-        super().__init__()
+        super().__init__(f'{rule_id}_alt{alt_idx}_{idx}')
         self.rule_id = rule_id  # Identifier of the container rule.
         self.alt_idx = alt_idx  # Index of the container alternation inside the container rule.
         self.idx = idx  # Index of the alternative in the container alternation.
@@ -210,7 +210,7 @@ class AlternativeNode(Node):
 class QuantifierNode(Node):
 
     def __init__(self, rule_id, idx, start, stop):
-        super().__init__()
+        super().__init__(f'{rule_id}_quant{idx}')
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the quantifier in the container rule.
         self.start = start
