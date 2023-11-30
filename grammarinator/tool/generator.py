@@ -19,10 +19,54 @@ from ..runtime import CooldownModel, DefaultModel, RuleSize, UnparserRule
 logger = logging.getLogger(__name__)
 
 
-class DefaultGeneratorFactory:
+class GeneratorFactory:
     """
-    The default generator factory implementation. Instances of
-    ``DefaultGeneratorFactory`` are callable. When called, a new generator
+    Base class of generator factories. A generator factory is a generalization
+    of a generator class. It has to be a callable that, when called, must return
+    a generator instance. It must also expose some properties of the generator
+    class it generalizes that are required to guide generation or mutation by
+    :class:`GeneratorTool`.
+
+    This factory generalizes a generator class by simply wrapping it and
+    forwarding call operations to instantiations of the wrapped class.
+    Furthermore, generator factories deriving from this base class are
+    guaranteed to expose all the required generator class properties.
+    """
+
+    def __init__(self, generator_class):
+        """
+        :param type[~grammarinator.runtime.Generator] generator_class: The class
+            of the wrapped generator.
+
+        :ivar type[~grammarinator.runtime.Generator] _generator_class: The class
+            of the wrapped generator.
+        """
+        self._generator_class = generator_class
+        # Exposing some class variables of the encapsulated generator.
+        # In the generator class, they start with `_` to avoid any kind of
+        # collision with rule names, so they start with `_` here as well.
+        self._rule_sizes = generator_class._rule_sizes
+        self._immutable_rules = generator_class._immutable_rules
+
+    def __call__(self, limit=None):
+        """
+        Create a new generator instance.
+
+        :param RuleSize limit: The limit on the depth of the trees and on the
+            number of tokens (number of unlexer rule calls), i.e., it must be
+            possible to finish generation from the selected node so that the
+            overall depth and token count of the tree does not exceed these
+            limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
+            Used to instantiate the generator.
+        :return: The created generator instance.
+        :rtype: ~grammarinator.runtime.Generator
+        """
+        return self._generator_class(limit=limit)
+
+
+class DefaultGeneratorFactory(GeneratorFactory):
+    """
+    The default generator factory implementation. When called, a new generator
     instance is created backed by a new decision model instance and a set of
     newly created listener objects is attached.
     """
@@ -49,16 +93,12 @@ class DefaultGeneratorFactory:
         :param list[type[~grammarinator.runtime.Listener]] listener_classes:
             List of listener classes to instantiate and attach to the generator.
         """
-        self._generator_class = generator_class
+        super().__init__(generator_class)
         self._model_class = model_class or DefaultModel
         self._cooldown = cooldown
         self._weights = weights
         self._lock = lock
         self._listener_classes = listener_classes or []
-        # Adding some public instance variables to access fields of the generator.
-        # They start with `_` to avoid any kind of collision with rule names.
-        self._rule_sizes = generator_class._rule_sizes
-        self._immutable_rules = generator_class._immutable_rules
 
     def __call__(self, limit=None):
         """
@@ -97,14 +137,17 @@ class GeneratorTool:
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8', errors='strict', dry_run=False):
         """
-        :param generator_factory: A callable that can produce instances of a
-            generator. It is a generalization of a generator class: it has to
-            instantiate a generator object, and it may also set the decision
-            model and the listeners of the generator as well. In the simplest
-            case, it can be a ``grammarinator-process``-created subclass of
+        :param type[~grammarinator.runtime.Generator] or GeneratorFactory generator_factory:
+            A callable that can produce instances of a generator. It is a
+            generalization of a generator class: it has to instantiate a
+            generator object, and it may also set the decision model and the
+            listeners of the generator as well. It also has to expose some
+            properties of the generator class necessary to guide generation or
+            mutation. In the simplest case, it can be a
+            ``grammarinator-process``-created subclass of
             :class:`~grammarinator.runtime.Generator`, but in more complex
-            scenarios a factory can be used, e.g., an instance of
-            :class:`DefaultGeneratorFactory`.
+            scenarios a factory can be used, e.g., an instance of a subclass of
+            :class:`GeneratorFactory`, like :class:`DefaultGeneratorFactory`.
         :param str rule: Name of the rule to start generation from (default: the
             default rule of the generator).
         :param str out_format: Test output description. It can be a file path pattern possibly including the ``%d``
