@@ -244,7 +244,7 @@ class GeneratorTool:
 
         test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
 
-        if self._population and self._keep_trees:
+        if self._population is not None and self._keep_trees:
             self._population.add_individual(root, path=test_fn)
 
         if test_fn:
