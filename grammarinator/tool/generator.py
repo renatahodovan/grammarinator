@@ -14,7 +14,7 @@ from contextlib import nullcontext
 from os.path import abspath, dirname
 from shutil import rmtree
 
-from ..runtime import CooldownModel, DefaultModel, RuleSize
+from ..runtime import CooldownModel, DefaultModel, RuleSize, UnparserRule
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,10 @@ class DefaultGeneratorFactory:
         self._weights = weights
         self._lock = lock
         self._listener_classes = listener_classes or []
+        # Adding some public instance variables to access fields of the generator.
+        # They start with `_` to avoid any kind of collision with rule names.
+        self._rule_sizes = generator_class._rule_sizes
+        self._immutable_rules = generator_class._immutable_rules
 
     def __call__(self, limit=None):
         """
@@ -180,20 +184,13 @@ class GeneratorTool:
         if self._enable_generation:
             creators.append(self.generate)
         if self._population:
-            if self._enable_mutation and self._population.can_mutate():
+            if self._enable_mutation:
                 creators.append(self.mutate)
-            if self._enable_recombination and self._population.can_recombine():
+            if self._enable_recombination:
                 creators.append(self.recombine)
-        creator = random.choice(creators)
 
-        if creator == self.generate:
-            root = creator()
-        elif creator == self.mutate:
-            mutated_node, reserve = self._population.select_to_mutate(self._limit)
-            root = creator(mutated_node, reserve)
-        elif creator == self.recombine:
-            recipient_node, donor_node = self._population.select_to_recombine(self._limit)
-            root = creator(recipient_node, donor_node)
+        creator = random.choice(creators)
+        root = creator()
 
         for transformer in self._transformers:
             root = transformer(root)
@@ -243,38 +240,103 @@ class GeneratorTool:
 
         return getattr(generator, rule)()
 
-    def mutate(self, mutated_node, reserve):
+    def mutate(self):
         """
-        Mutate a tree at a given position, i.e., discard and re-generate its
-        sub-tree at the specified node.
+        Mutate a tree at a random position, i.e., discard and re-generate its
+        sub-tree at a randomly selected node.
 
-        :param Rule mutated_node: The root of the sub-tree that should be
-            re-generated.
-        :param RuleSize reserve: Size budget that needs to be put in reserve
-            before re-generating the sub-tree (distance of the sub-tree from
-            the root of the tree, number of tokens outside the sub-tree).
-            Practically, deduced from the initially specified limit.
         :return: The root of the mutated tree.
         :rtype: Rule
         """
-        mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))
-        return mutated_node.root
+        root, annot = self._select_individual()
 
-    def recombine(self, recipient_node, donor_node):
+        options = self._filter_nodes((node for nodes in annot.nodes_by_name.values() for node in nodes), root, annot)
+        if options:
+            mutated_node = random.choice(options)
+            reserve = RuleSize(depth=annot.node_levels[mutated_node],
+                               tokens=annot.token_counts[root] - annot.token_counts[mutated_node])
+            mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))
+            return mutated_node.root
+
+        # If selection strategy fails, we fallback and discard the whole tree
+        # and generate a brand new one instead.
+        logger.debug('Could not choose node to mutate.')
+        return self.generate(rule=root.name)
+
+    def recombine(self):
         """
-        Recombine two trees at given positions where the nodes are compatible
+        Recombine two trees at random positions where the nodes are compatible
         with each other (i.e., they share the same node name). One of the trees
         is called the recipient while the other is the donor. The sub-tree
-        rooted at the specified node of the recipient is discarded and replaced
-        by the sub-tree rooted at the specified node of the donor.
+        rooted at a random node of the recipient is discarded and replaced
+        by the sub-tree rooted at a random node of the donor.
 
-        :param Rule recipient_node: The root of the sub-tree in the recipient.
-        :param Rule donor_node: The root of the sub-tree in the donor.
         :return: The root of the recombined tree.
         :rtype: Rule
         """
-        if recipient_node.name != donor_node.name:
-            raise ValueError(f'{recipient_node.name} cannot be replaced with {donor_node.name}')
+        recipient_root, recipient_annot = self._select_individual()
+        donor_root, donor_annot = self._select_individual()
 
-        recipient_node = recipient_node.replace(donor_node)
-        return recipient_node.root
+        common_types = sorted(set(recipient_annot.nodes_by_name.keys()).intersection(set(donor_annot.nodes_by_name.keys())))
+        recipient_options = self._filter_nodes((node for rule_name in common_types for node in recipient_annot.nodes_by_name[rule_name]), recipient_root, recipient_annot)
+        # Shuffle suitable nodes with sample.
+        for recipient_node in random.sample(recipient_options, k=len(recipient_options)):
+            donor_options = donor_annot.nodes_by_name[recipient_node.name]
+            for donor_node in random.sample(donor_options, k=len(donor_options)):
+                # Make sure that the output tree won't exceed the depth limit.
+                if (recipient_annot.node_levels[recipient_node] + donor_annot.node_depths[donor_node] <= self._limit.depth
+                        and recipient_annot.token_counts[recipient_root] - recipient_annot.token_counts[recipient_node] + donor_annot.token_counts[donor_node] < self._limit.tokens):
+                    recipient_node = recipient_node.replace(donor_node)
+                    return recipient_node.root
+
+        # If selection strategy fails, we practically cause the whole donor tree
+        # to be the result of recombination.
+        logger.debug('Could not find node pairs to recombine.')
+        return donor_root
+
+    def _select_individual(self):
+        root, annot = self._population.select_individual()
+        if not annot:
+            annot = Annotations(root)
+        return root, annot
+
+    def _add_individual(self, root, path):
+        # FIXME: if population cannot store annotations, creating Annotations is
+        # superfluous here, but we have no way of knowing that in advance
+        self._population.add_individual(root, Annotations(root), path)
+
+    # Filter items from ``nodes`` that can be regenerated within the current
+    # maximum depth and token limit (except '<INVALID>' and immutable nodes
+    # and nodes without name).
+    def _filter_nodes(self, nodes, root, annot):
+        return [node for node in nodes
+                if node.parent is not None
+                and node.name not in self._generator_factory._immutable_rules
+                and node.name not in [None, '<INVALID>']
+                and annot.node_levels[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).depth < self._limit.depth
+                and annot.token_counts[root] - annot.token_counts[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).tokens < self._limit.tokens]
+
+
+class Annotations:
+
+    def __init__(self, root):
+        def _annotate(current, level):
+            self.node_levels[current] = level
+
+            if current.name not in self.nodes_by_name:
+                self.nodes_by_name[current.name] = []
+            self.nodes_by_name[current.name].append(current)
+
+            self.node_depths[current] = 0
+            self.token_counts[current] = 0
+            if isinstance(current, UnparserRule):
+                for child in current.children:
+                    _annotate(child, level + 1)
+                    self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)
+                    self.token_counts[current] += self.token_counts[child] if isinstance(child, UnparserRule) else child.size.tokens + 1
+
+        self.nodes_by_name = {}
+        self.node_levels = {}
+        self.node_depths = {}
+        self.token_counts = {}
+        _annotate(root, 0)
