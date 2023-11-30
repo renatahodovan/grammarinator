@@ -203,6 +203,10 @@ class AlternativeNode(Node):
         self.alt_idx = alt_idx  # Index of the container alternation inside the container rule.
         self.idx = idx  # Index of the alternative in the container alternation.
 
+    @property
+    def is_lambda_alternative(self):
+        return len(self.out_neighbours) == 1 and isinstance(self.out_neighbours[0], LambdaNode)
+
     def __str__(self):
         return f'{super().__str__()}; idx: {self.idx}'
 
