@@ -87,9 +87,9 @@ class NodeSize:
 
 class RuleNode(Node):
 
-    def __init__(self, name, label, type):
-        super().__init__(name if label is None else '_'.join((name, label)))
-        self.name = name
+    def __init__(self, name, label, label_idx, type):
+        super().__init__(name if label is None else f'{name}_{label}' if label_idx is None else f'{name}_{label}_{label_idx}')
+        self.name = name if label is None else f'{name}_{label}'
         self.type = type
         self.min_size = None
 
@@ -110,14 +110,14 @@ class UnlexerRuleNode(RuleNode):
         if not name:
             name = f'T__{UnlexerRuleNode._lit_cnt}'
             UnlexerRuleNode._lit_cnt += 1
-        super().__init__(name, None, 'UnlexerRule')
+        super().__init__(name, None, None, 'UnlexerRule')
         self.start_ranges = None
 
 
 class UnparserRuleNode(RuleNode):
 
-    def __init__(self, name, label=None):
-        super().__init__(name, label, 'UnparserRule')
+    def __init__(self, name, label=None, label_idx=None):
+        super().__init__(name, label, label_idx, 'UnparserRule')
 
 
 class ImagRuleNode(Node):
@@ -875,6 +875,9 @@ class ProcessorTool:
 
                     nonlocal alt_idx
                     conditions = [find_conditions(child) for child in children]
+                    labels = [str(child.identifier().TOKEN_REF() or child.identifier().RULE_REF()) for child in children if child.identifier()] if isinstance(node, ANTLRv4Parser.RuleAltListContext) else []
+                    recurring_labels = {name for name, cnt in Counter(labels).items() if cnt > 1}
+                    assert len(labels) == 0 or len(labels) == len(children)
                     alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=append_unique(graph.alt_conds, conditions) if all(cond.isnumeric() for cond in conditions) else conditions, rule_id=rule.id))
                     alt_idx += 1
                     graph.add_edge(frm=parent_id, to=alt_id)
@@ -882,16 +885,38 @@ class ProcessorTool:
                     for i, child in enumerate(children):
                         alternative_id = graph.add_node(AlternativeNode(rule_id=rule.id, alt_idx=graph.vertices[alt_id].idx, idx=i))
                         graph.add_edge(frm=alt_id, to=alternative_id)
-                        build_expr(child, alternative_id)
 
-                elif isinstance(node, ANTLRv4Parser.LabeledAltContext):
-                    if not node.identifier():
-                        build_expr(node.alternative(), parent_id)
-                        return
+                        if labels:
+                            # Add label index to rules to distinguish the alternatives with recurring labels.
+                            label_idx = labels[:i + 1].count(labels[i]) - 1 if labels[i] in recurring_labels else None
+                            rule_node_id = graph.add_node(UnparserRuleNode(name=rule.name, label=labels[i], label_idx=label_idx))
+                            graph.add_edge(frm=alternative_id, to=rule_node_id)
+                            build_rule(graph.vertices[rule_node_id], child)
+                        else:
+                            build_expr(child, alternative_id)
 
-                    rule_node = UnparserRuleNode(name=rule.name, label=str(node.identifier().TOKEN_REF() or node.identifier().RULE_REF()))
-                    graph.add_edge(frm=parent_id, to=graph.add_node(rule_node))
-                    build_rule(rule_node, node.alternative())
+                    # Add an artificial rule named `{rule.name}_{label}` that has a single alternation with
+                    # the original number of alternatives which are however masked to enable to choose only
+                    # those labeled with `label`. This method will be used to regenerate the subtrees produced
+                    # by a labelled alternative with recurring label name.
+                    for label in recurring_labels:
+                        # Mask conditions to enable only the alternatives with the common label.
+                        new_conditions = [cond if labels[ci] == label else '0' for ci, cond in enumerate(conditions)]
+                        labeled_alt_id = graph.add_node(
+                            AlternationNode(idx=0,
+                                            conditions=append_unique(graph.alt_conds, new_conditions) if all(
+                                                cond.isnumeric() for cond in new_conditions) else new_conditions,
+                                            rule_id=rule.id))
+                        graph.add_edge(frm=graph.add_node(UnparserRuleNode(name=rule.name, label=label)), to=labeled_alt_id)
+                        recurring_idx = 0
+                        for i in range(len(children)):
+                            labeled_alternative_id = graph.add_node(AlternativeNode(rule_id=f'{rule.id}_{label}', alt_idx=0, idx=i))
+                            graph.add_edge(frm=labeled_alt_id, to=labeled_alternative_id)
+                            if labels[i] == label:
+                                graph.add_edge(frm=labeled_alternative_id, to=f'{rule.name}_{label}_{recurring_idx}')
+                                recurring_idx += 1
+                            else:
+                                graph.add_edge(frm=labeled_alternative_id, to=lambda_id)
 
                 elif isinstance(node, (ANTLRv4Parser.AlternativeContext, ANTLRv4Parser.LexerAltContext)):
                     children = node.element() if isinstance(node, ANTLRv4Parser.AlternativeContext) else node.lexerElements().lexerElement()

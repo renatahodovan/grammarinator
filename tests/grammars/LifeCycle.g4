@@ -40,14 +40,18 @@ grammar LifeCycle;
 start : TEST testType ;
 
 testType
-     : PROCESS   # ProcessType
-     | GENERATE  # GenerateType
-     | PARSE     # ParseType
+     : PROCESS    # ProcessType
+     | GENERATE   # GenerateType
+     | MUTATE     # GenerateType
+     | RECOMBINE  # GenerateType
+     | PARSE      # ParseType
      ;
 
 TEST : 'TEST' ;
 PROCESS : 'PROCESS' ;
 GENERATE : 'GENERATE' ;
+MUTATE : 'MUTATE' ;
+RECOMBINE : 'RECOMBINE' ;
 PARSE : 'PARSE' ;
 
 WS : [ \t\n\r] -> channel(HIDDEN);
