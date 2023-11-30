@@ -902,12 +902,13 @@ class ProcessorTool:
                     for label in recurring_labels:
                         # Mask conditions to enable only the alternatives with the common label.
                         new_conditions = [cond if labels[ci] == label else '0' for ci, cond in enumerate(conditions)]
+                        recurring_rule_id = graph.add_node(UnparserRuleNode(name=rule.name, label=label))
                         labeled_alt_id = graph.add_node(
                             AlternationNode(idx=0,
                                             conditions=append_unique(graph.alt_conds, new_conditions) if all(
                                                 cond.isnumeric() for cond in new_conditions) else new_conditions,
-                                            rule_id=rule.id))
-                        graph.add_edge(frm=graph.add_node(UnparserRuleNode(name=rule.name, label=label)), to=labeled_alt_id)
+                                            rule_id=recurring_rule_id))
+                        graph.add_edge(frm=recurring_rule_id, to=labeled_alt_id)
                         recurring_idx = 0
                         for i in range(len(children)):
                             labeled_alternative_id = graph.add_node(AlternativeNode(rule_id=f'{rule.id}_{label}', alt_idx=0, idx=i))
