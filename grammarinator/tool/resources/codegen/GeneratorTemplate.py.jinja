@@ -143,7 +143,17 @@ class {{ graph.name }}({{ graph.superclass }}):
     def {{ rule.id }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}:{{ t }}{% endif %}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent=None):
         {% if rule.id != 'EOF' %}
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
-        local_ctx = {{ '{' }}{% for _, k, _ in rule.args %}'{{ k }}': {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if rule.args and (rule.locals + rule.returns) %}, {% endif %}{% for _, k, v in (rule.locals + rule.returns) %}'{{ k }}': {% if v %}{{ resolveVarRefs(v) }}{% else %}None{% endif %}{% if not loop.last or rule.labels %}, {% endif %}{% endfor %}{% for name, is_list in rule.labels.items() %}'{{ name }}': {% if is_list %}[]{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }}
+        local_ctx = {
+            {%- for _, k, _ in rule.args -%}
+            '{{ k }}': {{ k }}{% if not loop.last %}, {% endif %}
+            {% endfor %}{% if rule.args and (rule.locals or rule.returns or rule.labels) %}, {% endif %}
+            {% for _, k, v in (rule.locals + rule.returns) -%}
+            '{{ k }}': {% if v %}{{ resolveVarRefs(v) }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}
+            {% endfor %}{% if (rule.locals or rule.returns) and rule.labels %}, {% endif %}
+            {% for name, is_list in rule.labels.items() -%}
+            '{{ name }}': {% if is_list %}[]{% else %}None{% endif %}{% if not loop.last %}, {% endif %}
+            {% endfor -%}
+        }
         {% endif %}
         with {{ rule.type }}Context(self, '{{ rule.name }}', parent) as current:
             {% for edge in rule.out_edges %}
