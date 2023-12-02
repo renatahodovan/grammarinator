@@ -859,6 +859,13 @@ class ProcessorTool:
                 _save_pair(lhs, src[start:].strip())
             return args
 
+        def isfloat(s):
+            try:
+                float(s)
+                return True
+            except ValueError:
+                return False
+
         def build_rule(rule, node):
             lexer_rule = isinstance(rule, UnlexerRuleNode)
             alt_idx, quant_idx, chr_idx = 0, 0, 0  # pylint: disable=unused-variable
@@ -882,7 +889,7 @@ class ProcessorTool:
                     labels = [str(child.identifier().TOKEN_REF() or child.identifier().RULE_REF()) for child in children if child.identifier()] if isinstance(node, ANTLRv4Parser.RuleAltListContext) else []
                     recurring_labels = {name for name, cnt in Counter(labels).items() if cnt > 1}
                     assert len(labels) == 0 or len(labels) == len(children)
-                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=append_unique(graph.alt_conds, conditions) if all(cond.isnumeric() for cond in conditions) else conditions, rule_id=rule.id))
+                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=append_unique(graph.alt_conds, conditions) if all(isfloat(cond) for cond in conditions) else conditions, rule_id=rule.id))
                     alt_idx += 1
                     graph.add_edge(frm=parent_id, to=alt_id)
 
@@ -907,11 +914,9 @@ class ProcessorTool:
                         # Mask conditions to enable only the alternatives with the common label.
                         new_conditions = [cond if labels[ci] == label else '0' for ci, cond in enumerate(conditions)]
                         recurring_rule_id = graph.add_node(UnparserRuleNode(name=rule.name, label=label))
-                        labeled_alt_id = graph.add_node(
-                            AlternationNode(idx=0,
-                                            conditions=append_unique(graph.alt_conds, new_conditions) if all(
-                                                cond.isnumeric() for cond in new_conditions) else new_conditions,
-                                            rule_id=recurring_rule_id))
+                        labeled_alt_id = graph.add_node(AlternationNode(idx=0,
+                                                                        conditions=append_unique(graph.alt_conds, new_conditions) if all(isfloat(cond) for cond in new_conditions) else new_conditions,
+                                                                        rule_id=recurring_rule_id))
                         graph.add_edge(frm=recurring_rule_id, to=labeled_alt_id)
                         recurring_idx = 0
                         for i in range(len(children)):
