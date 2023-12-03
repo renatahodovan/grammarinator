@@ -48,37 +48,42 @@ current.src += '{{ node.src | escape_string }}'
 
 
 {% macro processQuantifierNode(node, inedge) %}
-with QuantifierContext(self, {{ node.idx }}, {{ node.start }}, {{ node.stop }}, {{ graph.name }}._quant_sizes[{{ node.min_size }}], {{ inedge.reserve }}) as quant{{ node.idx }}:
-    while quant{{ node.idx }}(current):
-    {% for edge in node.out_edges %}
-        {{ processNode(edge.dst, edge) | indent | indent -}}
-    {% endfor %}
+with QuantifierContext(rule, {{ node.idx }}, {{ node.start }}, {{ node.stop }}, {{ graph.name }}._quant_sizes[{{ node.min_size }}], {{ inedge.reserve }}) as quant{{ node.idx }}:
+    while quant{{ node.idx }}():
+        with QuantifiedContext(rule):
+            current = rule.current
+            {% for edge in node.out_edges %}
+            {{ processNode(edge.dst, edge) | indent | indent | indent -}}
+            {% endfor %}
+current = rule.current
 {% endmacro %}
 
 
 {% macro processAlternationNode(node, inedge) %}
-with AlternationContext(self, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}({{ resolveVarRefs(node.conditions | join(', ')) }}){% else %}{{ graph.name }}._alt_conds[{{ node.conditions }}]{% endif %}) as alt{{ node.idx }}:
+with AlternationContext(rule, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}({{ resolveVarRefs(node.conditions | join(', ')) }}){% else %}{{ graph.name }}._alt_conds[{{ node.conditions }}]{% endif %}) as alt{{ node.idx }}:
+    current = rule.current
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
     {% if simple_lits and simple_rules %}
-    choice{{ node.idx }} = alt{{ node.idx }}(current)
-    src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
-    rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
-    if src is not None:
-        current.src += src
+    choice{{ node.idx }} = alt{{ node.idx }}()
+    alt_src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
+    alt_rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
+    if alt_src is not None:
+        current.src += alt_src
     else:
-        rule(parent=current)
+        alt_rule(parent=current)
     {% elif simple_lits %}
-    current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}(current)]
+    current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()]
     {% elif simple_rules %}
-    [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}(current)](parent=current)
+    [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()](parent=current)
     {% else %}
-    choice{{ node.idx }} = alt{{ node.idx }}(current)
+    choice{{ node.idx }} = alt{{ node.idx }}()
     {% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
     {{ 'if' if loop.index0 == 0 else 'elif' }} choice{{ node.idx }} == {{ edge.dst.idx }}:
         {{ processNode(edge.dst, edge) | indent | indent -}}
     {% endfor %}
     {% endif %}
+current = rule.current
 {% endmacro %}
 
 
@@ -155,7 +160,8 @@ class {{ graph.name }}({{ graph.superclass }}):
             {% endfor -%}
         }
         {% endif %}
-        with {{ rule.type }}Context(self, '{{ rule.name }}', parent) as current:
+        with {{ rule.type }}Context(self, '{{ rule.name }}', parent) as rule:
+            current = rule.current
             {% for edge in rule.out_edges %}
             {{ processNode(edge.dst, edge) | indent | indent | indent -}}
             {% endfor %}
@@ -168,6 +174,7 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% endif %}
 
     {% endfor %}
+
     _default_rule = {{ graph.default_rule }}
 
     _immutable_rules = ({% for name in graph.immutables %}'{{ name }}'{% if not loop.last or loop.length == 1 %}, {% endif%}{% endfor %})

@@ -14,7 +14,7 @@ from contextlib import nullcontext
 from os.path import abspath, dirname
 from shutil import rmtree
 
-from ..runtime import CooldownModel, DefaultModel, RuleSize, UnparserRule
+from ..runtime import CooldownModel, DefaultModel, ParentRule, RuleSize, UnlexerRule, UnparserRule
 
 logger = logging.getLogger(__name__)
 
@@ -366,17 +366,19 @@ class Annotations:
         def _annotate(current, level):
             self.node_levels[current] = level
 
-            if current.name not in self.nodes_by_name:
-                self.nodes_by_name[current.name] = []
-            self.nodes_by_name[current.name].append(current)
+            if isinstance(current, (UnlexerRule, UnparserRule)):
+                if current.name:
+                    if current.name not in self.nodes_by_name:
+                        self.nodes_by_name[current.name] = []
+                    self.nodes_by_name[current.name].append(current)
 
             self.node_depths[current] = 0
             self.token_counts[current] = 0
-            if isinstance(current, UnparserRule):
+            if isinstance(current, ParentRule):
                 for child in current.children:
                     _annotate(child, level + 1)
                     self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)
-                    self.token_counts[current] += self.token_counts[child] if isinstance(child, UnparserRule) else child.size.tokens + 1
+                    self.token_counts[current] += self.token_counts[child] if isinstance(child, ParentRule) else child.size.tokens + 1
 
         self.nodes_by_name = {}
         self.node_levels = {}

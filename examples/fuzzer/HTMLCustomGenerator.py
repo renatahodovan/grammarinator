@@ -29,7 +29,8 @@ class HTMLCustomGenerator(HTMLGenerator):
 
     # Customize the function generated from the htmlTagName parser rule to produce valid tag names.
     def htmlTagName(self, parent=None):
-        with UnparserRuleContext(gen=self, name='htmlTagName', parent=parent) as current:
+        with UnparserRuleContext(gen=self, name='htmlTagName', parent=parent) as rule:
+            current = rule.current
             name = random.choice(tags[self.tag_stack[-1]]['children'] or tag_names if self.tag_stack else tag_names)
             self.tag_stack.append(name)
             current += UnlexerRule(src=name)
@@ -38,7 +39,8 @@ class HTMLCustomGenerator(HTMLGenerator):
 
     # Customize the function generated from the htmlAttributeName parser rule to produce valid attribute names.
     def htmlAttributeName(self, parent=None):
-        with UnparserRuleContext(gen=self, name='htmlAttributeName', parent=parent) as current:
+        with UnparserRuleContext(gen=self, name='htmlAttributeName', parent=parent) as rule:
+            current = rule.current
             name = random.choice(list(tags[self.tag_stack[-1]]['attributes'].keys()) or ['""'])
             self.attr_stack.append(name)
             current += UnlexerRule(src=name)
@@ -47,7 +49,8 @@ class HTMLCustomGenerator(HTMLGenerator):
     # Customize the function generated from the htmlAttributeValue parser rule to produce valid attribute values
     # to the current tag and attribute name.
     def htmlAttributeValue(self, parent=None):
-        with UnparserRuleContext(gen=self, name='htmlAttributeValue', parent=parent) as current:
+        with UnparserRuleContext(gen=self, name='htmlAttributeValue', parent=parent) as rule:
+            current = rule.current
             current += UnlexerRule(src=random.choice(tags[self.tag_stack[-1]]['attributes'].get(self.attr_stack.pop(), ['""']) or ['""']))
             return current
 

@@ -20,6 +20,7 @@ extension-pkg-allow-list=math
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 disable=
+    abstract-method,
     broad-except,
     comparison-with-callable,
     consider-using-f-string,
