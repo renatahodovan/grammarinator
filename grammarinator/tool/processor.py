@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -43,9 +43,9 @@ class Node:
 
     def __init__(self, id=None):
         if id is None:
-            id = Node._cnt
+            id = (Node._cnt, )
             Node._cnt += 1
-        self.id = id
+        self.id = id if isinstance(id, tuple) else (id, )
         self.out_edges = []
 
     @property
@@ -87,9 +87,11 @@ class NodeSize:
 
 class RuleNode(Node):
 
-    def __init__(self, name, label, label_idx, type):
-        super().__init__(name if label is None else f'{name}_{label}' if label_idx is None else f'{name}_{label}_{label_idx}')
-        self.name = name if label is None else f'{name}_{label}'
+    def __init__(self, name, type):
+        name = name if isinstance(name, tuple) else (name,)
+        super().__init__(name)
+        # Keep rule and label name, but exclude label index if exists.
+        self.name = '_'.join(part for part in name[:2])
         self.type = type
         self.min_size = None
 
@@ -110,14 +112,14 @@ class UnlexerRuleNode(RuleNode):
         if not name:
             name = f'T__{UnlexerRuleNode._lit_cnt}'
             UnlexerRuleNode._lit_cnt += 1
-        super().__init__(name, None, None, 'UnlexerRule')
+        super().__init__(name, 'UnlexerRule')
         self.start_ranges = None
 
 
 class UnparserRuleNode(RuleNode):
 
-    def __init__(self, name, label=None, label_idx=None):
-        super().__init__(name, label, label_idx, 'UnparserRule')
+    def __init__(self, name):
+        super().__init__(name, 'UnparserRule')
 
 
 class ImagRuleNode(Node):
@@ -157,7 +159,7 @@ class LambdaNode(Node):
 class AlternationNode(Node):
 
     def __init__(self, rule_id, idx, conditions):
-        super().__init__(f'{rule_id}_alt{idx}')
+        super().__init__((rule_id, 'alt', idx))
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the alternation in the container rule.
         self.conditions = conditions
@@ -198,7 +200,7 @@ class AlternationNode(Node):
 class AlternativeNode(Node):
 
     def __init__(self, rule_id, alt_idx, idx):
-        super().__init__(f'{rule_id}_alt{alt_idx}_{idx}')
+        super().__init__((rule_id, 'alt', alt_idx, idx))
         self.rule_id = rule_id  # Identifier of the container rule.
         self.alt_idx = alt_idx  # Index of the container alternation inside the container rule.
         self.idx = idx  # Index of the alternative in the container alternation.
@@ -214,7 +216,7 @@ class AlternativeNode(Node):
 class QuantifierNode(Node):
 
     def __init__(self, rule_id, idx, start, stop):
-        super().__init__(f'{rule_id}_quant{idx}')
+        super().__init__((rule_id, 'quant', idx))
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the quantifier in the container rule.
         self.start = start
@@ -336,6 +338,8 @@ class GrammarGraph:
         return node.id
 
     def add_edge(self, frm, to, args=None):
+        frm = frm if isinstance(frm, tuple) else (frm,)
+        to = to if isinstance(to, tuple) else (to,)
         assert frm in self.vertices, f'{frm} not in vertices.'
         assert to in self.vertices, f'{to} not in vertices.'
         self.vertices[frm].out_edges.append(Edge(dst=self.vertices[to], args=args))
@@ -900,7 +904,7 @@ class ProcessorTool:
                         if labels:
                             # Add label index to rules to distinguish the alternatives with recurring labels.
                             label_idx = labels[:i + 1].count(labels[i]) - 1 if labels[i] in recurring_labels else None
-                            rule_node_id = graph.add_node(UnparserRuleNode(name=rule.name, label=labels[i], label_idx=label_idx))
+                            rule_node_id = graph.add_node(UnparserRuleNode(name=(rule.name, labels[i], label_idx) if label_idx is not None else (rule.name, labels[i])))
                             graph.add_edge(frm=alternative_id, to=rule_node_id)
                             build_rule(graph.vertices[rule_node_id], child)
                         else:
@@ -913,7 +917,7 @@ class ProcessorTool:
                     for label in recurring_labels:
                         # Mask conditions to enable only the alternatives with the common label.
                         new_conditions = [cond if labels[ci] == label else '0' for ci, cond in enumerate(conditions)]
-                        recurring_rule_id = graph.add_node(UnparserRuleNode(name=rule.name, label=label))
+                        recurring_rule_id = graph.add_node(UnparserRuleNode(name=(rule.name, label)))
                         labeled_alt_id = graph.add_node(AlternationNode(idx=0,
                                                                         conditions=append_unique(graph.alt_conds, new_conditions) if all(isfloat(cond) for cond in new_conditions) else new_conditions,
                                                                         rule_id=recurring_rule_id))
@@ -923,7 +927,7 @@ class ProcessorTool:
                             labeled_alternative_id = graph.add_node(AlternativeNode(rule_id=f'{rule.id}_{label}', alt_idx=0, idx=i))
                             graph.add_edge(frm=labeled_alt_id, to=labeled_alternative_id)
                             if labels[i] == label:
-                                graph.add_edge(frm=labeled_alternative_id, to=f'{rule.name}_{label}_{recurring_idx}')
+                                graph.add_edge(frm=labeled_alternative_id, to=(rule.name, label, recurring_idx))
                                 recurring_idx += 1
                             else:
                                 graph.add_edge(frm=labeled_alternative_id, to=lambda_id)
@@ -988,7 +992,7 @@ class ProcessorTool:
                         else:
                             if '_dot' not in graph.vertices:
                                 # Create an artificial `_dot` rule with an alternation of all the lexer rules.
-                                parser_dot_id = graph.add_node(UnparserRuleNode(name='_dot', label=None))
+                                parser_dot_id = graph.add_node(UnparserRuleNode(name='_dot'))
                                 unlexer_ids = [v.name for vid, v in graph.vertices.items() if isinstance(v, UnlexerRuleNode)]
                                 alt_id = graph.add_node(AlternationNode(rule_id=parser_dot_id, idx=0, conditions=[1] * len(unlexer_ids)))
                                 graph.add_edge(frm=parser_dot_id, to=alt_id)
@@ -1124,7 +1128,7 @@ class ProcessorTool:
                         duplicate_rules.append(rule_node.id)
 
             if duplicate_rules:
-                raise ValueError(f'Rule redefinition(s): {", ".join(duplicate_rules)}')
+                raise ValueError(f'Rule redefinition(s): {", ".join(["_".join(id) for id in duplicate_rules])}')
 
             # Ensure to process lexer rules first to lookup table from literal constants.
             for rule_args in sorted(generator_rules, key=lambda r: int(isinstance(r[0], UnparserRuleNode))):
@@ -1163,9 +1167,9 @@ class ProcessorTool:
     def _analyze_graph(graph, root=None):
         root = root or graph.default_rule
         min_distances = defaultdict(lambda: inf)
-        min_distances[root] = 0
+        min_distances[(root,)] = 0
 
-        work_list = [root]
+        work_list = [(root,)]
         while work_list:
             v = work_list.pop(0)
             for out_v in graph.vertices[v].out_neighbours:

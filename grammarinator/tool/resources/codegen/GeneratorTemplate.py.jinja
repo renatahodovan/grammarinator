@@ -1,5 +1,5 @@
 {#
- # Copyright (c) 2020-2023 Renata Hodovan, Akos Kiss.
+ # Copyright (c) 2020-2024 Renata Hodovan, Akos Kiss.
  #
  # Licensed under the BSD 3-Clause License
  # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -30,9 +30,9 @@ pass
 
 {% macro processRuleNode(node, inedge) %}
 {% if inedge.reserve != 0 %}
-self._reserve({{ inedge.reserve }}, self.{{ node.id }}, {% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+self._reserve({{ inedge.reserve }}, self.{{ node.id | join('_') }}, {% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% else %}
-self.{{ node.id }}({% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+self.{{ node.id  | join('_') }}({% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% endif %}
 {% endmacro %}
 
@@ -67,7 +67,7 @@ with AlternationContext(rule, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ nod
     {% if simple_lits and simple_rules %}
     choice{{ node.idx }} = alt{{ node.idx }}()
     alt_src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
-    alt_rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
+    alt_rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule | join('_') }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     if alt_src is not None:
         current.src += alt_src
     else:
@@ -75,7 +75,7 @@ with AlternationContext(rule, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ nod
     {% elif simple_lits %}
     current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()]
     {% elif simple_rules %}
-    [{% for rule in simple_rules %}self.{{ rule }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()](parent=current)
+    [{% for rule in simple_rules %}self.{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()](parent=current)
     {% else %}
     choice{{ node.idx }} = alt{{ node.idx }}()
     {% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
@@ -135,8 +135,8 @@ else:
 class {{ graph.name }}({{ graph.superclass }}):
 
     {% for rule in graph.imag_rules %}
-    def {{ rule.id }}(self, parent=None):
-        with UnlexerRuleContext(self, '{{ rule.id }}', parent) as current:
+    def {{ rule.id | join('_') }}(self, parent=None):
+        with UnlexerRuleContext(self, '{{ rule.id | join('_') }}', parent) as current:
             return current
     {% endfor %}
 
@@ -145,7 +145,7 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endif %}
 
     {% for rule in graph.rules %}
-    def {{ rule.id }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}:{{ t }}{% endif %}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent=None):
+    def {{ rule.id | join('_') }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}:{{ t }}{% endif %}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent=None):
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
         local_ctx = {
             {%- for _, k, _ in rule.args -%}
@@ -173,11 +173,11 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     _default_rule = {{ graph.default_rule }}
 
-    _immutable_rules = ({% for name in graph.immutables %}'{{ name }}'{% if not loop.last or loop.length == 1 %}, {% endif%}{% endfor %})
+    _immutable_rules = ({% for name in graph.immutables %}'{{ name | join('_') }}'{% if not loop.last or loop.length == 1 %}, {% endif%}{% endfor %})
 
     _rule_sizes = {
         {% for rule in graph.rules %}
-        '{{ rule.id }}': RuleSize({{ rule.min_size.depth }}, {{ rule.min_size.tokens }}),
+        '{{ rule.id | join('_') }}': RuleSize({{ rule.min_size.depth }}, {{ rule.min_size.tokens }}),
         {% endfor %}
     }
 
