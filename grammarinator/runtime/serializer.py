@@ -5,7 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .rule import UnparserRule
+from .rule import ParentRule
 
 
 def simple_space_serializer(root):
@@ -22,7 +22,7 @@ def simple_space_serializer(root):
         stack = [root]
         while stack:
             node = stack.pop()
-            if isinstance(node, UnparserRule):
+            if isinstance(node, ParentRule):
                 stack.extend(reversed(node.children))
             else:
                 yield node.src

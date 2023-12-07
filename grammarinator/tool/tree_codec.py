@@ -8,7 +8,7 @@
 import json
 import pickle
 
-from ..runtime import RuleSize, UnlexerRule, UnparserRule
+from ..runtime import RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 
 
 class TreeCodec:
@@ -122,9 +122,15 @@ class JsonTreeCodec(TreeCodec):
     def encode(self, root):
         def _rule_to_dict(node):
             if isinstance(node, UnlexerRule):
-                return {'n': node.name, 't': 'l', 's': node.src, 'z': [node.size.depth, node.size.tokens]}
+                return {'t': 'l', 'n': node.name, 's': node.src, 'z': [node.size.depth, node.size.tokens]}
             if isinstance(node, UnparserRule):
-                return {'n': node.name, 't': 'p', 'c': node.children}
+                return {'t': 'p', 'n': node.name, 'c': node.children}
+            if isinstance(node, UnparserRuleAlternative):
+                return {'t': 'a', 'ai': node.alt_idx, 'i': node.idx, 'c': node.children}
+            if isinstance(node, UnparserRuleQuantified):
+                return {'t': 'qd', 'c': node.children}
+            if isinstance(node, UnparserRuleQuantifier):
+                return {'t': 'q', 'i': node.idx, 'b': node.start, 'e': node.stop, 'c': node.children}
             raise AssertionError
         return json.dumps(root, default=_rule_to_dict).encode(encoding=self._encoding)
 
@@ -134,6 +140,12 @@ class JsonTreeCodec(TreeCodec):
                 return UnlexerRule(name=dct['n'], src=dct['s'], size=RuleSize(depth=dct['z'][0], tokens=dct['z'][1]))
             if dct['t'] == 'p':
                 return UnparserRule(name=dct['n'], children=dct['c'])
+            if dct['t'] == 'a':
+                return UnparserRuleAlternative(alt_idx=dct['ai'], idx=dct['i'], children=dct['c'])
+            if dct['t'] == 'qd':
+                return UnparserRuleQuantified(children=dct['c'])
+            if dct['t'] == 'q':
+                return UnparserRuleQuantifier(idx=dict['i'], start=dct['b'], stop=dct['e'], children=dct['c'])
             raise json.JSONDecodeError
 
         try:

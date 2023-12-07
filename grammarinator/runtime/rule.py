@@ -225,10 +225,9 @@ class Rule:
         raise NotImplementedError()
 
 
-class UnparserRule(Rule):
+class ParentRule(Rule):
     """
-    Tree node representing a parser rule. It can have zero or more :class:`UnparserRule` or
-    :class:`UnlexerRule` children.
+    Abstract base class of tree nodes that can have children.
     """
 
     def __init__(self, *, name, children=None):
@@ -314,6 +313,14 @@ class UnparserRule(Rule):
     def _dbg_(self):
         return '{name}\n{children}'.format(name=self.name, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
 
+
+class UnparserRule(ParentRule):
+    """
+    Tree node representing a parser rule. It can have zero or more
+    :class:`UnparserRule`, :class:`UnlexerRule`, :class:`UnparserRuleQuantifier`
+    or :class:`UnparserRuleAlternative` children.
+    """
+
     def __getattr__(self, item):
         # This check is needed to avoid infinite recursions when loading a tree
         # with pickle. In such cases, the loaded instance is prepared by
@@ -378,3 +385,73 @@ class UnlexerRule(Rule):
 
     def __deepcopy__(self, memo):
         return UnlexerRule(name=deepcopy(self.name, memo), src=deepcopy(self.src, memo), size=deepcopy(self.size, memo))
+
+
+class UnparserRuleQuantifier(ParentRule):
+    """
+    Tree node representing the root of a quantified sub-tree. It can have one
+    or more :class:`UnparserRuleQuantified` children.
+    """
+
+    def __init__(self, *, idx, start, stop, children=None):
+        super().__init__(name=None, children=children)
+        self.idx = idx
+        self.start = start
+        self.stop = stop
+
+    def __repr__(self):
+        parts = [
+            f'idx={self.idx}',
+            f'start={self.start}',
+            f'stop={self.stop}',
+        ]
+        if self.children:
+            parts.append('children=[\n{children}\n]'.format(children=indent(',\n'.join(repr(child) for child in self.children), '  ')))
+        return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def __deepcopy__(self, memo):
+        return UnparserRuleQuantifier(idx=deepcopy(self.idx, memo), start=deepcopy(self.start, memo), stop=deepcopy(self.stop, memo), children=[deepcopy(child, memo) for child in self.children])
+
+
+class UnparserRuleQuantified(ParentRule):
+    """
+    Tree node representing a single instance of quantified sub-tree. It can
+    have one or more :class:`UnparserRule`, :class:`UnlexerRule`,
+    :class:`UnparserRuleQuantifier` or :class:`UnparserRuleAlternative`
+    children.
+    """
+
+    def __init__(self, *, children=None):
+        super().__init__(name=None, children=children)
+
+    def __deepcopy__(self, memo):
+        return UnparserRuleQuantified(children=[deepcopy(child, memo) for child in self.children])
+
+
+class UnparserRuleAlternative(ParentRule):
+    """
+    Tree node representing a sub-tree of an alternative. It can
+    have zero or more :class:`UnparserRule`, :class:`UnlexerRule`,
+    :class:`UnparserRuleQuantifier` or :class:`UnparserRuleAlternative`
+    children.
+    """
+
+    def __init__(self, *, alt_idx, idx, children=None):
+        super().__init__(name=None, children=children)
+        self.alt_idx = alt_idx
+        self.idx = idx
+
+    def __repr__(self):
+        parts = [
+            f'alt_idx={self.alt_idx}',
+            f'idx={self.idx}',
+        ]
+        if self.children:
+            parts.append('children=[\n{children}\n]'.format(
+                children=indent(',\n'.join(repr(child) for child in self.children), '  ')))
+        return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def __deepcopy__(self, memo):
+        return UnparserRuleAlternative(alt_idx=deepcopy(self.alt_idx, memo),
+                                       idx=deepcopy(self.idx, memo),
+                                       children=[deepcopy(child, memo) for child in self.children])

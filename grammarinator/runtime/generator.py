@@ -9,30 +9,51 @@ import itertools
 import logging
 
 from .default_model import DefaultModel
-from .rule import RuleSize, UnlexerRule, UnparserRule
+from .rule import RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 
 logger = logging.getLogger(__name__)
 
 
-class RuleContext:
+class Context:
+
+    def __init__(self, node):
+        self.node = node
+
+    def __enter__(self):
+        # Returns self. Effectively a no-op. Can be safely overridden by
+        # subclasses without calling super().__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # A no-op. Can be safely overridden by subclasses without calling
+        # super().__exit__(exc_type, exc_val, exc_tb)
+        pass
+
+
+class RuleContext(Context):
     # Context manager wrapping rule generations. It is responsible for
     # keeping track of the value of `max_depth` and for transitively calling the
     # enter and exit methods of the registered listeners.
 
     def __init__(self, gen, node):
-        self._gen = gen
-        self._node = node
+        super().__init__(node)
+        self.gen = gen
+        self.ctx = self
+
+    @property
+    def current(self):
+        return self.ctx.node
 
     def __enter__(self):
         # Increment current depth by 1 before entering the next level.
-        self._gen._size.depth += 1
-        self._gen._enter_rule(self._node)
-        return self._node
+        self.gen._size.depth += 1
+        self.gen._enter_rule(self.node)
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._gen._exit_rule(self._node)
+        self.gen._exit_rule(self.node)
         # Decrementing current depth after finishing a rule.
-        self._gen._size.depth -= 1
+        self.gen._size.depth -= 1
 
 
 class UnlexerRuleContext(RuleContext):
@@ -47,23 +68,23 @@ class UnlexerRuleContext(RuleContext):
             if parent:
                 parent += node
             super().__init__(gen, node)
-            self._start_depth = self._gen._size.depth
+            self._start_depth = self.gen._size.depth
 
     def __enter__(self):
-        node = super().__enter__()
+        super().__enter__()
         # Increment token count with the current token.
-        self._gen._size.tokens += 1
+        self.gen._size.tokens += 1
         # Keep track of the depth and token count of lexer rules, since these
         # values cannot be calculated from the output tree.
-        node.size.tokens += 1
-        if self._gen._size.depth > node.size.depth:
-            node.size.depth = self._gen._size.depth
-        return node
+        self.node.size.tokens += 1
+        if self.gen._size.depth > self.node.size.depth:
+            self.node.size.depth = self.gen._size.depth
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         super().__exit__(exc_type, exc_val, exc_tb)
         if self._start_depth is not None:
-            self._node.size.depth -= self._start_depth
+            self.node.size.depth -= self._start_depth
 
 
 class UnparserRuleContext(RuleContext):
@@ -76,7 +97,24 @@ class UnparserRuleContext(RuleContext):
         super().__init__(gen, node)
 
 
-class AlternationContext:
+class SubRuleContext(Context):
+
+    def __init__(self, rule, node=None):
+        super().__init__(node or rule.current)
+        self._rule = rule
+        self._prev_ctx = rule.ctx
+        if node:
+            self._prev_ctx.node += node
+
+    def __enter__(self):
+        self._rule.ctx = self
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._rule.ctx = self._prev_ctx
+
+
+class AlternationContext(SubRuleContext):
     # Context manager wrapping alternations. It is responsible for filtering
     # the alternatives available within the maximum depth, token size and
     # decisions. Otherwise, if nothing is available (possibly due to some
@@ -84,77 +122,98 @@ class AlternationContext:
     # then it temporarily raises the maximum size to the minimum value
     # required to finish the generation.
 
-    def __init__(self, gen, idx, min_sizes, reserve, conditions):
-        self._gen = gen
-        self._idx = idx
+    def __init__(self, rule, idx, min_sizes, reserve, conditions):
+        super().__init__(rule)  # No node created here, defer it to __enter__ when all information is available
+        self.idx = idx
         self._min_sizes = min_sizes
         self._reserve = reserve  # Minimum number of remaining tokens needed by the right siblings.
         self._conditions = conditions  # Boolean values enabling or disabling the certain alternatives.
-        self._orig_depth_limit = self._gen._limit.depth
-        # Reserve token budget for the rest of the test case by temporarily increasing the tokens count.
-        self._gen._size.tokens += reserve
+        self._orig_depth_limit = rule.gen._limit.depth
         self._weights = None
+        self._choice = None
 
     def __enter__(self):
-        self._weights = [w if self._gen._size + self._min_sizes[i] <= self._gen._limit else 0 for i, w in enumerate(self._conditions)]
-        if sum(self._weights) > 0:
-            return self
+        super().__enter__()
 
-        # Find alternative with the minimum depth and adapt token limit accordingly.
-        min_size = min((self._min_sizes[i] for i, w in enumerate(self._conditions) if w > 0), key=lambda s: (s.depth, s.tokens))
-        new_limit = self._gen._size + min_size
-        if new_limit.depth > self._gen._limit.depth:
-            logger.debug('max_depth must be temporarily updated from %s to %s', self._gen._limit.depth, new_limit.depth)
-            self._gen._limit.depth = new_limit.depth
-        if new_limit.tokens > self._gen._limit.tokens:
-            logger.debug('max_tokens must be updated from %s to %s', self._gen._limit.tokens, new_limit.tokens)
-            self._gen._limit.tokens = new_limit.tokens
-        self._weights = [w if self._gen._size + self._min_sizes[i] <= self._gen._limit else 0 for i, w in enumerate(self._conditions)]
+        # Reserve token budget for the rest of the test case by temporarily increasing the tokens count.
+        gen = self._rule.gen
+        gen._size.tokens += self._reserve
+
+        self._weights = [w if gen._size + self._min_sizes[i] <= gen._limit else 0 for i, w in enumerate(self._conditions)]
+        if sum(self._weights) == 0:
+            # Find alternative with the minimum depth and adapt token limit accordingly.
+            min_size = min((self._min_sizes[i] for i, w in enumerate(self._conditions) if w > 0), key=lambda s: (s.depth, s.tokens))
+            new_limit = gen._size + min_size
+            if new_limit.depth > gen._limit.depth:
+                logger.debug('max_depth must be temporarily updated from %s to %s', gen._limit.depth, new_limit.depth)
+                gen._limit.depth = new_limit.depth
+            if new_limit.tokens > gen._limit.tokens:
+                logger.debug('max_tokens must be updated from %s to %s', gen._limit.tokens, new_limit.tokens)
+                gen._limit.tokens = new_limit.tokens
+            self._weights = [w if gen._size + self._min_sizes[i] <= gen._limit else 0 for i, w in enumerate(self._conditions)]
+
+        # Make the choice and store the result for the __call__, and create the node.
+        self._choice = self._rule.gen._model.choice(self._rule.node, self.idx, self._weights)
+        if not isinstance(self._rule.node, UnlexerRule):
+            self.node = UnparserRuleAlternative(alt_idx=self.idx, idx=self._choice)
+            self._prev_ctx.node += self.node
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        super().__exit__(exc_type, exc_val, exc_tb)
         # Reset temporary size values.
-        self._gen._limit.depth = self._orig_depth_limit
-        self._gen._size.tokens -= self._reserve
+        gen = self._rule.gen
+        gen._limit.depth = self._orig_depth_limit
+        gen._size.tokens -= self._reserve
 
-    def __call__(self, node):
-        return self._gen._model.choice(node, self._idx, self._weights)
+    def __call__(self):
+        return self._choice
 
 
-class QuantifierContext:
+class QuantifierContext(SubRuleContext):
 
-    def __init__(self, gen, idx, start, stop, min_size, reserve):
-        self._gen = gen
-        self._idx = idx
-        self._cnt = 0
+    def __init__(self, rule, idx, start, stop, min_size, reserve):
+        super().__init__(rule, UnparserRuleQuantifier(idx=idx, start=start, stop=stop) if not isinstance(rule.node, UnlexerRule) else None)
+        self.idx = idx
         self._start = start
         self._stop = stop
         self._min_size = min_size
         self._reserve = reserve
+        self._cnt = 0
 
     def __enter__(self):
+        super().__enter__()
         # Reserve token budget for the rest of the test case by temporarily increasing the tokens count.
-        self._gen._size.tokens += self._reserve
+        self._rule.gen._size.tokens += self._reserve
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        super().__exit__(exc_type, exc_val, exc_tb)
         # Restore the tokens value.
-        self._gen._size.tokens -= self._reserve
+        self._rule.gen._size.tokens -= self._reserve
 
-    def __call__(self, node):
+    def __call__(self):
         if self._cnt < self._start:
             self._cnt += 1
             return True
 
         # Generate optional items if the current repeat count is between ``_start`` and ``_stop`` and
         # if size limits allows the generation and if the current model decides so, too.
+        gen = self._rule.gen
         if (self._cnt < self._stop
-                and self._gen._size + self._min_size <= self._gen._limit
-                and self._gen._model.quantify(node, self._idx, self._cnt, self._start, self._stop)):
+                and gen._size + self._min_size <= gen._limit
+                and gen._model.quantify(self._rule.node, self.idx, self._cnt, self._start, self._stop)):
             self._cnt += 1
             return True
 
         return False
+
+
+class QuantifiedContext(SubRuleContext):
+
+    def __init__(self, rule):
+        super().__init__(rule, UnparserRuleQuantified() if not isinstance(rule.node, UnlexerRule) else None)
 
 
 class Generator:

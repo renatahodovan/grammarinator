@@ -9,9 +9,9 @@ from .cooldown_model import CooldownModel
 from .default_model import DefaultModel
 from .dispatching_listener import DispatchingListener
 from .dispatching_model import DispatchingModel
-from .generator import AlternationContext, Generator, QuantifierContext, RuleSize, UnlexerRuleContext, UnparserRuleContext
+from .generator import AlternationContext, Generator, QuantifiedContext, QuantifierContext, RuleSize, UnlexerRuleContext, UnparserRuleContext
 from .listener import Listener
 from .model import Model
 from .population import Population
-from .rule import Rule, UnlexerRule, UnparserRule
+from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 from .serializer import simple_space_serializer
