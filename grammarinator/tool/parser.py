@@ -14,7 +14,7 @@ from os import listdir
 from os.path import basename, commonprefix, split, splitext
 from subprocess import CalledProcessError, PIPE, run
 
-from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
+from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode
 
 from ..runtime import RuleSize, UnlexerRule, UnparserRule
 
@@ -168,7 +168,7 @@ class ParserTool:
                 depth = max(depth, child_depth + 1)
         else:
             assert isinstance(antlr_node, TerminalNode), f'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {antlr_node.__class__.__name__} was found.'
-            name, text = (parser.symbolicNames[antlr_node.symbol.type], antlr_node.symbol.text) if antlr_node.symbol.type != Token.EOF else ('EOF', '')
+            name, text = (parser.symbolicNames[antlr_node.symbol.type], antlr_node.symbol.text)
             assert name, f'{name} is None or empty'
 
             if not self._hidden:

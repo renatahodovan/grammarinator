@@ -989,7 +989,7 @@ class ProcessorTool:
                             if '_dot' not in graph.vertices:
                                 # Create an artificial `_dot` rule with an alternation of all the lexer rules.
                                 parser_dot_id = graph.add_node(UnparserRuleNode(name='_dot', label=None))
-                                unlexer_ids = [v.name for vid, v in graph.vertices.items() if isinstance(v, UnlexerRuleNode) and v.id != 'EOF']
+                                unlexer_ids = [v.name for vid, v in graph.vertices.items() if isinstance(v, UnlexerRuleNode)]
                                 alt_id = graph.add_node(AlternationNode(rule_id=parser_dot_id, idx=0, conditions=[1] * len(unlexer_ids)))
                                 graph.add_edge(frm=parser_dot_id, to=alt_id)
                                 for i, lexer_id in enumerate(unlexer_ids):
@@ -1033,7 +1033,8 @@ class ProcessorTool:
 
                 elif isinstance(node, ANTLRv4Parser.TerminalContext):
                     if node.TOKEN_REF():
-                        graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
+                        if str(node.TOKEN_REF() != 'EOF'):
+                            graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
 
                     elif node.STRING_LITERAL():
                         src = unescape_string(str(node.STRING_LITERAL())[1:-1])
@@ -1136,7 +1137,6 @@ class ProcessorTool:
 
         graph = GrammarGraph()
         lambda_id = graph.add_node(LambdaNode())
-        graph.add_node(UnlexerRuleNode(name='EOF'))
 
         for root in [lexer_root, parser_root]:
             if root:
