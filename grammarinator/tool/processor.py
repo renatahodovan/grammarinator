@@ -1033,7 +1033,7 @@ class ProcessorTool:
 
                 elif isinstance(node, ANTLRv4Parser.TerminalContext):
                     if node.TOKEN_REF():
-                        if str(node.TOKEN_REF() != 'EOF'):
+                        if str(node.TOKEN_REF()) != 'EOF':
                             graph.add_edge(frm=parent_id, to=str(node.TOKEN_REF()))
 
                     elif node.STRING_LITERAL():
