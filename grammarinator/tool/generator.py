@@ -310,11 +310,9 @@ class GeneratorTool:
         root, annot = self._select_individual()
 
         # Filter items from the nodes of the selected tree that can be regenerated
-        # within the current maximum depth and token limit (except '<INVALID>' and
-        # immutable nodes).
+        # within the current maximum depth and token limit (except immutable nodes).
         options = [node for nodes in annot.rules_by_name.values() for node in nodes
                    if (node.parent is not None
-                       and node.name != '<INVALID>'
                        and node.name not in self._generator_factory._immutable_rules
                        and annot.node_levels[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).depth < self._limit.depth
                        and annot.token_counts[root] - annot.token_counts[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).tokens < self._limit.tokens)]
@@ -350,7 +348,7 @@ class GeneratorTool:
         donor_lookup = dict(donor_annot.rules_by_name)
         donor_lookup.update(donor_annot.quants_by_name)
         donor_lookup.update(donor_annot.alts_by_name)
-        common_types = sorted((set(recipient_lookup.keys()) - {(x, ) for x in self._generator_factory._immutable_rules} - {('<INVALID>', )}) & set(donor_lookup.keys()))
+        common_types = sorted((set(recipient_lookup.keys()) - {(x, ) for x in self._generator_factory._immutable_rules}) & set(donor_lookup.keys()))
 
         recipient_options = [(rule_name, node) for rule_name in common_types for node in recipient_lookup[rule_name] if node.parent]
         # Shuffle suitable nodes with sample.
@@ -459,7 +457,6 @@ class GeneratorTool:
         root, annot = self._select_individual()
         options = [node for node in annot.rules
                    if node.parent
-                   and node.name != '<INVALID>'
                    and node.name not in self._generator_factory._immutable_rules]
         for rule in random.sample(options, k=len(options)):
             parent = rule.parent
@@ -490,7 +487,7 @@ class Annotations:
             self.node_levels[current] = level
 
             if isinstance(current, (UnlexerRule, UnparserRule)):
-                if current.name:
+                if current.name and current.name != '<INVALID>':
                     current_rule_name = (current.name,)
                     if current_rule_name not in self.rules_by_name:
                         self.rules_by_name[current_rule_name] = []
