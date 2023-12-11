@@ -311,7 +311,7 @@ class ParentRule(Rule):
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
     def _dbg_(self):
-        return '{name}\n{children}'.format(name=self.name, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
+        return '{name}\n{children}'.format(name=self.name or self.__class__.__name__, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
 
 
 class UnparserRule(ParentRule):
@@ -412,6 +412,9 @@ class UnparserRuleQuantifier(ParentRule):
     def __deepcopy__(self, memo):
         return UnparserRuleQuantifier(idx=deepcopy(self.idx, memo), start=deepcopy(self.start, memo), stop=deepcopy(self.stop, memo), children=[deepcopy(child, memo) for child in self.children])
 
+    def _dbg_(self):
+        return '{name}:[{idx}]\n{children}'.format(idx=self.idx, name=self.__class__.__name__, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
+
 
 class UnparserRuleQuantified(ParentRule):
     """
@@ -455,3 +458,6 @@ class UnparserRuleAlternative(ParentRule):
         return UnparserRuleAlternative(alt_idx=deepcopy(self.alt_idx, memo),
                                        idx=deepcopy(self.idx, memo),
                                        children=[deepcopy(child, memo) for child in self.children])
+
+    def _dbg_(self):
+        return '{name}:[{alt_idx}/{idx}]\n{children}'.format(name=self.__class__.__name__, alt_idx=self.alt_idx, idx=self.idx, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
