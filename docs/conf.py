@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 project = 'Grammarinator'
 author = 'Renata Hodovan, Akos Kiss'
-copyright = '2017-2023, %s' % author
+copyright = '2017-2024, %s' % author
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
