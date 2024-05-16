@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -168,7 +168,7 @@ class ParserTool:
                 depth = max(depth, child_depth + 1)
         else:
             assert isinstance(antlr_node, TerminalNode), f'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {antlr_node.__class__.__name__} was found.'
-            name, text = (parser.symbolicNames[antlr_node.symbol.type], antlr_node.symbol.text)
+            name, text = parser.symbolicNames[antlr_node.symbol.type] if len(parser.symbolicNames) >= antlr_node.symbol.type else '<INVALID>', antlr_node.symbol.text
             assert name, f'{name} is None or empty'
 
             if not self._hidden:
