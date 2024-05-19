@@ -77,8 +77,7 @@ class UnlexerRuleContext(RuleContext):
         # Keep track of the depth and token count of lexer rules, since these
         # values cannot be calculated from the output tree.
         self.node.size.tokens += 1
-        if self.gen._size.depth > self.node.size.depth:
-            self.node.size.depth = self.gen._size.depth
+        self.node.size.depth = max(self.node.size.depth, self.gen._size.depth)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
