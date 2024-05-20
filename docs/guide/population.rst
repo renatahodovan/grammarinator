@@ -60,3 +60,29 @@ There are two settings that may require further explanation:
     excessively deep trees.
 
 .. _`ANTLR`: http://antlr.org/
+
+----------------------------------------
+Convert Population Trees to Test Sources
+----------------------------------------
+
+The ``grammarinator-decode`` utility supports decoding the tree elements of a
+population - whether encoded using pickle, JSON, or FlatBuffers - into test
+sources serialized according to the chosen method.
+
+.. _grammarinator-decode:
+
+.. describe:: The CLI of grammarinator-decode
+
+.. runcmd:: python -m grammarinator.decode --help
+   :syntax: none
+   :replace: "decode.py/grammarinator-decode"
+
+``grammarinator-decode`` processes a set of tree inputs and creates a
+test representation from them. Inputs can be listed as files or directories
+(using ``--input``), or specified with file patterns (using ``--glob``).
+The listed directories are traversed recursively.
+First, the files are converted to trees using the appropriate tree codec
+specified by ``--tree-format``. The resulting trees are then serialized using
+the function defined by ``--serializer`` (or :class:`str` by default). The
+serialized tests are saved into the `--out` directory with the ``--ext``
+extension and encoded with ``--encoding``.
