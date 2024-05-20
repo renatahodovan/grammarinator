@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import glob
 import logging
 import os
 
@@ -59,3 +60,16 @@ def process_tree_format_argument(args):
     tree_format = tree_formats[args.tree_format]
     args.tree_extension = tree_format['extension']
     args.tree_codec = tree_format['codec_class']()
+
+
+def iter_files(args):
+    for fn in args.input or []:
+        if os.path.isdir(fn):
+            for dirpath, _, filenames in os.walk(fn):
+                for f in filenames:
+                    yield os.path.join(dirpath, f)
+        else:
+            yield fn
+
+    for pattern in args.glob or []:
+        yield from glob.glob(pattern)
