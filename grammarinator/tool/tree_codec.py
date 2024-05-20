@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -145,7 +145,7 @@ class JsonTreeCodec(TreeCodec):
             if dct['t'] == 'qd':
                 return UnparserRuleQuantified(children=dct['c'])
             if dct['t'] == 'q':
-                return UnparserRuleQuantifier(idx=dict['i'], start=dct['b'], stop=dct['e'], children=dct['c'])
+                return UnparserRuleQuantifier(idx=dct['i'], start=dct['b'], stop=dct['e'], children=dct['c'])
             raise json.JSONDecodeError
 
         try:
