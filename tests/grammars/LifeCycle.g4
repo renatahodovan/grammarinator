@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -34,7 +34,10 @@
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JB%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JC%d.txt --keep-trees --no-generate --no-mutate
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JD%d.txt --no-generate
-
+// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/f/ --tree-format flatbuffers
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FB%d.txt --keep-trees --no-generate --no-recombine
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FC%d.txt --keep-trees --no-generate --no-mutate
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FD%d.txt --no-generate
 grammar LifeCycle;
 
 start : TEST testType ;

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,7 +10,7 @@ import os
 
 from inators.imp import import_object
 
-from .tool import JsonTreeCodec, PickleTreeCodec
+from .tool import FlatBuffersTreeCodec, JsonTreeCodec, PickleTreeCodec
 
 logger = logging.getLogger('grammarinator')
 
@@ -46,6 +46,7 @@ def add_encoding_errors_argument(parser):
 tree_formats = {
     'pickle': {'extension': 'grtp', 'codec_class': PickleTreeCodec},
     'json': {'extension': 'grtj', 'codec_class': JsonTreeCodec},
+    'flatbuffers': {'extension': 'grtf', 'codec_class': FlatBuffersTreeCodec},
 }
 
 
