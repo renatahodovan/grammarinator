@@ -161,9 +161,15 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% endif %}
         with {{ rule.type }}Context(self, '{{ rule.name }}', parent) as rule:
             current = rule.current
+            {% if rule.init %}
+            {{ resolveVarRefs(rule.init) }}
+            {% endif %}
             {% for edge in rule.out_edges %}
             {{ processNode(edge.dst, edge) | indent | indent | indent -}}
             {% endfor %}
+            {% if rule.after %}
+            {{ resolveVarRefs(rule.after) }}
+            {% endif %}
             {% for _, k, _ in rule.returns %}
             current.{{ k }} = local_ctx['{{ k }}']
             {% endfor %}

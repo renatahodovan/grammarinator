@@ -11,7 +11,7 @@ Actions
 -------
 
 Actions serve the purpose of defining operations that cannot be expressed
-solely through grammar rules. Actions can be defined either anonymously
+solely through grammar rules. Actions can be defined either
 within rule definitions or within the global scope of the grammar (outside
 of any rule definitions), prefixed with specific directives.
 
@@ -30,15 +30,21 @@ Named Actions
 =============
 
 Named actions are similar to anonymous actions in that they are also inline
-code blocks enclosed in braces. However, instead of placing them inside rule
-definitions, named actions are inserted into the global scope. These named
-actions allow for the inclusion of custom code that can be utilized across
-multiple rules or provide global functionality to the grammar. They are
+code blocks enclosed in braces. However, they have a prefix in form of
+``@<name>``, where the name part specifies their purpose. There are rule and
+global level named actions. Rule level actions are ``init`` and ``after``
+and they define code blocks to be executed before any child node generation
+(but after :meth:`~grammarinator.runtime.Listener.enter_rule` gets called)
+and after the generation of all children (but before
+:meth:`~grammarinator.runtime.Listener.exit_rule` gets called), respectively.
+Global level named actions place the code blocks into the global scope.
+These named actions allow for the inclusion of custom code that can be utilized
+across multiple rules or provide global functionality to the grammar. They are
 prefixed with specific directives to indicate their purpose. These directives
 can take one of two values: ``header`` or ``members``. These named actions can
 be defined for both lexer/parser and combined grammars.
 
-The syntax of named actions looks like:
+The syntax of global named actions looks like:
 
 .. code-block:: antlr
 

@@ -99,6 +99,8 @@ class RuleNode(Node):
         self.args = []
         self.locals = []
         self.returns = []
+        self.init = ''
+        self.after = ''
 
     def __str__(self):
         return f'{super().__str__()}; name: {self.id}'
@@ -880,6 +882,19 @@ class ProcessorTool:
                         rule.args = parse_arg_action_block(node, 'args')
                         rule.locals = parse_arg_action_block(node.localsSpec(), 'locals')
                         rule.returns = parse_arg_action_block(node.ruleReturns(), 'returns')
+
+                        for prequel in node.rulePrequel() or []:
+                            rule_action = prequel.ruleAction()
+                            if rule_action:
+                                action_name = str(rule_action.identifier().TOKEN_REF() or rule_action.identifier().RULE_REF())
+                                if action_name not in ['init', 'after']:
+                                    continue
+
+                                src = ''.join(str(child) for child in rule_action.actionBlock().ACTION_CONTENT()).strip()
+                                if action_name == 'init':
+                                    rule.init = src
+                                elif action_name == 'after':
+                                    rule.after = src
                     build_expr(node.ruleBlock(), parent_id)
 
                 elif isinstance(node, (ANTLRv4Parser.RuleAltListContext, ANTLRv4Parser.AltListContext, ANTLRv4Parser.LexerAltListContext)):
