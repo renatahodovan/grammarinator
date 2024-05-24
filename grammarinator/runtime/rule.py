@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -202,6 +202,18 @@ class Rule:
             self.parent.children.remove(self)
             self.parent = None
 
+    def equals(self, other):
+        """
+        Compare two nodes (potentially including any children) for equality.
+        The comparison is not implemented within ``__eq__`` to ensure that
+        nodes can be added to collections based on identity.
+
+        :param Rule other: The node to compare the current node to.
+        :return: Whether the two nodes are equal.
+        :rtype: bool
+        """
+        return self.__class__ == other.__class__ and self.name == other.name
+
     def _dbg_(self):
         """
         Called by :meth:`__format__` to compute the "debug" string
@@ -299,6 +311,9 @@ class ParentRule(Rule):
             self.add_child(item)
         return self
 
+    def equals(self, other):
+        return super().equals(other) and len(self.children) == len(other.children) and all(child.equals(other.children[i]) for i, child in enumerate(self.children))
+
     def __str__(self):
         return ''.join(str(child) for child in self.children)
 
@@ -367,6 +382,9 @@ class UnlexerRule(Rule):
         self.src = src or ''
         self.size = size or (RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0))
 
+    def equals(self, other):
+        return super().equals(other) and self.src == other.src
+
     def __str__(self):
         return self.src
 
@@ -398,6 +416,9 @@ class UnparserRuleQuantifier(ParentRule):
         self.idx = idx
         self.start = start
         self.stop = stop
+
+    def equals(self, other):
+        return super().equals(other) and self.idx == other.idx and self.start == other.start and self.stop == other.stop
 
     def __repr__(self):
         parts = [
@@ -443,6 +464,9 @@ class UnparserRuleAlternative(ParentRule):
         super().__init__(name=None, children=children)
         self.alt_idx = alt_idx
         self.idx = idx
+
+    def equals(self, other):
+        return super().equals(other) and self.alt_idx == other.alt_idx and self.idx == other.idx
 
     def __repr__(self):
         parts = [
