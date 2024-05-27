@@ -112,12 +112,13 @@ class JsonTreeCodec(TreeCodec):
     JSON-based tree codec.
     """
 
-    def __init__(self, encoding='utf-8'):
+    def __init__(self, encoding='utf-8', encoding_errors='surrogatepass'):
         """
         :param str encoding: The encoding to use when converting between
             json-formatted text and bytes (default: utf-8).
         """
         self._encoding = encoding
+        self._encoding_errors = encoding_errors
 
     def encode(self, root):
         def _rule_to_dict(node):
@@ -132,7 +133,7 @@ class JsonTreeCodec(TreeCodec):
             if isinstance(node, UnparserRuleQuantifier):
                 return {'t': 'q', 'i': node.idx, 'b': node.start, 'e': node.stop, 'c': node.children}
             raise AssertionError
-        return json.dumps(root, default=_rule_to_dict).encode(encoding=self._encoding)
+        return json.dumps(root, default=_rule_to_dict).encode(encoding=self._encoding, errors=self._encoding_errors)
 
     def decode(self, data):
         def _dict_to_rule(dct):
@@ -149,6 +150,6 @@ class JsonTreeCodec(TreeCodec):
             raise json.JSONDecodeError
 
         try:
-            return json.loads(data.decode(encoding=self._encoding), object_hook=_dict_to_rule)
+            return json.loads(data.decode(encoding=self._encoding, errors=self._encoding_errors), object_hook=_dict_to_rule)
         except json.JSONDecodeError:
             return None
