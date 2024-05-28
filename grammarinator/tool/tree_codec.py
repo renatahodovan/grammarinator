@@ -7,8 +7,14 @@
 
 import json
 import pickle
+import struct
+
+from math import inf
+
+import flatbuffers
 
 from ..runtime import RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
+from .fbs import CreateFBRuleSize, FBRule, FBRuleAddAltIdx, FBRuleAddChildren, FBRuleAddIdx, FBRuleAddName, FBRuleAddSize, FBRuleAddSrc, FBRuleAddStart, FBRuleAddStop, FBRuleAddType, FBRuleEnd, FBRuleStart, FBRuleStartChildrenVector, FBRuleType
 
 
 class TreeCodec:
@@ -152,4 +158,86 @@ class JsonTreeCodec(TreeCodec):
         try:
             return json.loads(data.decode(encoding=self._encoding, errors=self._encoding_errors), object_hook=_dict_to_rule)
         except json.JSONDecodeError:
+            return None
+
+
+class FlatBuffersTreeCodec(TreeCodec):
+    """
+    FlatBuffers-based tree codec.
+    """
+
+    def __init__(self, encoding='utf-8', encoding_errors='surrogatepass'):
+        """
+        :param str encoding: The encoding to use when converting between
+            flatbuffers-encoded text and bytes (default: utf-8).
+        """
+        self._encoding = encoding
+        self._encoding_errors = encoding_errors
+
+    def encode(self, root):
+        def buildFBRule(rule):
+            if isinstance(rule, UnlexerRule):
+                fb_name = builder.CreateString(rule.name, encoding=self._encoding, errors=self._encoding_errors)
+                fb_src = builder.CreateString(rule.src, encoding=self._encoding, errors=self._encoding_errors)
+                FBRuleStart(builder)
+                FBRuleAddType(builder, FBRuleType.UnlexerRuleType)
+                FBRuleAddName(builder, fb_name)
+                FBRuleAddSrc(builder, fb_src)
+                FBRuleAddSize(builder, CreateFBRuleSize(builder, rule.size.depth, rule.size.tokens))
+            else:
+                children = [buildFBRule(child) for child in rule.children]
+                FBRuleStartChildrenVector(builder, len(children))
+                for fb_child in reversed(children):
+                    builder.PrependUOffsetTRelative(fb_child)
+                fb_children = builder.EndVector()
+                if isinstance(rule, UnparserRule):
+                    fb_name = builder.CreateString(rule.name, encoding=self._encoding, errors=self._encoding_errors)
+                FBRuleStart(builder)
+                FBRuleAddChildren(builder, fb_children)
+                if isinstance(rule, UnparserRule):
+                    FBRuleAddName(builder, fb_name)
+                    FBRuleAddType(builder, FBRuleType.UnparserRuleType)
+                elif isinstance(rule, UnparserRuleQuantifier):
+                    FBRuleAddType(builder, FBRuleType.UnparserRuleQuantifierType)
+                    FBRuleAddIdx(builder, rule.idx)
+                    FBRuleAddStart(builder, rule.start)
+                    FBRuleAddStop(builder, rule.stop if rule.stop != inf else -1)
+                elif isinstance(rule, UnparserRuleQuantified):
+                    FBRuleAddType(builder, FBRuleType.UnparserRuleQuantifiedType)
+                elif isinstance(rule, UnparserRuleAlternative):
+                    FBRuleAddType(builder, FBRuleType.UnparserRuleAlternativeType)
+                    FBRuleAddAltIdx(builder, rule.alt_idx)
+                    FBRuleAddIdx(builder, rule.idx)
+            return FBRuleEnd(builder)
+
+        builder = flatbuffers.Builder()
+        builder.Finish(buildFBRule(root))
+        return bytes(builder.Output())
+
+    def decode(self, data):
+        def readFBRule(fb_rule):
+            rule_type = fb_rule.Type()
+            if rule_type == FBRuleType.UnlexerRuleType:
+                fb_size = fb_rule.Size()
+                rule = UnlexerRule(name=fb_rule.Name().decode(self._encoding, self._encoding_errors),
+                                   src=fb_rule.Src().decode(self._encoding, self._encoding_errors),
+                                   size=RuleSize(depth=fb_size.Depth(), tokens=fb_size.Tokens()))
+            else:
+                children = [readFBRule(fb_rule.Children(i)) for i in range(fb_rule.ChildrenLength())]
+                if rule_type == FBRuleType.UnparserRuleType:
+                    rule = UnparserRule(name=fb_rule.Name().decode(self._encoding, self._encoding_errors), children=children)
+                elif rule_type == FBRuleType.UnparserRuleQuantifierType:
+                    stop = fb_rule.Stop()
+                    rule = UnparserRuleQuantifier(idx=fb_rule.Idx(), start=fb_rule.Start(), stop=stop if stop != -1 else inf, children=children)
+                elif rule_type == FBRuleType.UnparserRuleQuantifiedType:
+                    rule = UnparserRuleQuantified(children=children)
+                elif rule_type == FBRuleType.UnparserRuleAlternativeType:
+                    rule = UnparserRuleAlternative(alt_idx=fb_rule.AltIdx(), idx=fb_rule.Idx(), children=children)
+                else:
+                    assert False, f'Unexpected type {rule_type}'
+            return rule
+
+        try:
+            return readFBRule(FBRule.GetRootAs(bytearray(data)))
+        except struct.error:
             return None

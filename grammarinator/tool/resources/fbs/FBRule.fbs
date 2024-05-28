@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2024 Renata Hodovan, Akos Kiss.
+ *
+ * Licensed under the BSD 3-Clause License
+ * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
+ * This file may not be copied, modified, or distributed except
+ * according to those terms.
+ */
+
+/*
+ * This is the flatbuffer schema of the tree format of Grammarinator.
+ * It was used as input for the flatc compiler to generate code for
+ * building and reading flatbuffer tree representations
+ * (grammarinator/tool/fbs/FBRule_generated.py).
+ *
+ * The used flatc command:
+ * flatc --python --gen-onefile -o grammarinator/tool/fbs/ FBRule.fbs
+ */
+
+namespace grammarinator.tool.fbs;
+
+enum FBRuleType: byte {
+    UnlexerRuleType = 0,
+    UnparserRuleType = 1,
+    UnparserRuleQuantifierType = 2,
+    UnparserRuleQuantifiedType = 3,
+    UnparserRuleAlternativeType = 4
+}
+
+struct FBRuleSize {
+    depth: int;
+    tokens: int;
+}
+
+table FBRule {
+    type: FBRuleType;
+    name: string;
+    children: [FBRule];
+    src: string;
+    size: FBRuleSize;
+    idx: int;
+    start: int;
+    stop: int;
+    alt_idx: int;
+}
+
+root_type FBRule;
