@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -14,7 +14,7 @@ from os.path import exists, join
 from antlerinator import add_antlr_argument, process_antlr_argument
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 
-from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_tree_format_argument, add_jobs_argument, import_list, init_logging, logger, process_tree_format_argument
+from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_tree_format_argument, add_jobs_argument, import_list, init_logging, iter_files, logger, process_tree_format_argument
 from .pkgdata import __version__
 from .runtime import RuleSize
 from .tool import DefaultPopulation, ParserTool
@@ -40,8 +40,10 @@ def execute():
                             """)
     parser.add_argument('grammar', metavar='FILE', nargs='+',
                         help='ANTLR grammar files describing the expected format of input to parse.')
-    parser.add_argument('-i', '--input', metavar='FILE', nargs='+', required=True,
-                        help='input files to process.')
+    parser.add_argument('-i', '--input', metavar='FILE', nargs='+',
+                        help='input files or directories to process.')
+    parser.add_argument('--glob', metavar='PATTERN', nargs='+',
+                        help='wildcard patterns for input files to process (supported wildcards: ?, *, **, [])')
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start parsing with (default: first parser rule).')
     parser.add_argument('-t', '--transformer', metavar='NAME', action='append', default=[],
@@ -81,10 +83,10 @@ def execute():
                     population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
-                for _ in pool.imap_unordered(parser.parse, args.input):
+                for _ in pool.imap_unordered(parser.parse, iter_files(args)):
                     pass
         else:
-            for fn in args.input:
+            for fn in iter_files(args):
                 parser.parse(fn)
 
 

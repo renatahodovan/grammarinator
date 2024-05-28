@@ -30,8 +30,10 @@ variations and explore different test cases.
    :replace: "parse.py/grammarinator-parse"
 
 The usage of the ``grammarinator-parse`` utility is generally straightforward.
-It takes a set of inputs (``--input``) and processes them with the specified
-grammars (``FILE``). The start rule, which determines the root of every tree
+It takes a set of inputs and processes them with the specified grammars
+(``FILE``). Inputs can be listed as files or directories (using ``--input``), or
+specified with file patterns (using ``--glob``). The listed directories are
+traversed recursively. The start rule, which determines the root of every tree
 in the population, can be defined using the ``--rule`` argument. After the
 parsing is completed and the tree is created, various
 :doc:`transformers <transformers>` (``--transformer``) can be applied to
