@@ -939,7 +939,7 @@ class ProcessorTool:
                         graph.add_edge(frm=recurring_rule_id, to=labeled_alt_id)
                         recurring_idx = 0
                         for i in range(len(children)):
-                            labeled_alternative_id = graph.add_node(AlternativeNode(rule_id=f'{rule.id}_{label}', alt_idx=0, idx=i))
+                            labeled_alternative_id = graph.add_node(AlternativeNode(rule_id=recurring_rule_id, alt_idx=0, idx=i))
                             graph.add_edge(frm=labeled_alt_id, to=labeled_alternative_id)
                             if labels[i] == label:
                                 graph.add_edge(frm=labeled_alternative_id, to=(rule.name, label, recurring_idx))
