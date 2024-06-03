@@ -332,8 +332,8 @@ class GrammarGraph:
 
     def print_tree(self, root=None):
         if not root and not self.default_rule:
-            raise ValueError('Either `root` must be defined or `print` should be called after `default_rule` is set.')
-        (root or self.vertices[self.default_rule]).print_tree()
+            raise ValueError('Either `root` must be defined or `print_tree` should be called after `default_rule` is set.')
+        (root or self.vertices[(self.default_rule,)]).print_tree()
 
     def add_node(self, node):
         self.vertices[node.id] = node
