@@ -14,7 +14,7 @@ from os import listdir
 from os.path import basename, commonprefix, split, splitext
 from subprocess import CalledProcessError, PIPE, run
 
-from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode
+from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
 
 from ..runtime import RuleSize, UnlexerRule, UnparserRule
 
@@ -164,12 +164,16 @@ class ParserTool:
             depth = 0
             for antlr_child in (antlr_node.children or []):
                 child, child_depth = self._antlr_to_grammarinator_tree(antlr_child, parser, visited)
+                if not child:
+                    continue
                 parent_node += child
                 depth = max(depth, child_depth + 1)
         else:
             assert isinstance(antlr_node, TerminalNode), f'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {antlr_node.__class__.__name__} was found.'
             name, text = parser.symbolicNames[antlr_node.symbol.type] if len(parser.symbolicNames) >= antlr_node.symbol.type else '<INVALID>', antlr_node.symbol.text
             assert name, f'{name} is None or empty'
+            if antlr_node.symbol.type == Token.EOF:
+                return None, 0
 
             if not self._hidden:
                 node = UnlexerRule(name=name, src=text)
