@@ -137,7 +137,7 @@ class JsonTreeCodec(TreeCodec):
             if isinstance(node, UnparserRuleQuantified):
                 return {'t': 'qd', 'c': node.children}
             if isinstance(node, UnparserRuleQuantifier):
-                return {'t': 'q', 'i': node.idx, 'b': node.start, 'e': node.stop, 'c': node.children}
+                return {'t': 'q', 'i': node.idx, 'b': node.start, 'e': node.stop if node.stop != inf else -1, 'c': node.children}
             raise AssertionError
         return json.dumps(root, default=_rule_to_dict).encode(encoding=self._encoding, errors=self._encoding_errors)
 
@@ -152,7 +152,7 @@ class JsonTreeCodec(TreeCodec):
             if dct['t'] == 'qd':
                 return UnparserRuleQuantified(children=dct['c'])
             if dct['t'] == 'q':
-                return UnparserRuleQuantifier(idx=dct['i'], start=dct['b'], stop=dct['e'], children=dct['c'])
+                return UnparserRuleQuantifier(idx=dct['i'], start=dct['b'], stop=dct['e'] if dct['e'] != -1 else inf, children=dct['c'])
             raise json.JSONDecodeError
 
         try:
