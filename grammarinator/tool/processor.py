@@ -906,6 +906,9 @@ class ProcessorTool:
                     nonlocal alt_idx
                     conditions = [find_conditions(child) for child in children]
                     labels = [str(child.identifier().TOKEN_REF() or child.identifier().RULE_REF()) for child in children if child.identifier()] if isinstance(node, ANTLRv4Parser.RuleAltListContext) else []
+                    # Ensure to start labels with capital letter, since ANTLR will also create a context with capital start character.
+                    # It's important to keep them in sync since grammarinator-parse will use this graph for comparison.
+                    labels = [label[0].upper() + label[1:] for label in labels]
                     recurring_labels = {name for name, cnt in Counter(labels).items() if cnt > 1}
                     assert len(labels) == 0 or len(labels) == len(children)
                     alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=append_unique(graph.alt_conds, conditions) if all(isfloat(cond) for cond in conditions) else conditions, rule_id=rule.id))
