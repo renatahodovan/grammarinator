@@ -56,6 +56,8 @@ def execute():
                         help='directory to save the trees (default: %(default)s).')
     parser.add_argument('--parser-dir', metavar='DIR',
                         help='directory to save the parser grammars (default: <OUTDIR>/grammars).')
+    parser.add_argument('--lib', metavar='DIR',
+                        help='alternative location of import grammars.')
     add_tree_format_argument(parser)
     add_encoding_argument(parser, help='input file encoding (default: %(default)s).')
     add_encoding_errors_argument(parser)
@@ -80,7 +82,7 @@ def execute():
         parser.error(e)
 
     with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
+                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
                 for _ in pool.imap_unordered(parser.parse, iter_files(args)):
