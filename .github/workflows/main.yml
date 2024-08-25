@@ -6,7 +6,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.8, 3.9, '3.10', '3.11.5', '3.12', 'pypy-3.10']  # FIXME: forcing to use py3.11.5 since py3.11.7 causes an inexplicable failure in multiprocessing.
+        python-version: [3.8, 3.9, '3.10', '3.11', '3.12', 'pypy-3.10']
     runs-on: ${{ matrix.os }}
     steps:
       - run: git config --global core.autocrlf input
@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'  # FIXME: experiencing SIGSEGV with py3.12.0
+          python-version: '3.x'
       - run: pip install --upgrade tox
       - run: tox -v -e lint
 
