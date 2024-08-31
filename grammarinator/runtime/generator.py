@@ -61,16 +61,28 @@ class UnlexerRuleContext(RuleContext):
 
     def __init__(self, gen, name, parent=None):
         if isinstance(parent, UnlexerRule):
+            # If parent node is also an UnlexerRule then this is a sub-rule and
+            # actually no child node is created, but the parent is kept as the
+            # current node
             super().__init__(gen, parent)
             self._start_depth = None
+            # So, save the name of the parent node and also that of the sub-rule
+            self._parent_name = parent.name
+            self._name = name
         else:
             node = UnlexerRule(name=name)
             if parent:
                 parent += node
             super().__init__(gen, node)
             self._start_depth = self.gen._size.depth
+            self._parent_name = None
+            self._name = None
 
     def __enter__(self):
+        # When entering a sub-rule, rename the current node to reflect the name
+        # of the sub-rule
+        if self._name is not None and self._parent_name is not None:
+            self.node.name = self._name
         super().__enter__()
         # Increment token count with the current token.
         self.gen._size.tokens += 1
@@ -84,6 +96,10 @@ class UnlexerRuleContext(RuleContext):
         super().__exit__(exc_type, exc_val, exc_tb)
         if self._start_depth is not None:
             self.node.size.depth -= self._start_depth
+        # When exiting a sub-rule, change the name of the current node back to
+        # that of the parent
+        if self._name is not None and self._parent_name is not None:
+            self.node.name = self._parent_name
 
 
 class UnparserRuleContext(RuleContext):
