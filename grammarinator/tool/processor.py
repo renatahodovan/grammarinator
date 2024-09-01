@@ -87,12 +87,13 @@ class NodeSize:
 
 class RuleNode(Node):
 
-    def __init__(self, name, type):
+    def __init__(self, name, type, trampoline=False):
         name = name if isinstance(name, tuple) else (name,)
         super().__init__(name)
         # Keep rule and label name, but exclude label index if exists.
         self.name = '_'.join(part for part in name[:2])
         self.type = type
+        self.trampoline = trampoline
         self.min_size = None
 
         self.labels = {}
@@ -120,8 +121,8 @@ class UnlexerRuleNode(RuleNode):
 
 class UnparserRuleNode(RuleNode):
 
-    def __init__(self, name):
-        super().__init__(name, 'UnparserRule')
+    def __init__(self, name, trampoline=False):
+        super().__init__(name, 'UnparserRule', trampoline)
 
 
 class ImagRuleNode(Node):
@@ -933,7 +934,7 @@ class ProcessorTool:
                     for label in recurring_labels:
                         # Mask conditions to enable only the alternatives with the common label.
                         new_conditions = [cond if labels[ci] == label else '0' for ci, cond in enumerate(conditions)]
-                        recurring_rule_id = graph.add_node(UnparserRuleNode(name=(rule.name, label)))
+                        recurring_rule_id = graph.add_node(UnparserRuleNode(name=(rule.name, label), trampoline=True))
                         labeled_alt_id = graph.add_node(AlternationNode(idx=0,
                                                                         conditions=append_unique(graph.alt_conds, new_conditions) if all(isfloat(cond) for cond in new_conditions) else new_conditions,
                                                                         rule_id=recurring_rule_id))

@@ -159,7 +159,7 @@ class {{ graph.name }}({{ graph.superclass }}):
             {% endfor -%}
         }
         {% endif %}
-        with {{ rule.type }}Context(self, '{{ rule.name }}', parent) as rule:
+        with {{ rule.type }}Context(self, {% if rule.trampoline %}'{{ rule.id[0] }}'{% else %}'{{ rule.name }}'{% endif %}, parent) as rule:
             current = rule.current
             {% if rule.init %}
             {{ resolveVarRefs(rule.init) | indent | indent | indent }}
@@ -173,7 +173,14 @@ class {{ graph.name }}({{ graph.superclass }}):
             {% for _, k, _ in rule.returns %}
             current.{{ k }} = local_ctx['{{ k }}']
             {% endfor %}
-            return current
+        {% if rule.trampoline %}
+        current.remove()
+        current = current.children[0].children[0]
+        current.remove()
+        if parent:
+            parent += current
+        {% endif %}
+        return current
 
     {% endfor %}
 
