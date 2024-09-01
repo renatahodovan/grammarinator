@@ -874,7 +874,6 @@ class ProcessorTool:
 
         def build_rule(rule, node):
             lexer_rule = isinstance(rule, UnlexerRuleNode)
-            alt_idx, quant_idx, chr_idx = 0, 0, 0  # pylint: disable=unused-variable
 
             def build_expr(node, parent_id):
                 if isinstance(node, ANTLRv4Parser.ParserRuleSpecContext):
@@ -903,7 +902,6 @@ class ProcessorTool:
                         build_expr(children[0], parent_id)
                         return
 
-                    nonlocal alt_idx
                     conditions = [find_conditions(child) for child in children]
                     labels = [str(child.identifier().TOKEN_REF() or child.identifier().RULE_REF()) for child in children if child.identifier()] if isinstance(node, ANTLRv4Parser.RuleAltListContext) else []
                     # Ensure to start labels with capital letter, since ANTLR will also create a context with capital start character.
@@ -911,8 +909,8 @@ class ProcessorTool:
                     labels = [label[0].upper() + label[1:] for label in labels]
                     recurring_labels = {name for name, cnt in Counter(labels).items() if cnt > 1}
                     assert len(labels) == 0 or len(labels) == len(children)
-                    alt_id = graph.add_node(AlternationNode(idx=alt_idx, conditions=append_unique(graph.alt_conds, conditions) if all(isfloat(cond) for cond in conditions) else conditions, rule_id=rule.id))
-                    alt_idx += 1
+                    alt_id = graph.add_node(AlternationNode(idx=alt_idx[rule.name], conditions=append_unique(graph.alt_conds, conditions) if all(isfloat(cond) for cond in conditions) else conditions, rule_id=rule.id))
+                    alt_idx[rule.name] += 1
                     graph.add_edge(frm=parent_id, to=alt_id)
 
                     for i, child in enumerate(children):
@@ -977,11 +975,10 @@ class ProcessorTool:
                         build_expr(node.children[0], parent_id)
                         return
 
-                    nonlocal quant_idx
                     suffix = str(suffix.children[0])
                     quant_ranges = {'?': {'start': 0, 'stop': 1}, '*': {'start': 0, 'stop': 'inf'}, '+': {'start': 1, 'stop': 'inf'}}
-                    quant_id = graph.add_node(QuantifierNode(rule_id=rule.id, idx=quant_idx, **quant_ranges[suffix]))
-                    quant_idx += 1
+                    quant_id = graph.add_node(QuantifierNode(rule_id=rule.id, idx=quant_idx[rule.name], **quant_ranges[suffix]))
+                    quant_idx[rule.name] += 1
                     graph.add_edge(frm=parent_id, to=quant_id)
                     build_expr(node.children[0], quant_id)
 
@@ -1001,12 +998,10 @@ class ProcessorTool:
                     graph.add_edge(frm=parent_id, to=str(node.RULE_REF()), args=parse_arg_action_block(node, 'call') if actions else None)
 
                 elif isinstance(node, (ANTLRv4Parser.LexerAtomContext, ANTLRv4Parser.AtomContext)):
-                    nonlocal chr_idx
-
                     if node.DOT():
                         if isinstance(node, ANTLRv4Parser.LexerAtomContext):
-                            graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=dot_charset)))
-                            chr_idx += 1
+                            graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx[rule.name], charset=dot_charset)))
+                            chr_idx[rule.name] += 1
                         else:
                             if '_dot' not in graph.vertices:
                                 # Create an artificial `_dot` rule with an alternation of all the lexer rules.
@@ -1029,8 +1024,8 @@ class ProcessorTool:
                                 not_ranges.extend(chars_from_set(set_element))
 
                         charset = unique_charset(multirange_diff(graph.charsets[dot_charset], sorted(not_ranges, key=lambda x: x[0])))
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset)))
-                        chr_idx += 1
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx[rule.name], charset=charset)))
+                        chr_idx[rule.name] += 1
 
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.characterRange():
                         start, end = character_range_interval(node)
@@ -1038,8 +1033,8 @@ class ProcessorTool:
                             rule.start_ranges.append((start, end))
 
                         charset = unique_charset([(start, end)])
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset)))
-                        chr_idx += 1
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx[rule.name], charset=charset)))
+                        chr_idx[rule.name] += 1
 
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.LEXER_CHAR_SET():
                         ranges = lexer_charset_interval(str(node.LEXER_CHAR_SET())[1:-1])
@@ -1047,8 +1042,8 @@ class ProcessorTool:
                             rule.start_ranges.extend(ranges)
 
                         charset = unique_charset(sorted(ranges, key=lambda x: x[0]))
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx, charset=charset)))
-                        chr_idx += 1
+                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx[rule.name], charset=charset)))
+                        chr_idx[rule.name] += 1
 
                     for child in node.children:
                         build_expr(child, parent_id)
@@ -1168,6 +1163,7 @@ class ProcessorTool:
         dot_charset = unique_charset(dot_ranges[graph.dot])
 
         literal_lookup = {}
+        alt_idx, quant_idx, chr_idx = Counter(), Counter(), Counter()
 
         for root in [lexer_root, parser_root]:
             if root:
