@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -313,7 +313,6 @@ class GeneratorTool:
         # within the current maximum depth and token limit (except immutable nodes).
         options = [node for nodes in annot.rules_by_name.values() for node in nodes
                    if (node.parent is not None
-                       and node.name not in self._generator_factory._immutable_rules
                        and annot.node_levels[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).depth < self._limit.depth
                        and annot.token_counts[root] - annot.token_counts[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).tokens < self._limit.tokens)]
         if options:
@@ -348,7 +347,7 @@ class GeneratorTool:
         donor_lookup = dict(donor_annot.rules_by_name)
         donor_lookup.update(donor_annot.quants_by_name)
         donor_lookup.update(donor_annot.alts_by_name)
-        common_types = sorted((set(recipient_lookup.keys()) - {(x, ) for x in self._generator_factory._immutable_rules}) & set(donor_lookup.keys()))
+        common_types = sorted(set(recipient_lookup.keys()) & set(donor_lookup.keys()))
 
         recipient_options = [(rule_name, node) for rule_name in common_types for node in recipient_lookup[rule_name] if node.parent]
         # Shuffle suitable nodes with sample.
@@ -455,10 +454,7 @@ class GeneratorTool:
         :rtype: Rule
         """
         root, annot = self._select_individual()
-        options = [node for node in annot.rules
-                   if node.parent
-                   and node.name not in self._generator_factory._immutable_rules]
-        for rule in random.sample(options, k=len(options)):
+        for rule in random.sample(annot.rules, k=len(annot.rules)):
             parent = rule.parent
             while parent:
                 if parent.name == rule.name:
@@ -470,18 +466,18 @@ class GeneratorTool:
     def _select_individual(self):
         root, annot = self._population.select_individual()
         if not annot:
-            annot = Annotations(root)
+            annot = Annotations(root, self._generator_factory._immutable_rules)
         return root, annot
 
     def _add_individual(self, root, path):
         # FIXME: if population cannot store annotations, creating Annotations is
         # superfluous here, but we have no way of knowing that in advance
-        self._population.add_individual(root, Annotations(root), path)
+        self._population.add_individual(root, Annotations(root, self._generator_factory._immutable_rules), path)
 
 
 class Annotations:
 
-    def __init__(self, root):
+    def __init__(self, root, immutable_rules):
         def _annotate(current, level):
             nonlocal current_rule_name
             self.node_levels[current] = level
@@ -489,9 +485,10 @@ class Annotations:
             if isinstance(current, (UnlexerRule, UnparserRule)):
                 if current.name and current.name != '<INVALID>':
                     current_rule_name = (current.name,)
-                    if current_rule_name not in self.rules_by_name:
-                        self.rules_by_name[current_rule_name] = []
-                    self.rules_by_name[current_rule_name].append(current)
+                    if current_rule_name not in immutable_rules:
+                        if current_rule_name not in self.rules_by_name:
+                            self.rules_by_name[current_rule_name] = []
+                        self.rules_by_name[current_rule_name].append(current)
                 else:
                     current_rule_name = None
             elif current_rule_name:
