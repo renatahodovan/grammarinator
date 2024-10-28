@@ -22,9 +22,11 @@ start : r=wrapped_rule {assert $r.testValue == 'endValue', $r.testValue} ;
 wrapped_rule returns [testValue]
 @init {
 $testValue = 'startValue'
+pass  # no-op, only to ensure that multi-line actions are properly handled
 }
 @after {
 $testValue = 'endValue'
+pass  # no-op, only to ensure that multi-line actions are properly handled
 }
 : {assert $testValue == 'startValue', $testValue} A ;
 A : 'a' ;
