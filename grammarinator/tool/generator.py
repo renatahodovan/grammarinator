@@ -15,7 +15,7 @@ from copy import deepcopy
 from os.path import abspath, dirname
 from shutil import rmtree
 
-from ..runtime import CooldownModel, DefaultModel, ParentRule, RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantifier
+from ..runtime import CooldownModel, DefaultModel, RuleSize
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ class GeneratorTool:
                population is defined.
         :param list transformers: List of transformers to be applied to postprocess
                the generated tree before serializing it.
-        :param serializer: A seralizer that takes a tree and produces a string from it (default: :class:`str`).
+        :param serializer: A serializer that takes a tree and produces a string from it (default: :class:`str`).
                See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
         :param bool cleanup: Enable deleting the generated tests at :meth:`__exit__`.
         :param str encoding: Output file encoding.
@@ -306,7 +306,8 @@ class GeneratorTool:
         :return: The root of the mutated tree.
         :rtype: Rule
         """
-        root, annot = self._select_individual()
+        individual = self._population.select_individual()
+        root, annot = individual.root, individual.annotations
 
         # Filter items from the nodes of the selected tree that can be regenerated
         # within the current maximum depth and token limit (except immutable nodes).
@@ -337,8 +338,10 @@ class GeneratorTool:
         :return: The root of the recombined tree.
         :rtype: Rule
         """
-        recipient_root, recipient_annot = self._select_individual()
-        _, donor_annot = self._select_individual()
+        recipient_individual = self._population.select_individual()
+        recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
+        donor_individual = self._population.select_individual()
+        donor_annot = donor_individual.annotations
 
         recipient_lookup = dict(recipient_annot.rules_by_name)
         recipient_lookup.update(recipient_annot.quants_by_name)
@@ -377,8 +380,10 @@ class GeneratorTool:
         :return: The root of the extended tree.
         :rtype: Rule
         """
-        recipient_root, recipient_annot = self._select_individual()
-        _, donor_annot = self._select_individual()
+        recipient_individual = self._population.select_individual()
+        recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
+        donor_individual = self._population.select_individual()
+        donor_annot = donor_individual.annotations
 
         common_types = sorted(set(recipient_annot.quants_by_name.keys()) & set(donor_annot.quants_by_name.keys()))
         recipient_options = [(name, node) for name in common_types for node in recipient_annot.quants_by_name[name] if len(node.children) < node.stop]
@@ -404,7 +409,8 @@ class GeneratorTool:
         :return: The root of the modified tree.
         :rtype: Rule
         """
-        root, annot = self._select_individual()
+        individual = self._population.select_individual()
+        root, annot = individual.root, individual.annotations
         options = [child for node in annot.quants if len(node.children) > node.start for child in node.children]
         if options:
             removed_node = random.choice(options)
@@ -421,7 +427,8 @@ class GeneratorTool:
         :return: The root of the modified tree.
         :rtype: Rule
         """
-        root, annot = self._select_individual()
+        individual = self._population.select_individual()
+        root, annot = individual.root, individual.annotations
         root_options = [node for node in annot.quants if node.stop > len(node.children)]
         recipient_root_token_counts = annot.token_counts[root]
         node_options = [child for root in root_options for child in root.children if
@@ -440,7 +447,8 @@ class GeneratorTool:
         :return: The root of the modified tree.
         :rtype: Rule
         """
-        root, annot = self._select_individual()
+        individual = self._population.select_individual()
+        root, annot = individual.root, individual.annotations
         options = [node for node in annot.quants if len(node.children) > 1]
         if options:
             node_to_shuffle = random.choice(options)
@@ -459,7 +467,8 @@ class GeneratorTool:
         :return: The root of the hoisted tree.
         :rtype: Rule
         """
-        root, annot = self._select_individual()
+        individual = self._population.select_individual()
+        root, annot = individual.root, individual.annotations
         for rule in random.sample(annot.rules, k=len(annot.rules)):
             parent = rule.parent
             while parent:
@@ -468,72 +477,3 @@ class GeneratorTool:
                     return root
                 parent = parent.parent
         return root
-
-    def _select_individual(self):
-        root, annot = self._population.select_individual()
-        if not annot:
-            annot = Annotations(root)
-        return root, annot
-
-    def _add_individual(self, root, path):
-        # FIXME: if population cannot store annotations, creating Annotations is
-        # superfluous here, but we have no way of knowing that in advance
-        self._population.add_individual(root, Annotations(root), path)
-
-
-class Annotations:
-
-    def __init__(self, root):
-        def _annotate(current, level):
-            nonlocal current_rule_name
-            self.node_levels[current] = level
-
-            if isinstance(current, (UnlexerRule, UnparserRule)):
-                if current.name and current.name != '<INVALID>':
-                    current_rule_name = (current.name,)
-                    if not isinstance(current, UnlexerRule) or not current.immutable:
-                        if current_rule_name not in self.rules_by_name:
-                            self.rules_by_name[current_rule_name] = []
-                        self.rules_by_name[current_rule_name].append(current)
-                else:
-                    current_rule_name = None
-            elif current_rule_name:
-                if isinstance(current, UnparserRuleQuantifier):
-                    node_name = current_rule_name + ('q', current.idx,)
-                    if node_name not in self.quants_by_name:
-                        self.quants_by_name[node_name] = []
-                    self.quants_by_name[node_name].append(current)
-                elif isinstance(current, UnparserRuleAlternative):
-                    node_name = current_rule_name + ('a', current.alt_idx,)
-                    if node_name not in self.alts_by_name:
-                        self.alts_by_name[node_name] = []
-                    self.alts_by_name[node_name].append(current)
-
-            self.node_depths[current] = 0
-            self.token_counts[current] = 0
-            if isinstance(current, ParentRule):
-                for child in current.children:
-                    _annotate(child, level + 1)
-                    self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)
-                    self.token_counts[current] += self.token_counts[child] if isinstance(child, ParentRule) else child.size.tokens + 1
-
-        current_rule_name = None
-        self.rules_by_name = {}
-        self.alts_by_name = {}
-        self.quants_by_name = {}
-        self.node_levels = {}
-        self.node_depths = {}
-        self.token_counts = {}
-        _annotate(root, 0)
-
-    @property
-    def rules(self):
-        return [rule for rules in self.rules_by_name.values() for rule in rules]
-
-    @property
-    def alts(self):
-        return [alt for alts in self.alts_by_name.values() for alt in alts]
-
-    @property
-    def quants(self):
-        return [quant for quants in self.quants_by_name.values() for quant in quants]

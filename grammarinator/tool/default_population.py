@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -13,7 +13,7 @@ import random
 from os.path import basename, join
 from uuid import uuid4
 
-from ..runtime import Population, Rule
+from ..runtime import Annotations, Individual, Population, Rule
 from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class DefaultPopulation(Population):
         """
         return len(self._files) > 0
 
-    def add_individual(self, root, annotations=None, path=None):
+    def add_individual(self, root, path=None):
         """
         Save the tree to a new file. The name of the tree file is determined
         based on the pathname of the corresponding test case. From the pathname
@@ -62,18 +62,27 @@ class DefaultPopulation(Population):
             path = type(self).__name__
 
         fn = join(self._directory, f'{path}.{uuid4().hex}.{self._extension}')
-        with open(fn, 'wb') as f:
-            if isinstance(self._codec, AnnotatedTreeCodec):
-                f.write(self._codec.encode_annotated(root, annotations))
-            else:
-                f.write(self._codec.encode(root))
+        self._save(fn, root)
         self._files.append(fn)
 
     def select_individual(self):
         """
-        Randomly select an individual of the population.
+        Randomly select an individual of the population and create a
+        DefaultIndividual instance from it.
+
+        :return: DefaultIndividual instance created from a randomly selected population item.
+        :rtype: DefaultIndividual
         """
-        fn = random.sample(self._files, k=1)[0]
+        return DefaultIndividual(self, random.sample(self._files, k=1)[0])
+
+    def _save(self, fn, root):
+        with open(fn, 'wb') as f:
+            if isinstance(self._codec, AnnotatedTreeCodec):
+                f.write(self._codec.encode_annotated(root, Annotations(root)))
+            else:
+                f.write(self._codec.encode(root))
+
+    def _load(self, fn):
         with open(fn, 'rb') as f:
             if isinstance(self._codec, AnnotatedTreeCodec):
                 root, annot = self._codec.decode_annotated(f.read())
@@ -81,3 +90,35 @@ class DefaultPopulation(Population):
                 root, annot = self._codec.decode(f.read()), None
             assert isinstance(root, Rule), root
         return root, annot
+
+
+class DefaultIndividual(Individual):
+    """
+    Individual subclass presenting a file-based population individual, which
+    maintains both the tree and the associated annotations. It is responsible
+    for loading and storing the tree and its annotations with the appropriate
+    tree codec in a lazy manner.
+    """
+
+    def __init__(self, population, name):
+        """
+        :param DefaultPopulation population: The population this individual
+            belongs to.
+        :param str name: Path to the encoded tree file.
+        """
+        super().__init__(name)
+        self._population = population
+        self._root = None
+
+    @property
+    def root(self):
+        """
+        Get the root of the tree. Return the root if it is already loaded,
+        otherwise load it immediately.
+
+        :return: The root of the tree.
+        :rtype: ~grammarinator.runtime.Rule
+        """
+        if not self._root:
+            self._root, self._annot = self._population._load(self.name)
+        return self._root

@@ -5,7 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .default_population import DefaultPopulation
+from .default_population import DefaultIndividual, DefaultPopulation
 from .generator import DefaultGeneratorFactory, GeneratorFactory, GeneratorTool
 from .parser import ParserTool
 from .processor import ProcessorTool
