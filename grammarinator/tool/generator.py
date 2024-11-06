@@ -201,6 +201,19 @@ class GeneratorTool:
         self._errors = errors
         self._dry_run = dry_run
 
+        self._generators = [self.generate]
+        self._mutators = [
+            self.regenerate_rule,
+            self.delete_quantified,
+            self.replicate_quantified,
+            self.shuffle_quantifieds,
+            self.hoist_rule,
+        ]
+        self._recombiners = [
+            self.replace_node,
+            self.insert_quantified,
+        ]
+
     def __enter__(self):
         return self
 
@@ -211,12 +224,12 @@ class GeneratorTool:
         if self._cleanup and self._out_format and not self._dry_run:
             rmtree(dirname(self._out_format))
 
-    def create(self, index):
+    def create_test(self, index):
         """
-        Create new test case with a randomly selected generator method from the available
-        options (i.e., via :meth:`generate`, :meth:`mutate`, or :meth:`recombine`). The
-        generated tree is transformed, serialized and saved according to the parameters
-        used to initialize the current tool object.
+        Create a new test case with a randomly selected generator method from the
+        available options (see :meth:`generate`, :meth:`mutate`, and
+        :meth:`recombine`). The generated tree is transformed, serialized and saved
+        according to the parameters used to initialize the current tool object.
 
         :param int index: Index of the test case to be generated.
         :return: Path to the generated serialized test file. It may be empty if
@@ -225,21 +238,7 @@ class GeneratorTool:
             saved.
         :rtype: str
         """
-        creators = []
-        if self._enable_generation:
-            creators.append(self.generate)
-        if self._population:
-            if self._enable_mutation:
-                creators.extend((self.regenerate_rule, self.delete_quantified, self.replicate_quantified, self.shuffle_quantifieds, self.hoist_rule))
-            if self._enable_recombination:
-                creators.extend((self.replace_node, self.insert_quantified))
-
-        creator = random.choice(creators)
-        root = creator()
-
-        for transformer in self._transformers:
-            root = transformer(root)
-
+        root = self.create()
         test = self._serializer(root)
         if self._dry_run:
             return None
@@ -258,7 +257,84 @@ class GeneratorTool:
 
         return test_fn
 
-    def generate(self, *, rule=None, reserve=None):
+    def _select_creator(self, creators, individual1, individual2):  # pylint: disable=unused-argument
+        # NOTE: May be overridden.
+        return random.choice(creators)
+
+    def _create_tree(self, creators, individual1, individual2):
+        creator = self._select_creator(creators, individual1, individual2)
+        root = creator(individual1, individual2)
+        for transformer in self._transformers:
+            root = transformer(root)
+        return root
+
+    def create(self):
+        """
+        Create a new tree with a randomly selected generator method from the
+        available options (see :meth:`generate`, :meth:`mutate`, and
+        :meth:`recombine`). The generated tree is also transformed according to the
+        parameters used to initialize the current tool object.
+
+        :return: The root of the created tree.
+        :rtype: Rule
+        """
+        individual1, individual2 = (self._ensure_individuals(None, None)) if self._population else (None, None)
+        creators = []
+        if self._enable_generation:
+            creators.extend(self._generators)
+        if self._population:
+            if self._enable_mutation:
+                creators.extend(self._mutators)
+            if self._enable_recombination:
+                creators.extend(self._recombiners)
+        return self._create_tree(creators, individual1, individual2)
+
+    def mutate(self, individual=None):
+        """
+        Dispatcher method for mutation operators: it picks one operator randomly and
+        creates a new tree by applying the operator to an individual. The generated
+        tree is also transformed according to the parameters used to initialize the
+        current tool object.
+
+        Supported mutation operators: :meth:`regenerate_rule`,
+        :meth:`delete_quantified`, :meth:`replicate_quantified`,
+        :meth:`shuffle_quantifieds`, :meth:`hoist_rule`
+
+        :param ~grammarinator.runtime.Individual individual: The population item to
+            be mutated.
+        :return: The root of the mutated tree.
+        :rtype: Rule
+        """
+        # NOTE: Intentionally does not check self._enable_mutation!
+        # If you call this explicitly, then so be it, even if mutation is disabled.
+        # If individual is None, population MUST exist.
+        individual = self._ensure_individual(individual)
+        return self._create_tree(self._mutators, individual, None)
+
+    def recombine(self, individual1=None, individual2=None):
+        """
+        Dispatcher method for recombination operators: it picks one operator
+        randomly and creates a new tree by applying the operator to an individual.
+        The generated tree is also transformed according to the parameters used to
+        initialize the current tool object.
+
+        Supported recombination operators: :meth:`replace_node`,
+        :meth:`insert_quantified`
+
+        :param ~grammarinator.runtime.Individual individual1: The population item to
+            be used as a recipient during crossover.
+        :param ~grammarinator.runtime.Individual individual2: The population item to
+            be used as a donor during crossover.
+        :return: The root of the recombined tree.
+        :rtype: Rule
+        """
+        # NOTE: Intentionally does not check self._enable_recombination!
+        # If you call this explicitly, then so be it, even if recombination is disabled.
+        # If any of the individuals is None, population MUST exist.
+        individual1, individual2 = self._ensure_individuals(individual1, individual2)
+        return self._create_tree(self._recombiners, individual1, individual2)
+
+    def generate(self, _individual1=None, _individual2=None, *, rule=None, reserve=None):
         """
         Instantiate a new generator and generate a new tree from scratch.
 
@@ -269,44 +345,31 @@ class GeneratorTool:
         :return: The root of the generated tree.
         :rtype: Rule
         """
+        # NOTE: Intentionally does not check self._enable_generation!
+        # If you call this explicitly, then so be it, even if generation is disabled.
         reserve = reserve if reserve is not None else RuleSize()
         generator = self._generator_factory(limit=self._limit - reserve)
         rule = rule or self._rule or generator._default_rule.__name__
         return getattr(generator, rule)()
 
-    def mutate(self):
-        """
-        Dispatcher method for mutation operators: it picks one operator
-        randomly and creates a new tree with it.
+    def _ensure_individual(self, individual):
+        return individual or self._population.select_individual()
 
-        Supported mutation operators: :meth:`regenerate_rule`, :meth:`delete_quantified`, :meth:`replicate_quantified`, :meth:`shuffle_quantifieds`, :meth:`hoist_rule`
+    def _ensure_individuals(self, individual1, individual2):
+        individual1 = self._ensure_individual(individual1)
+        individual2 = individual2 or self._population.select_individual()
+        return individual1, individual2
 
-        :return: The root of the mutated tree.
-        :rtype: Rule
-        """
-        return random.choice((self.regenerate_rule, self.delete_quantified, self.replicate_quantified, self.shuffle_quantifieds, self.hoist_rule))()
-
-    def recombine(self):
-        """
-        Dispatcher method for recombination operators: it picks one operator
-        randomly and creates a new tree with it.
-
-        Supported recombination operators: :meth:`replace_node`, :meth:`insert_quantified`
-
-        :return: The root of the recombined tree.
-        :rtype: Rule
-        """
-        return random.choice((self.replace_node, self.insert_quantified))()
-
-    def regenerate_rule(self):
+    def regenerate_rule(self, individual=None, _=None):
         """
         Mutate a tree at a random position, i.e., discard and re-generate its
         sub-tree at a randomly selected node.
 
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
         :return: The root of the mutated tree.
         :rtype: Rule
         """
-        individual = self._population.select_individual()
+        individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
 
         # Filter items from the nodes of the selected tree that can be regenerated
@@ -327,7 +390,7 @@ class GeneratorTool:
         # and generate a brand new one instead.
         return self.generate(rule=root.name)
 
-    def replace_node(self):
+    def replace_node(self, recipient_individual=None, donor_individual=None):
         """
         Recombine two trees at random positions where the nodes are compatible
         with each other (i.e., they share the same node name). One of the trees
@@ -335,12 +398,15 @@ class GeneratorTool:
         rooted at a random node of the recipient is discarded and replaced
         by the sub-tree rooted at a random node of the donor.
 
+        :param ~grammarinator.runtime.Individual recipient_individual:
+            The population item to be used as a recipient during crossover.
+        :param ~grammarinator.runtime.Individual donor_individual:
+            The population item to be used as a donor during crossover.
         :return: The root of the recombined tree.
         :rtype: Rule
         """
-        recipient_individual = self._population.select_individual()
+        recipient_individual, donor_individual = self._ensure_individuals(recipient_individual, donor_individual)
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
-        donor_individual = self._population.select_individual()
         donor_annot = donor_individual.annotations
 
         recipient_lookup = dict(recipient_annot.rules_by_name)
@@ -370,19 +436,22 @@ class GeneratorTool:
         # to be the result of recombination.
         return recipient_root
 
-    def insert_quantified(self):
+    def insert_quantified(self, recipient_individual=None, donor_individual=None):
         """
         Selects two compatible quantifier nodes from two trees randomly and if
         the quantifier node of the recipient tree is not full (the number of
         its children is less than the maximum count), then add one new child
         to it at a random position from the children of donors quantifier node.
 
+        :param ~grammarinator.runtime.Individual recipient_individual:
+            The population item to be used as a recipient during crossover.
+        :param ~grammarinator.runtime.Individual donor_individual:
+            The population item to be used as a donor during crossover.
         :return: The root of the extended tree.
         :rtype: Rule
         """
-        recipient_individual = self._population.select_individual()
+        recipient_individual, donor_individual = self._ensure_individuals(recipient_individual, donor_individual)
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
-        donor_individual = self._population.select_individual()
         donor_annot = donor_individual.annotations
 
         common_types = sorted(set(recipient_annot.quants_by_name.keys()) & set(donor_annot.quants_by_name.keys()))
@@ -402,14 +471,15 @@ class GeneratorTool:
         # to be the result of insertion.
         return recipient_root
 
-    def delete_quantified(self):
+    def delete_quantified(self, individual=None, _=None):
         """
         Removes an optional subtree randomly from a quantifier node.
 
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
         :return: The root of the modified tree.
         :rtype: Rule
         """
-        individual = self._population.select_individual()
+        individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
         options = [child for node in annot.quants if len(node.children) > node.start for child in node.children]
         if options:
@@ -419,15 +489,16 @@ class GeneratorTool:
         # Return with the original root, whether the deletion was successful or not.
         return root
 
-    def replicate_quantified(self):
+    def replicate_quantified(self, individual=None, _=None):
         """
         Select a quantified sub-tree randomly, replicate it and insert it again if
         the maximum quantification count is not reached yet.
 
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
         :return: The root of the modified tree.
         :rtype: Rule
         """
-        individual = self._population.select_individual()
+        individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
         root_options = [node for node in annot.quants if node.stop > len(node.children)]
         recipient_root_token_counts = annot.token_counts[root]
@@ -440,14 +511,15 @@ class GeneratorTool:
         # Return with the original root, whether the replication was successful or not.
         return root
 
-    def shuffle_quantifieds(self):
+    def shuffle_quantifieds(self, individual=None, _=None):
         """
         Select a quantifier node and shuffle its quantified sub-trees.
 
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
         :return: The root of the modified tree.
         :rtype: Rule
         """
-        individual = self._population.select_individual()
+        individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
         options = [node for node in annot.quants if len(node.children) > 1]
         if options:
@@ -457,17 +529,18 @@ class GeneratorTool:
         # Return with the original root, whether the shuffling was successful or not.
         return root
 
-    def hoist_rule(self):
+    def hoist_rule(self, individual=None, _=None):
         """
         Select an individual of the population to be mutated and select two
         rule nodes from it which share the same rule name and are in
         ancestor-descendant relationship making possible for the descendant
         to replace its ancestor.
 
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
         :return: The root of the hoisted tree.
         :rtype: Rule
         """
-        individual = self._population.select_individual()
+        individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
         for rule in random.sample(annot.rules, k=len(annot.rules)):
             parent = rule.parent
