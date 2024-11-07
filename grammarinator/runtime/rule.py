@@ -367,12 +367,13 @@ class UnlexerRule(Rule):
     Tree node representing a lexer rule or token. It has a string constant set in its ``src`` field.
     """
 
-    def __init__(self, *, name=None, src=None, size=None):
+    def __init__(self, *, name=None, src=None, size=None, immutable=False):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
         :param str src: String content of the lexer rule (default: "").
         :param RuleSize size: Size of the lexer rule (default: (1,1) if ``src``
             is not empty, (0,0) otherwise).
+        :param bool immutable: Boolean to mark literal Unlexer nodes as immutable.
 
         :ivar str src: String content of the lexer rule.
         :ivar RuleSize size: Size of the lexer rule, aggregated from the
@@ -381,6 +382,7 @@ class UnlexerRule(Rule):
         super().__init__(name=name)
         self.src = src or ''
         self.size = size or (RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0))
+        self.immutable = immutable
 
     def equals(self, other):
         return super().equals(other) and self.src == other.src
@@ -396,13 +398,15 @@ class UnlexerRule(Rule):
             parts.append(f'src={self.src!r}')
         if (self.src and self.size != RuleSize(1, 1)) or (not self.src and self.size != RuleSize(0, 0)):
             parts.append(f'size={self.size!r}')
+        if self.immutable:
+            parts.append(f'immutable={self.immutable}')
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
     def _dbg_(self):
         return f'{self.name or ""}{":" if self.name else ""}{self.src!r}'
 
     def __deepcopy__(self, memo):
-        return UnlexerRule(name=deepcopy(self.name, memo), src=deepcopy(self.src, memo), size=deepcopy(self.size, memo))
+        return UnlexerRule(name=deepcopy(self.name, memo), src=deepcopy(self.src, memo), size=deepcopy(self.size, memo), immutable=deepcopy(self.immutable, memo))
 
 
 class UnparserRuleQuantifier(ParentRule):

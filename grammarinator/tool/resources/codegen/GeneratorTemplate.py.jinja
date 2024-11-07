@@ -160,7 +160,7 @@ class {{ graph.name }}({{ graph.superclass }}):
             {% endfor -%}
         }
         {% endif %}
-        with {{ rule.type }}Context(self, {% if rule.trampoline %}'{{ rule.id[0] }}'{% else %}'{{ rule.name }}'{% endif %}, parent) as rule:
+        with {{ rule.type }}Context(self, {% if rule.trampoline %}'{{ rule.id[0] }}'{% else %}'{{ rule.name }}'{% endif %}, parent{% if rule.type == 'UnlexerRule' and (rule.name,) in graph.immutables %}, True{% endif %}) as rule:
             current = rule.current
             {% if rule.init %}
             {{ resolveVarRefs(rule.init) | indent | indent | indent }}
@@ -186,8 +186,6 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endfor %}
 
     _default_rule = {{ graph.default_rule }}
-
-    _immutable_rules = ({% for name in graph.immutables %}'{{ name | join('_') }}'{% if not loop.last or loop.length == 1 %}, {% endif%}{% endfor %})
 
     _rule_sizes = {
         {% for rule in graph.rules %}

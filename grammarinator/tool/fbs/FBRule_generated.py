@@ -138,8 +138,15 @@ class FBRule(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
+    # FBRule
+    def Immutable(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
 def FBRuleStart(builder):
-    builder.StartObject(9)
+    builder.StartObject(10)
 
 def FBRuleAddType(builder, type):
     builder.PrependInt8Slot(0, type, 0)
@@ -170,6 +177,9 @@ def FBRuleAddStop(builder, stop):
 
 def FBRuleAddAltIdx(builder, altIdx):
     builder.PrependInt32Slot(8, altIdx, 0)
+
+def FBRuleAddImmutable(builder, immutable):
+    builder.PrependBoolSlot(9, immutable, 0)
 
 def FBRuleEnd(builder):
     return builder.EndObject()

@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -59,7 +59,7 @@ class RuleContext(Context):
 class UnlexerRuleContext(RuleContext):
     # Subclass of :class:`RuleContext` handling unlexer rules.
 
-    def __init__(self, gen, name, parent=None):
+    def __init__(self, gen, name, parent=None, immutable=False):
         if isinstance(parent, UnlexerRule):
             # If parent node is also an UnlexerRule then this is a sub-rule and
             # actually no child node is created, but the parent is kept as the
@@ -70,7 +70,7 @@ class UnlexerRuleContext(RuleContext):
             self._parent_name = parent.name
             self._name = name
         else:
-            node = UnlexerRule(name=name)
+            node = UnlexerRule(name=name, immutable=immutable)
             if parent:
                 parent += node
             super().__init__(gen, node)
