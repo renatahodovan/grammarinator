@@ -46,7 +46,6 @@ class GeneratorFactory:
         # Exposing some class variables of the encapsulated generator.
         # In the generator class, they start with `_` to avoid any kind of
         # collision with rule names, so they start with `_` here as well.
-        self._immutable_rules = generator_class._immutable_rules
         self._rule_sizes = generator_class._rule_sizes
         self._alt_sizes = generator_class._alt_sizes
         self._quant_sizes = generator_class._quant_sizes
@@ -473,18 +472,18 @@ class GeneratorTool:
     def _select_individual(self):
         root, annot = self._population.select_individual()
         if not annot:
-            annot = Annotations(root, self._generator_factory._immutable_rules)
+            annot = Annotations(root)
         return root, annot
 
     def _add_individual(self, root, path):
         # FIXME: if population cannot store annotations, creating Annotations is
         # superfluous here, but we have no way of knowing that in advance
-        self._population.add_individual(root, Annotations(root, self._generator_factory._immutable_rules), path)
+        self._population.add_individual(root, Annotations(root), path)
 
 
 class Annotations:
 
-    def __init__(self, root, immutable_rules):
+    def __init__(self, root):
         def _annotate(current, level):
             nonlocal current_rule_name
             self.node_levels[current] = level
@@ -492,7 +491,7 @@ class Annotations:
             if isinstance(current, (UnlexerRule, UnparserRule)):
                 if current.name and current.name != '<INVALID>':
                     current_rule_name = (current.name,)
-                    if current_rule_name not in immutable_rules:
+                    if not isinstance(current, UnlexerRule) or not current.immutable:
                         if current_rule_name not in self.rules_by_name:
                             self.rules_by_name[current_rule_name] = []
                         self.rules_by_name[current_rule_name].append(current)

@@ -42,6 +42,7 @@ table FBRule {
     start: int;
     stop: int;
     alt_idx: int;
+    immutable: bool;
 }
 
 root_type FBRule;

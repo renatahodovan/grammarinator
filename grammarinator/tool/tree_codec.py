@@ -14,7 +14,7 @@ from math import inf
 import flatbuffers
 
 from ..runtime import RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
-from .fbs import CreateFBRuleSize, FBRule, FBRuleAddAltIdx, FBRuleAddChildren, FBRuleAddIdx, FBRuleAddName, FBRuleAddSize, FBRuleAddSrc, FBRuleAddStart, FBRuleAddStop, FBRuleAddType, FBRuleEnd, FBRuleStart, FBRuleStartChildrenVector, FBRuleType
+from .fbs import CreateFBRuleSize, FBRule, FBRuleAddAltIdx, FBRuleAddChildren, FBRuleAddIdx, FBRuleAddImmutable, FBRuleAddName, FBRuleAddSize, FBRuleAddSrc, FBRuleAddStart, FBRuleAddStop, FBRuleAddType, FBRuleEnd, FBRuleStart, FBRuleStartChildrenVector, FBRuleType
 
 
 class TreeCodec:
@@ -129,7 +129,7 @@ class JsonTreeCodec(TreeCodec):
     def encode(self, root):
         def _rule_to_dict(node):
             if isinstance(node, UnlexerRule):
-                return {'t': 'l', 'n': node.name, 's': node.src, 'z': [node.size.depth, node.size.tokens]}
+                return {'t': 'l', 'n': node.name, 's': node.src, 'z': [node.size.depth, node.size.tokens], 'i': node.immutable}
             if isinstance(node, UnparserRule):
                 return {'t': 'p', 'n': node.name, 'c': node.children}
             if isinstance(node, UnparserRuleAlternative):
@@ -144,7 +144,7 @@ class JsonTreeCodec(TreeCodec):
     def decode(self, data):
         def _dict_to_rule(dct):
             if dct['t'] == 'l':
-                return UnlexerRule(name=dct['n'], src=dct['s'], size=RuleSize(depth=dct['z'][0], tokens=dct['z'][1]))
+                return UnlexerRule(name=dct['n'], src=dct['s'], size=RuleSize(depth=dct['z'][0], tokens=dct['z'][1]), immutable=dct['i'])
             if dct['t'] == 'p':
                 return UnparserRule(name=dct['n'], children=dct['c'])
             if dct['t'] == 'a':
@@ -184,6 +184,7 @@ class FlatBuffersTreeCodec(TreeCodec):
                 FBRuleAddName(builder, fb_name)
                 FBRuleAddSrc(builder, fb_src)
                 FBRuleAddSize(builder, CreateFBRuleSize(builder, rule.size.depth, rule.size.tokens))
+                FBRuleAddImmutable(builder, rule.immutable)
             else:
                 children = [buildFBRule(child) for child in rule.children]
                 FBRuleStartChildrenVector(builder, len(children))
@@ -221,7 +222,8 @@ class FlatBuffersTreeCodec(TreeCodec):
                 fb_size = fb_rule.Size()
                 rule = UnlexerRule(name=fb_rule.Name().decode(self._encoding, self._encoding_errors),
                                    src=fb_rule.Src().decode(self._encoding, self._encoding_errors),
-                                   size=RuleSize(depth=fb_size.Depth(), tokens=fb_size.Tokens()))
+                                   size=RuleSize(depth=fb_size.Depth(), tokens=fb_size.Tokens()),
+                                   immutable=fb_rule.Immutable())
             else:
                 children = [readFBRule(fb_rule.Children(i)) for i in range(fb_rule.ChildrenLength())]
                 if rule_type == FBRuleType.UnparserRuleType:

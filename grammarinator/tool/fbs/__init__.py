@@ -5,4 +5,4 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .FBRule_generated import CreateFBRuleSize, FBRule, FBRuleAddAltIdx, FBRuleAddChildren, FBRuleAddIdx, FBRuleAddName, FBRuleAddSize, FBRuleAddSrc, FBRuleAddStart, FBRuleAddStop, FBRuleAddType, FBRuleEnd, FBRuleSize, FBRuleStart, FBRuleStartChildrenVector, FBRuleType
+from .FBRule_generated import CreateFBRuleSize, FBRule, FBRuleAddAltIdx, FBRuleAddChildren, FBRuleAddIdx, FBRuleAddImmutable, FBRuleAddName, FBRuleAddSize, FBRuleAddSrc, FBRuleAddStart, FBRuleAddStop, FBRuleAddType, FBRuleEnd, FBRuleSize, FBRuleStart, FBRuleStartChildrenVector, FBRuleType
