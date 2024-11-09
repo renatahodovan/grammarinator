@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -12,6 +12,6 @@ from .dispatching_model import DispatchingModel
 from .generator import AlternationContext, Generator, QuantifiedContext, QuantifierContext, RuleSize, UnlexerRuleContext, UnparserRuleContext
 from .listener import Listener
 from .model import Model
-from .population import Population
+from .population import Annotations, Individual, Population
 from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 from .serializer import simple_space_serializer
