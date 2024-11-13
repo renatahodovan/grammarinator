@@ -88,7 +88,7 @@ protected:
     individual1 = ensure_individual(individual1);
     if (individual2 == nullptr) {
       assert(population != nullptr);
-      individual2 = population->select_individual();
+      individual2 = population->select_individual(individual1);
     }
     return {individual1, individual2};
   }

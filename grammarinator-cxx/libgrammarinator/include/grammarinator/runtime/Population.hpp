@@ -270,7 +270,7 @@ public:
 
   virtual bool empty() const = 0;
   virtual void add_individual(Rule* root, const std::string& path = "") = 0;
-  virtual Individual* select_individual() = 0;
+  virtual Individual* select_individual(Individual* recipient = nullptr) = 0;
 };
 
 } // namespace runtime

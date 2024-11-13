@@ -97,7 +97,7 @@ public:
     files_.push_back(fn);
   }
 
-  DefaultIndividual* select_individual() override {
+  DefaultIndividual* select_individual(runtime::Individual* recipient = nullptr) override {
     return new DefaultIndividual(this, files_[util::random_int<size_t>(0, files_.size() - 1)]);
   }
 
