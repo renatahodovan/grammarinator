@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -75,7 +75,7 @@ def generator_tool_helper(args, weights, lock):
 def create_test(generator_tool, index, *, seed):
     if seed:
         random.seed(seed + index)
-    return generator_tool.create(index)
+    return generator_tool.create_test(index)
 
 
 def execute():
