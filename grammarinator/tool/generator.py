@@ -15,7 +15,7 @@ from copy import deepcopy
 from os.path import abspath, dirname
 from shutil import rmtree
 
-from ..runtime import DefaultModel, RuleSize, WeightedModel
+from ..runtime import DefaultModel, RuleSize, UnparserRule, WeightedModel
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class GeneratorTool:
     """
 
     def __init__(self, generator_factory, out_format, lock=None, rule=None, limit=None,
-                 population=None, generate=True, mutate=True, recombine=True, keep_trees=False,
+                 population=None, generate=True, mutate=True, recombine=True, unrestricted=True, keep_trees=False,
                  transformers=None, serializer=None,
                  cleanup=True, encoding='utf-8', errors='strict', dry_run=False):
         """
@@ -158,6 +158,7 @@ class GeneratorTool:
         :param bool generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
         :param bool mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
         :param bool recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
+        :param bool unrestricted: Enable applying possibly grammar-violating creators.
         :param bool keep_trees: Keep generated trees to participate in further mutations or recombinations
                (otherwise, only the initial population will be mutated or recombined). It has effect only if
                population is defined.
@@ -186,6 +187,7 @@ class GeneratorTool:
         self._enable_generation = generate
         self._enable_mutation = mutate
         self._enable_recombination = recombine
+        self._enable_unrestricted_creators = unrestricted
         self._keep_trees = keep_trees
         self._cleanup = cleanup
         self._encoding = encoding
@@ -199,6 +201,10 @@ class GeneratorTool:
             self.replicate_quantified,
             self.shuffle_quantifieds,
             self.hoist_rule,
+        ]
+        self._unrestricted_mutators = [
+            self.unrestricted_delete,
+            self.unrestricted_hoist_rule,
         ]
         self._recombiners = [
             self.replace_node,
@@ -276,6 +282,8 @@ class GeneratorTool:
         if self._population:
             if self._enable_mutation:
                 creators.extend(self._mutators)
+                if self._enable_unrestricted_creators:
+                    creators.extend(self._unrestricted_mutators)
             if self._enable_recombination:
                 creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
@@ -289,7 +297,8 @@ class GeneratorTool:
 
         Supported mutation operators: :meth:`regenerate_rule`,
         :meth:`delete_quantified`, :meth:`replicate_quantified`,
-        :meth:`shuffle_quantifieds`, :meth:`hoist_rule`
+        :meth:`shuffle_quantifieds`, :meth:`hoist_rule`,
+        :meth:`unrestricted_delete`, :meth:`unrestricted_hoist_rule`
 
         :param ~grammarinator.runtime.Individual individual: The population item to
             be mutated.
@@ -300,7 +309,10 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if mutation is disabled.
         # If individual is None, population MUST exist.
         individual = self._ensure_individual(individual)
-        return self._create_tree(self._mutators, individual, None)
+        mutators = self._mutators
+        if self._enable_unrestricted_creators:
+            mutators.extend(self._unrestricted_mutators)
+        return self._create_tree(mutators, individual, None)
 
     def recombine(self, individual1=None, individual2=None):
         """
@@ -480,6 +492,25 @@ class GeneratorTool:
         # Return with the original root, whether the deletion was successful or not.
         return root
 
+    def unrestricted_delete(self, individual=None, _=None):
+        """
+        Remove a subtree rooted in any kind of rule node randomly without any
+        further restriction.
+
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :return: The root of the modified tree.
+        :rtype: Rule
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+        options = [node for node in annot.rules if node != root]
+        if options:
+            removed_node = random.choice(options)
+            removed_node.remove()
+
+        # Return with the original root, whether the deletion was successful or not.
+        return root
+
     def replicate_quantified(self, individual=None, _=None):
         """
         Select a quantified sub-tree randomly, replicate it and insert it again if
@@ -540,4 +571,29 @@ class GeneratorTool:
                     parent.replace(rule)
                     return root
                 parent = parent.parent
+        return root
+
+    def unrestricted_hoist_rule(self, individual=None, _=None):
+        """
+        Select two rule nodes from the input individual which are in
+        ancestor-descendant relationship (without type compatibility check) and
+        replace the ancestor with the selected descendant.
+
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :return: The root of the modified tree.
+        :rtype: Rule
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+        for rule in random.sample(annot.rules, k=len(annot.rules)):
+            options = []
+            parent = rule.parent
+            while parent and parent != root:
+                if isinstance(parent, UnparserRule) and len(parent.children) > 1 and not rule.equalTokens(parent):
+                    options.append(parent)
+                parent = parent.parent
+
+            if options:
+                random.choice(options).replace(rule)
+                return root
         return root

@@ -62,7 +62,7 @@ def generator_tool_helper(args, weights, lock):
                          rule=args.rule, out_format=args.out, lock=lock,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
                          population=DefaultPopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
-                         generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
+                         generate=args.generate, mutate=args.mutate, recombine=args.recombine, unrestricted=args.unrestricted, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
 
@@ -108,6 +108,8 @@ def execute():
                         help='disable test generation by mutation (disabled by default if no population is given).')
     parser.add_argument('--no-recombine', dest='recombine', default=True, action='store_false',
                         help='disable test generation by recombination (disabled by default if no population is given).')
+    parser.add_argument('--no-grammar-violations', dest='unrestricted', default=True, action='store_false',
+                        help='disable applying grammar-violating mutators (enabled by default)')
     parser.add_argument('--keep-trees', default=False, action='store_true',
                         help='keep generated tests to participate in further mutations or recombinations (only if population is given).')
     add_tree_format_argument(parser)
