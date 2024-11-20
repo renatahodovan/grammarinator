@@ -82,14 +82,14 @@ def execute():
         parser.error(e)
 
     with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser:
+                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
-                for _ in pool.imap_unordered(parser.parse, iter_files(args)):
+                for _ in pool.imap_unordered(parser_tool.parse, iter_files(args)):
                     pass
         else:
             for fn in iter_files(args):
-                parser.parse(fn)
+                parser_tool.parse(fn)
 
 
 if __name__ == '__main__':
