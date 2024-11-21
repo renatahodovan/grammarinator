@@ -9,7 +9,7 @@ import json
 import os
 import random
 
-from argparse import ArgumentParser, ArgumentTypeError, SUPPRESS
+from argparse import ArgumentParser, SUPPRESS
 from functools import partial
 from itertools import count
 from math import inf
@@ -23,13 +23,6 @@ from .cli import add_encoding_argument, add_encoding_errors_argument, add_tree_f
 from .pkgdata import __version__
 from .runtime import RuleSize
 from .tool import DefaultGeneratorFactory, DefaultPopulation, GeneratorTool
-
-
-def restricted_float(value):
-    value = float(value)
-    if value <= 0.0 or value > 1.0:
-        raise ArgumentTypeError(f'{value!r} not in range (0.0, 1.0]')
-    return value
 
 
 def process_args(args):
@@ -60,11 +53,9 @@ def process_args(args):
 def generator_tool_helper(args, weights, lock):
     return GeneratorTool(generator_factory=DefaultGeneratorFactory(args.generator,
                                                                    model_class=args.model,
-                                                                   cooldown=args.cooldown,
                                                                    weights=weights,
-                                                                   lock=lock,
                                                                    listener_classes=args.listener),
-                         rule=args.rule, out_format=args.out,
+                         rule=args.rule, out_format=args.out, lock=lock,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
                          population=DefaultPopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, keep_trees=args.keep_trees,
@@ -101,9 +92,6 @@ def execute():
                         help='maximum recursion depth during generation (default: %(default)f).')
     parser.add_argument('--max-tokens', default=RuleSize.max.tokens, type=int, metavar='NUM',
                         help='maximum token number during generation (default: %(default)f).')
-    parser.add_argument('-c', '--cooldown', default=1.0, type=restricted_float, metavar='NUM',
-                        help='cool-down factor defines how much the probability of an alternative should decrease '
-                             'after it has been chosen (interval: (0, 1]; default: %(default)f).')
     parser.add_argument('-w', '--weights', metavar='FILE',
                         help='JSON file defining custom weights for alternatives.')
 
@@ -152,7 +140,7 @@ def execute():
 
     if args.jobs > 1:
         with Manager() as manager:
-            with generator_tool_helper(args, weights=manager.dict(args.weights), lock=manager.Lock()) as generator_tool:  # pylint: disable=no-member
+            with generator_tool_helper(args, weights=args.weights, lock=manager.Lock()) as generator_tool:
                 parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
                 with Pool(args.jobs) as pool:
                     for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):

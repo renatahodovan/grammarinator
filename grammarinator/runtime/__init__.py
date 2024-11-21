@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from .cooldown_model import CooldownModel
 from .default_model import DefaultModel
 from .dispatching_listener import DispatchingListener
 from .dispatching_model import DispatchingModel
@@ -15,3 +14,4 @@ from .model import Model
 from .population import Annotations, Individual, Population
 from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 from .serializer import simple_space_serializer
+from .weighted_model import WeightedModel
