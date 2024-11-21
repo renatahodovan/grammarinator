@@ -1196,9 +1196,9 @@ class ProcessorTool:
         farthest_ident, max_distance = max(((v_id, d) for v_id, d in min_distances.items() if (isinstance(graph.vertices[v_id], RuleNode) and d != inf)), key=lambda item: item[1])
         unreachable_rules = [v_id for v_id, v in graph.vertices.items() if isinstance(v, RuleNode) and min_distances[v_id] == inf]
 
-        logger.info('\tThe farthest rule from %r is %r (%d steps).', root, farthest_ident, max_distance)
+        logger.info('\tThe farthest rule from %r is %r (%d step(s)).', root, '_'.join(farthest_ident), max_distance)
         if unreachable_rules:
-            logger.warning('\t%d rule(s) unreachable from %r: %s', len(unreachable_rules), root, ', '.join(map(repr, unreachable_rules)))
+            logger.warning('\t%d rule(s) unreachable from %r: %s', len(unreachable_rules), root, ', '.join(repr('_'.join(unreachable_rule)) for unreachable_rule in unreachable_rules))
 
         inf_alts = []
         inf_rules = []
@@ -1209,11 +1209,11 @@ class ProcessorTool:
                         # Generate human-readable description for an alternative in the graph. The output is a
                         # (rule node, alternation node, alternative node) string, where `rule` defines the container
                         # rule and the (alternation node, alternative node) sequence defines a derivation reaching the alternative.
-                        inf_alts.append(', '.join(map(str, [graph.vertices[alternative_node.rule_id], node, alternative_node])))
+                        inf_alts.append(f'({graph.vertices[alternative_node.rule_id].name!r}, {node.idx}, {alternative_node.idx})')
             elif isinstance(node, RuleNode):
                 if node.min_size.depth == inf:
                     inf_rules.append(ident)
         if inf_alts:
-            logger.warning('\t%d alternative(s) with infinite derivation (rule node, alternation node, alternative node):\n\t%s', len(inf_alts), ',\n\t'.join(inf_alts))
+            logger.warning('\t%d alternative(s) with infinite derivation (rule, alternation, alternative):\n\t\t%s', len(inf_alts), ',\n\t\t'.join(inf_alts))
         if inf_rules:
-            logger.warning('\t%d rule(s) with infinite derivation (possible cycles): %s', len(inf_rules), ', '.join(map(repr, inf_rules)))
+            logger.warning('\t%d rule(s) with infinite derivation (possible cycles): %s', len(inf_rules), ', '.join(repr('_'.join(inf_rule)) for inf_rule in inf_rules))
