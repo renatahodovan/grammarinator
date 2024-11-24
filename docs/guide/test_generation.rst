@@ -61,8 +61,8 @@ substituted by the generator. Alternatively, if the ``--stdout`` argument is
 provided, the test cases will be printed to the standard output.
 
 The behavior of the generator can be customized using :doc:`models <models>`
-(``--model`` and ``--cooldown``), :doc:`listeners <listeners>`
-(``--listener``), :doc:`transformers <transformers>` (``--transform``), and
+(``--model`` and ``--weights``), :doc:`listeners <listeners>` (``--listener``),
+:doc:`transformers <transformers>` (``--transform``), and
 :doc:`serializers <serializers>` (``--serialize``).
 
 If a directory containing Grammarinator trees is specified using the

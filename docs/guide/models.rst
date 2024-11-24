@@ -111,32 +111,19 @@ models are:
                   return super().charset(node, idx, non_zero_chars)
               return super().charset(node, idx, chars)
 
-  3. :class:`grammarinator.runtime.CooldownModel`: This model enhances the
-     behavior of another model by introducing a cooldown mechanism. It manages
-     cooldown multipliers that adjust the weights of the alternatives
-     selected by the underlying model. This adjustment helps increasing grammar
-     coverage by reducing the probability of alternatives that have already
-     been generated.
-
-     The cooldown factor can be set using the ``--cooldown`` argument of the
-     :ref:`grammarinator-generate<grammarinator-generate>` script or through
-     the constructor of :class:`grammarinator.tool.DefaultGeneratorFactory`.
-     By default, the multiplier of each alternative starts from 1, unless
-     custom values are assigned to specific alternatives. This assignment
-     can happen through the constructor of CooldownModel (when using the API)
+  3. :class:`grammarinator.runtime.WeightedModel`: This model modifies the
+     behavior of another model by adjusting (pre-multiplying) the weights of
+     alternatives. By default, the multiplier of each alternative starts from 1,
+     unless custom values are assigned to specific alternatives. This assignment
+     can happen through the constructor of WeightedModel (when using the API)
      or with the ``--weigths`` CLI option of the
      :ref:`grammarinator-generate<grammarinator-generate>` utility by providing
-     a file containing the weights. Whenever an alternative is selected during
-     generation, the model scales down its multiplier with a cooldown factor
-     from the [0,1] interval that can be set using the ``--cooldown`` argument
-     of the :ref:`grammarinator-generate<grammarinator-generate>` script or
-     through the constructor of
-     :class:`grammarinator.tool.DefaultGeneratorFactory`.
+     a file containing the weights.
 
      The expected format of the weights differs depending on whether
      Grammarinator is used from API or from CLI. When using the API, a compact
      representation is used, which is not JSON serializable. For API usage,
-     refer to the documention of :class:`grammarinator.runtime.CooldownModel`.
+     refer to the documention of :class:`grammarinator.runtime.WeightedModel`.
      When providing weights from the CLI, then the input JSON file should have
      the following format:
 
