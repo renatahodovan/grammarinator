@@ -92,6 +92,16 @@ int main(int argc, char **argv) {
        "number of tests to generate",
        cxxopts::value<int>()->default_value("1"),
        "NUM")
+      ("memo-size",
+       "memoize the last NUM unique tests; if a memoized test case is generated again, it is discarded and generation of a unique test case is retried",
+       cxxopts::value<int>()->default_value("0"),
+       "NUM"
+      )
+      ("unique-attempts",
+       "limit on how many times to try to generate a unique (i.e., non-memoized) test case; no effect if --memo-size=0",
+       cxxopts::value<int>()->default_value("2"),
+       "NUM"
+      )
       ("random-seed",
        "initialize random number generator with fixed seed (not set by default)",
        cxxopts::value<int>(),
@@ -138,6 +148,8 @@ int main(int argc, char **argv) {
                             args["keep-trees"].as<bool>(),  // keep_trees
                             GRAMMARINATOR_TRANSFORMER ? std::vector<Rule*(*)(Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<Rule*(*)(Rule*)>{},  // transformers
                             GRAMMARINATOR_SERIALIZER,  // serializer
+                            args["memo-size"].as<int>(),  // memo-size
+                            args["unique-attempts"].as<int>(),  // unique-attempts
                             args["dry-run"].as<bool>(),  // dry-run
                             false  // print_mutators
                             );
