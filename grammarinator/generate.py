@@ -25,6 +25,10 @@ from .runtime import RuleSize
 from .tool import DefaultGeneratorFactory, DefaultPopulation, GeneratorTool
 
 
+def int_or_inf(value):
+    return inf if value == 'inf' else int(value)
+
+
 def process_args(args):
     args.generator = import_object(args.generator)
     args.model = import_object(args.model)
@@ -113,7 +117,7 @@ def execute():
                         help='output file name pattern (default: %(default)s).')
     parser.add_argument('--stdout', dest='out', action='store_const', const='', default=SUPPRESS,
                         help='print test cases to stdout (alias for --out=%(const)r)')
-    parser.add_argument('-n', default=1, type=int, metavar='NUM',
+    parser.add_argument('-n', default=1, type=int_or_inf, metavar='NUM',
                         help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default).')
