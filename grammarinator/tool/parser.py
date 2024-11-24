@@ -34,6 +34,19 @@ class ConsoleListener(error.ErrorListener.ConsoleErrorListener):
 error.ErrorListener.ConsoleErrorListener.INSTANCE = ConsoleListener()
 
 
+class ExtendedErrorListener(error.ErrorListener.ErrorListener):
+    """
+    Custom error listener for the ANTLR lexer ensuring to insert the
+    unrecognized tokens into the tree as well.
+    """
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        recognizer.inputStream.consume()
+        recognizer.type = Token.INVALID_TYPE
+        recognizer.channel = Token.DEFAULT_CHANNEL
+        recognizer.emit()
+        recognizer.type = Token.MIN_USER_TOKEN_TYPE
+
+
 class ParserTool:
     """
     Tool to parse existing sources and create a tree pool from them. These
@@ -185,8 +198,9 @@ class ParserTool:
                 depth = max(depth, child_depth + 1)
         else:
             assert isinstance(antlr_node, TerminalNode), f'An ANTLR node must either be a ParserRuleContext or a TerminalNode but {antlr_node.__class__.__name__} was found.'
-            name, text = parser.symbolicNames[antlr_node.symbol.type] if len(parser.symbolicNames) >= antlr_node.symbol.type else '<INVALID>', antlr_node.symbol.text
+            name, text = parser.symbolicNames[antlr_node.symbol.type] if len(parser.symbolicNames) > antlr_node.symbol.type else '<INVALID>', antlr_node.symbol.text
             assert name, f'{name} is None or empty'
+
             if antlr_node.symbol.type == Token.EOF:
                 return None, 0, []
 
@@ -310,7 +324,9 @@ class ParserTool:
             # They MUST match, since ANTLR has already parsed them
             # During matching, quantifier and alternation structures are identified
             rule_children, rule_tree_node_pos = _match_seq(self._graph.vertices[rule.name].out_neighbours + [None], 0)
-            assert rule_children is not None, f'Failed to match {rule.name} tree node to the related grammar rule at {rule_tree_node_pos}.'
+            if rule_children is None:
+                logger.warning('Failed to match %s tree node to the related grammar rule at %d.', rule.name, rule_tree_node_pos)
+                return
 
             # Detach all children from the tree node so that they can be reattached
             # in a structured way afterwards
@@ -368,21 +384,24 @@ class ParserTool:
     # Create an ANTLR tree from the input stream and convert it to Grammarinator tree.
     def _create_tree(self, input_stream, fn):
         try:
-            parser = self._parser_cls(CommonTokenStream(self._lexer_cls(input_stream)))
+            lexer = self._lexer_cls(input_stream)
+            lexer.addErrorListener(ExtendedErrorListener())
+            parser = self._parser_cls(CommonTokenStream(lexer))
             parse_tree_root = getattr(parser, self._rule)()
-            if not parser._syntaxErrors:
-                root, depth, rules = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
-                if depth > self._max_depth:
-                    logger.info('The tree representation of %s is %s, too deep. Skipping.', fn, depth)
-                    return None
+            if parser._syntaxErrors:
+                logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
 
-                self._adjust_tree_to_generator(rules)
-                for transformer in self._transformers:
-                    root = transformer(root)
+            root, depth, rules = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
+            if depth > self._max_depth:
+                logger.info('The tree representation of %s is %s, too deep. Skipping.', fn, depth)
+                return None
 
-                return root
+            self._adjust_tree_to_generator(rules)
+            for transformer in self._transformers:
+                root = transformer(root)
 
-            logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
+            return root
+
         except Exception as e:
             logger.warning('Exception while parsing %s.', fn, exc_info=e)
         return None

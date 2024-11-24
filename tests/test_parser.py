@@ -24,6 +24,8 @@ parser_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parser')
     (os.path.join(parser_dir, 'inp3.txt'), os.path.join(parser_dir, 'exp3.grtj')),
     (os.path.join(parser_dir, 'inp4.txt'), os.path.join(parser_dir, 'exp4.grtj')),
     (os.path.join(parser_dir, 'inp5.txt'), os.path.join(parser_dir, 'exp5.grtj')),
+    (os.path.join(parser_dir, 'inp6.txt'), os.path.join(parser_dir, 'exp6.grtj')),
+    (os.path.join(parser_dir, 'inp7.txt'), os.path.join(parser_dir, 'exp7.grtj')),
 ])
 def test_parser(inp, expected, tmpdir):
     with open(inp, 'r') as f:
