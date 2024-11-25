@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -17,5 +17,9 @@
 // TEST-REPARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}%d.txt
 
 parser grammar UnicodePropertiesParser;
+
+options {
+  tokenVocab = UnicodePropertiesLexer;
+}
 
 start : UPROP GENERAL ENUM_BLOCK ENUM_SCRIPT INVERTED EXTRAS INVERTED_EXTRAS;
