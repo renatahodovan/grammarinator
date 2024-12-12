@@ -53,6 +53,7 @@ class RuleSize:
     def __iadd__(self, other):
         self.depth += other.depth
         self.tokens += other.tokens
+        return self
 
     def __sub__(self, other):
         return RuleSize(depth=self.depth - other.depth, tokens=self.tokens - other.tokens)
@@ -60,8 +61,11 @@ class RuleSize:
     def __isub__(self, other):
         self.depth -= other.depth
         self.tokens -= other.tokens
+        return self
 
     def __eq__(self, other):
+        if not isinstance(other, RuleSize):
+            return NotImplemented
         return self.depth == other.depth and self.tokens == other.tokens
 
     def __le__(self, other):
