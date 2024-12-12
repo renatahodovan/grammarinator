@@ -1,11 +1,14 @@
-# Copyright (c) 2020-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+from typing import Union
+
 from .default_model import DefaultModel
+from .rule import Rule
 
 
 class DispatchingModel(DefaultModel):
@@ -18,7 +21,7 @@ class DispatchingModel(DefaultModel):
     or charset decision, respectively.
     """
 
-    def choice(self, node, idx, weights):
+    def choice(self, node: Rule, idx: int, weights: list[float]) -> int:
         """
         Trampoline to the ``choice_{node.name}`` method of the subclassed model, if it exists.
         Otherwise, it calls the default implementation (:meth:`DefaultModel.choice`).
@@ -26,7 +29,7 @@ class DispatchingModel(DefaultModel):
         name = 'choice_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, weights)
 
-    def quantify(self, node, idx, cnt, start, stop):
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: Union[int, float]) -> bool:
         """
         Trampoline to the ``quantify_{node.name}`` method of the subclassed model, if it exists.
         Otherwise, it calls the default implementation (:meth:`DefaultModel.quantify`).
@@ -34,7 +37,7 @@ class DispatchingModel(DefaultModel):
         name = 'quantify_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, cnt, start, stop)
 
-    def charset(self, node, idx, chars):
+    def charset(self, node: Rule, idx: int, chars: tuple[int, ...]) -> str:
         """
         Trampoline to the ``charset_{node.name}`` method of the subclassed model, if it exists.
         Otherwise, it calls the default implementation (:meth:`DefaultModel.charset`).

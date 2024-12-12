@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2024-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -9,6 +9,7 @@ import codecs
 import os
 
 from argparse import ArgumentParser
+from collections.abc import Callable
 from functools import partial
 from multiprocessing import Pool
 
@@ -16,13 +17,19 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 from inators.imp import import_object
 
 from .cli import add_encoding_argument, add_encoding_errors_argument, add_jobs_argument, add_tree_format_argument, init_logging, iter_files, logger, process_tree_format_argument
+from .runtime import Rule
+from .tool import TreeCodec
 from .pkgdata import __version__
 
 
-def decode(fn, codec, serializer, out, ext, encoding, errors):
+def decode(fn: str, codec: TreeCodec, serializer: Callable[[Rule], str], out: str, ext: str, encoding: str, errors: str) -> None:
     logger.info('Process file %s.', fn)
     with open(fn, 'rb') as f:
         root = codec.decode(f.read())
+
+    if not root:
+        logger.warning('File %s does not contain a valid tree.', fn)
+        return
 
     base, _ = os.path.splitext(fn)
     out = os.path.join(out, f'{os.path.basename(base)}{ext}')
@@ -31,7 +38,7 @@ def decode(fn, codec, serializer, out, ext, encoding, errors):
         f.write(serializer(root))
 
 
-def execute():
+def execute() -> None:
     parser = ArgumentParser(description='Grammarinator: Decode',
                             epilog="""
                             The tool decodes tree files and serializes them to test cases.

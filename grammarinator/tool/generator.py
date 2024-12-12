@@ -14,8 +14,9 @@ from contextlib import nullcontext
 from copy import deepcopy
 from os.path import abspath, dirname
 from shutil import rmtree
+from typing import Callable, Optional, Sequence, Union
 
-from ..runtime import DefaultModel, RuleSize, UnparserRule, WeightedModel
+from ..runtime import Generator, DefaultModel, Individual, Listener, Model, Population, Rule, RuleSize, UnlexerRule, UnparserRule, WeightedModel
 
 logger = logging.getLogger(__name__)
 
@@ -34,34 +35,29 @@ class GeneratorFactory:
     guaranteed to expose all the required generator class properties.
     """
 
-    def __init__(self, generator_class):
+    def __init__(self, generator_class: type[Generator]) -> None:
         """
-        :param type[~grammarinator.runtime.Generator] generator_class: The class
-            of the wrapped generator.
-
-        :ivar type[~grammarinator.runtime.Generator] _generator_class: The class
-            of the wrapped generator.
+        :param generator_class: The class of the wrapped generator.
         """
-        self._generator_class = generator_class
+        self._generator_class: type[Generator] = generator_class  #: The class of the wrapped generator.
         # Exposing some class variables of the encapsulated generator.
         # In the generator class, they start with `_` to avoid any kind of
         # collision with rule names, so they start with `_` here as well.
-        self._rule_sizes = generator_class._rule_sizes
-        self._alt_sizes = generator_class._alt_sizes
-        self._quant_sizes = generator_class._quant_sizes
+        self._rule_sizes: dict[str, RuleSize] = generator_class._rule_sizes  # Sizes of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
+        self._alt_sizes: tuple[tuple[RuleSize, ...], ...] = generator_class._alt_sizes  # Sizes of the alternatives of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
+        self._quant_sizes: tuple[RuleSize, ...] = generator_class._quant_sizes  # Sizes of the quantifiers of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
 
-    def __call__(self, limit=None):
+    def __call__(self, limit: Optional[RuleSize] = None) -> Generator:
         """
         Create a new generator instance.
 
-        :param RuleSize limit: The limit on the depth of the trees and on the
-            number of tokens (number of unlexer rule calls), i.e., it must be
-            possible to finish generation from the selected node so that the
-            overall depth and token count of the tree does not exceed these
-            limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
-            Used to instantiate the generator.
+        :param limit: The limit on the depth of the trees and on the number of
+            tokens (number of unlexer rule calls), i.e., it must be possible to
+            finish generation from the selected node so that the overall depth
+            and token count of the tree does not exceed these limits (default:
+            :class:`~grammarinator.runtime.RuleSize`. ``max``). Used to
+            instantiate the generator.
         :return: The created generator instance.
-        :rtype: ~grammarinator.runtime.Generator
         """
         return self._generator_class(limit=limit)
 
@@ -73,39 +69,36 @@ class DefaultGeneratorFactory(GeneratorFactory):
     newly created listener objects is attached.
     """
 
-    def __init__(self, generator_class, *,
-                 model_class=None, weights=None,
-                 listener_classes=None):
+    def __init__(self, generator_class: type[Generator], *,
+                 model_class: Optional[type[Model]] = None, weights: Optional[dict[tuple[str, int, int], float]] = None,
+                 listener_classes: Optional[list[type[Listener]]] = None) -> None:
         """
-        :param type[~grammarinator.runtime.Generator] generator_class: The class
-            of the generator to instantiate.
-        :param type[~grammarinator.runtime.Model] model_class: The class of the
-            model to instantiate. The model instance is used to instantiate the
-            generator.
-        :param dict[tuple,float] weights: Initial multipliers of alternatives.
-            Used to instantiate a :class:`~grammarinator.runtime.WeightedModel`
-            wrapper around the model.
-        :param list[type[~grammarinator.runtime.Listener]] listener_classes:
-            List of listener classes to instantiate and attach to the generator.
+        :param generator_class: The class of the generator to instantiate.
+        :param model_class: The class of the model to instantiate. The model
+            instance is used to instantiate the generator.
+        :param weights: Initial multipliers of alternatives. Used to instantiate
+            a :class:`~grammarinator.runtime.WeightedModel` wrapper around the
+            model.
+        :param listener_classes: List of listener classes to instantiate and
+            attach to the generator.
         """
         super().__init__(generator_class)
-        self._model_class = model_class or DefaultModel
-        self._weights = weights
-        self._listener_classes = listener_classes or []
+        self._model_class: type[Model] = model_class or DefaultModel
+        self._weights: Optional[dict[tuple[str, int, int], float]] = weights
+        self._listener_classes: list[type[Listener]] = listener_classes or []
 
-    def __call__(self, limit=None):
+    def __call__(self, limit: Optional[RuleSize] = None) -> Generator:
         """
         Create a new generator instance according to the settings specified for
         the factory instance and for this method.
 
-        :param RuleSize limit: The limit on the depth of the trees and on the
-            number of tokens (number of unlexer rule calls), i.e., it must be
-            possible to finish generation from the selected node so that the
-            overall depth and token count of the tree does not exceed these
-            limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
-            Used to instantiate the generator.
+        :param limit: The limit on the depth of the trees and on the number of
+            tokens (number of unlexer rule calls), i.e., it must be possible to
+            finish generation from the selected node so that the overall depth
+            and token count of the tree does not exceed these limits (default:
+            :class:`~grammarinator.runtime.RuleSize`. ``max``). Used to
+            instantiate the generator.
         :return: The created generator instance.
-        :rtype: ~grammarinator.runtime.Generator
         """
         model = self._model_class()
         if self._weights:
@@ -125,56 +118,55 @@ class GeneratorTool:
     Tool to create new test cases using the generator produced by ``grammarinator-process``.
     """
 
-    def __init__(self, generator_factory, out_format, lock=None, rule=None, limit=None,
-                 population=None, generate=True, mutate=True, recombine=True, unrestricted=True, keep_trees=False,
-                 transformers=None, serializer=None, memo_size=0, unique_attempts=2,
-                 cleanup=True, encoding='utf-8', errors='strict', dry_run=False):
+    def __init__(self, generator_factory: Union[type[Generator], GeneratorFactory], out_format: str, lock=None, rule: Optional[str] = None, limit: Optional[RuleSize] = None,
+                 population: Optional[Population] = None, generate: bool = True, mutate: bool = True, recombine: bool = True, unrestricted: bool = True, keep_trees: bool = False,
+                 transformers: Optional[list[Callable[[Rule], Rule]]] = None, serializer: Optional[Callable[[Rule], str]] = None, memo_size: int = 0, unique_attempts: int = 2,
+                 cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict', dry_run: bool = False):
         """
-        :param type[~grammarinator.runtime.Generator] or GeneratorFactory generator_factory:
-            A callable that can produce instances of a generator. It is a
-            generalization of a generator class: it has to instantiate a
-            generator object, and it may also set the decision model and the
-            listeners of the generator as well. It also has to expose some
-            properties of the generator class necessary to guide generation or
-            mutation. In the simplest case, it can be a
-            ``grammarinator-process``-created subclass of
-            :class:`~grammarinator.runtime.Generator`, but in more complex
-            scenarios a factory can be used, e.g., an instance of a subclass of
-            :class:`GeneratorFactory`, like :class:`DefaultGeneratorFactory`.
-        :param str rule: Name of the rule to start generation from (default: the
+        :param generator_factory: A callable that can produce instances of a
+            generator. It is a generalization of a generator class: it has to
+            instantiate a generator object, and it may also set the decision
+            model and the listeners of the generator as well. It also has to
+            expose some properties of the generator class necessary to guide
+            generation or mutation. In the simplest case, it can be a
+            ``grammarinator-process``-created subclass of :class:`Generator`,
+            but in more complex scenarios a factory can be used, e.g., an
+            instance of a subclass of :class:`GeneratorFactory`,
+            like :class:`DefaultGeneratorFactory`.
+        :param rule: Name of the rule to start generation from (default: the
             default rule of the generator).
-        :param str out_format: Test output description. It can be a file path pattern possibly including the ``%d``
-               placeholder which will be replaced by the index of the test case. Otherwise, it can be an empty string,
-               which will result in printing the test case to the stdout (i.e., not saving to file system).
-        :param multiprocessing.Lock lock: Lock object necessary when printing test cases in parallel (optional).
-        :param RuleSize limit: The limit on the depth of the trees and on the
+        :param out_format: Test output description. It can be a file path pattern possibly including the ``%d``
+            placeholder which will be replaced by the index of the test case. Otherwise, it can be an empty string,
+            which will result in printing the test case to the stdout (i.e., not saving to file system).
+        :param lock: Lock object necessary when printing test cases in parallel (optional).
+        :type lock: :class:`multiprocessing.Lock` | None
+        :param limit: The limit on the depth of the trees and on the
             number of tokens (number of unlexer rule calls), i.e., it must be
             possible to finish generation from the selected node so that the
             overall depth and token count of the tree does not exceed these
             limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
-        :param ~grammarinator.runtime.Population population: Tree pool for
-            mutation and recombination, e.g., an instance of
-            :class:`DefaultPopulation`.
-        :param bool generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
-        :param bool mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
-        :param bool recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
-        :param bool unrestricted: Enable applying possibly grammar-violating creators.
-        :param bool keep_trees: Keep generated trees to participate in further mutations or recombinations
-               (otherwise, only the initial population will be mutated or recombined). It has effect only if
-               population is defined.
-        :param list transformers: List of transformers to be applied to postprocess
-               the generated tree before serializing it.
+        :param population: Tree pool for mutation and recombination, e.g., an
+            instance of :class:`DefaultPopulation`.
+        :param generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
+        :param mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
+        :param recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
+        :param unrestricted: Enable applying possibly grammar-violating creators.
+        :param keep_trees: Keep generated trees to participate in further mutations or recombinations
+            (otherwise, only the initial population will be mutated or recombined). It has effect only if
+            population is defined.
+        :param transformers: List of transformers to be applied to postprocess
+            the generated tree before serializing it.
         :param serializer: A serializer that takes a tree and produces a string from it (default: :class:`str`).
-               See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
-        :param int memo_size: The number of most recently created unique tests
+            See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
+        :param memo_size: The number of most recently created unique tests
             memoized (default: 0).
-        :param int unique_attempts: The limit on how many times to try to
+        :param unique_attempts: The limit on how many times to try to
             generate a unique (i.e., non-memoized) test case. It has no effect
             if ``memo_size`` is 0 (default: 2).
-        :param bool cleanup: Enable deleting the generated tests at :meth:`__exit__`.
-        :param str encoding: Output file encoding.
-        :param str errors: Encoding error handling scheme.
-        :param bool dry_run: Enable or disable the saving or printing of the result of generation.
+        :param cleanup: Enable deleting the generated tests at :meth:`__exit__`.
+        :param encoding: Output file encoding.
+        :param errors: Encoding error handling scheme.
+        :param dry_run: Enable or disable the saving or printing of the result of generation.
         """
 
         self._generator_factory = generator_factory
@@ -193,7 +185,7 @@ class GeneratorTool:
         self._enable_mutation = mutate
         self._enable_recombination = recombine
         self._keep_trees = keep_trees
-        self._memo = {}  # NOTE: value associated to test is unimportant, but dict keeps insertion order while set does not
+        self._memo: dict[str, None] = {}  # NOTE: value associated to test is unimportant, but dict keeps insertion order while set does not
         self._memo_size = memo_size
         self._unique_attempts = max(unique_attempts, 1)
         self._cleanup = cleanup
@@ -201,8 +193,8 @@ class GeneratorTool:
         self._errors = errors
         self._dry_run = dry_run
 
-        self._generators = [self.generate]
-        self._mutators = [
+        self._generators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]] = [self.generate]
+        self._mutators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]] = [
             self.regenerate_rule,
             self.delete_quantified,
             self.replicate_quantified,
@@ -211,7 +203,7 @@ class GeneratorTool:
             self.swap_local_nodes,
             self.insert_local_node,
         ]
-        self._recombiners = [
+        self._recombiners: list[Callable[[Optional[Individual], Optional[Individual]], Rule]] = [
             self.replace_node,
             self.insert_quantified,
         ]
@@ -231,19 +223,18 @@ class GeneratorTool:
         if self._cleanup and self._out_format and not self._dry_run:
             rmtree(dirname(self._out_format))
 
-    def create_test(self, index):
+    def create_test(self, index: int) -> Optional[str]:
         """
         Create a new test case with a randomly selected generator method from the
         available options (see :meth:`generate`, :meth:`mutate`, and
         :meth:`recombine`). The generated tree is transformed, serialized and saved
         according to the parameters used to initialize the current tool object.
 
-        :param int index: Index of the test case to be generated.
+        :param index: Index of the test case to be generated.
         :return: Path to the generated serialized test file. It may be empty if
             the tool object was initialized with an empty ``out_format`` or
             ``None`` if ``dry_run`` was enabled, and hence the test file was not
             saved.
-        :rtype: str
         """
         for attempt in range(1, self._unique_attempts + 1):
             root = self.create()
@@ -268,7 +259,7 @@ class GeneratorTool:
 
         return test_fn
 
-    def _memoize_test(self, test):
+    def _memoize_test(self, test: str) -> bool:
         # Memoize the test case. The size of the memo is capped by
         # ``memo_size``, i.e., it contains at most that many test cases.
         # Returns ``False`` if the test case was already in the memo, ``True``
@@ -284,18 +275,18 @@ class GeneratorTool:
             del self._memo[next(iter(self._memo))]
         return True
 
-    def _select_creator(self, creators, individual1, individual2):  # pylint: disable=unused-argument
+    def _select_creator(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Callable[[Optional[Individual], Optional[Individual]], Rule]:  # pylint: disable=unused-argument
         # NOTE: May be overridden.
         return random.choice(creators)
 
-    def _create_tree(self, creators, individual1, individual2):
+    def _create_tree(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Rule:
         creator = self._select_creator(creators, individual1, individual2)
         root = creator(individual1, individual2)
         for transformer in self._transformers:
             root = transformer(root)
         return root
 
-    def create(self):
+    def create(self) -> Rule:
         """
         Create a new tree with a randomly selected generator method from the
         available options (see :meth:`generate`, :meth:`mutate`, and
@@ -303,7 +294,6 @@ class GeneratorTool:
         parameters used to initialize the current tool object.
 
         :return: The root of the created tree.
-        :rtype: Rule
         """
         individual1, individual2 = (self._ensure_individuals(None, None)) if self._population else (None, None)
         creators = []
@@ -316,7 +306,7 @@ class GeneratorTool:
                 creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
 
-    def mutate(self, individual=None):
+    def mutate(self, individual: Optional[Individual] = None) -> Rule:
         """
         Dispatcher method for mutation operators: it picks one operator randomly and
         creates a new tree by applying the operator to an individual. The generated
@@ -329,10 +319,8 @@ class GeneratorTool:
         :meth:`unrestricted_delete`, :meth:`unrestricted_hoist_rule`,
         :meth:`swap_local_nodes`, :meth:`insert_local_node`
 
-        :param ~grammarinator.runtime.Individual individual: The population item to
-            be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the mutated tree.
-        :rtype: Rule
         """
         # NOTE: Intentionally does not check self._enable_mutation!
         # If you call this explicitly, then so be it, even if mutation is disabled.
@@ -340,7 +328,7 @@ class GeneratorTool:
         individual = self._ensure_individual(individual)
         return self._create_tree(self._mutators, individual, None)
 
-    def recombine(self, individual1=None, individual2=None):
+    def recombine(self, individual1: Optional[Individual] = None, individual2: Optional[Individual] = None) -> Rule:
         """
         Dispatcher method for recombination operators: it picks one operator
         randomly and creates a new tree by applying the operator to an individual.
@@ -350,12 +338,11 @@ class GeneratorTool:
         Supported recombination operators: :meth:`replace_node`,
         :meth:`insert_quantified`
 
-        :param ~grammarinator.runtime.Individual individual1: The population item to
-            be used as a recipient during crossover.
-        :param ~grammarinator.runtime.Individual individual2: The population item to
-            be used as a donor during crossover.
+        :param individual1: The population item to be used as a recipient during
+            crossover.
+        :param individual2: The population item to be used as a donor during
+            crossover.
         :return: The root of the recombined tree.
-        :rtype: Rule
         """
         # NOTE: Intentionally does not check self._enable_recombination!
         # If you call this explicitly, then so be it, even if recombination is disabled.
@@ -363,16 +350,15 @@ class GeneratorTool:
         individual1, individual2 = self._ensure_individuals(individual1, individual2)
         return self._create_tree(self._recombiners, individual1, individual2)
 
-    def generate(self, _individual1=None, _individual2=None, *, rule=None, reserve=None):
+    def generate(self, _individual1: Optional[Individual] = None, _individual2: Optional[Individual] = None, *, rule: Optional[str] = None, reserve: Optional[RuleSize] = None) -> Union[UnlexerRule, UnparserRule]:
         """
         Instantiate a new generator and generate a new tree from scratch.
 
-        :param str rule: Name of the rule to start generation from.
-        :param RuleSize reserve: Size budget that needs to be put in reserve
-            before generating the tree. Practically, deduced from the initially
+        :param rule: Name of the rule to start generation from.
+        :param reserve: Size budget that needs to be put in reserve before
+            generating the tree. Practically, deduced from the initially
             specified limit. (default values: 0, 0)
         :return: The root of the generated tree.
-        :rtype: Rule
         """
         # NOTE: Intentionally does not check self._enable_generation!
         # If you call this explicitly, then so be it, even if generation is disabled.
@@ -381,22 +367,26 @@ class GeneratorTool:
         rule = rule or self._rule or generator._default_rule.__name__
         return getattr(generator, rule)()
 
-    def _ensure_individual(self, individual):
-        return individual or self._population.select_individual()
+    def _ensure_individual(self, individual: Optional[Individual]) -> Individual:
+        if individual is None:
+            assert self._population is not None
+            individual = self._population.select_individual()
+        return individual
 
-    def _ensure_individuals(self, individual1, individual2):
+    def _ensure_individuals(self, individual1: Optional[Individual], individual2: Optional[Individual]) -> tuple[Individual, Individual]:
         individual1 = self._ensure_individual(individual1)
-        individual2 = individual2 or self._population.select_individual()
+        if individual2 is None:
+            assert self._population is not None
+            individual2 = self._population.select_individual()
         return individual1, individual2
 
-    def regenerate_rule(self, individual=None, _=None):
+    def regenerate_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Mutate a tree at a random position, i.e., discard and re-generate its
         sub-tree at a randomly selected node.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the mutated tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -412,14 +402,14 @@ class GeneratorTool:
             mutated_node = random.choice(options)
             reserve = RuleSize(depth=annot.node_levels[mutated_node],
                                tokens=root_tokens - annot.node_tokens[mutated_node])
-            mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))
+            mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))  # type: ignore[assignment]
             return mutated_node.root
 
         # If selection strategy fails, we fallback and discard the whole tree
         # and generate a brand new one instead.
         return self.generate(rule=root.name)
 
-    def replace_node(self, recipient_individual=None, donor_individual=None):
+    def replace_node(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Rule:
         """
         Recombine two trees at random positions where the nodes are compatible
         with each other (i.e., they share the same node name). One of the trees
@@ -427,22 +417,21 @@ class GeneratorTool:
         rooted at a random node of the recipient is discarded and replaced
         by the sub-tree rooted at a random node of the donor.
 
-        :param ~grammarinator.runtime.Individual recipient_individual:
-            The population item to be used as a recipient during crossover.
-        :param ~grammarinator.runtime.Individual donor_individual:
-            The population item to be used as a donor during crossover.
+        :param recipient_individual: The population item to be used as a
+            recipient during crossover.
+        :param donor_individual: The population item to be used as a donor
+            during crossover.
         :return: The root of the recombined tree.
-        :rtype: Rule
         """
         recipient_individual, donor_individual = self._ensure_individuals(recipient_individual, donor_individual)
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
         donor_annot = donor_individual.annotations
 
-        recipient_lookup = dict(recipient_annot.rules_by_name)
+        recipient_lookup: dict[str, Sequence[Rule]] = dict(recipient_annot.rules_by_name)
         recipient_lookup.update(recipient_annot.quants_by_name)
         recipient_lookup.update(recipient_annot.alts_by_name)
 
-        donor_lookup = dict(donor_annot.rules_by_name)
+        donor_lookup: dict[str, Sequence[Rule]] = dict(donor_annot.rules_by_name)
         donor_lookup.update(donor_annot.quants_by_name)
         donor_lookup.update(donor_annot.alts_by_name)
         common_types = sorted(set(recipient_lookup.keys()) & set(donor_lookup.keys()))
@@ -465,19 +454,18 @@ class GeneratorTool:
         # to be the result of recombination.
         return recipient_root
 
-    def insert_quantified(self, recipient_individual=None, donor_individual=None):
+    def insert_quantified(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Rule:
         """
         Selects two compatible quantifier nodes from two trees randomly and if
         the quantifier node of the recipient tree is not full (the number of
         its children is less than the maximum count), then add one new child
         to it at a random position from the children of donors quantifier node.
 
-        :param ~grammarinator.runtime.Individual recipient_individual:
-            The population item to be used as a recipient during crossover.
-        :param ~grammarinator.runtime.Individual donor_individual:
-            The population item to be used as a donor during crossover.
+        :param recipient_individual: The population item to be used as a
+            recipient during crossover.
+        :param donor_individual: The population item to be used as a donor
+            during crossover.
         :return: The root of the extended tree.
-        :rtype: Rule
         """
         recipient_individual, donor_individual = self._ensure_individuals(recipient_individual, donor_individual)
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
@@ -500,13 +488,12 @@ class GeneratorTool:
         # to be the result of insertion.
         return recipient_root
 
-    def delete_quantified(self, individual=None, _=None):
+    def delete_quantified(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Removes an optional subtree randomly from a quantifier node.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the modified tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -518,14 +505,13 @@ class GeneratorTool:
         # Return with the original root, whether the deletion was successful or not.
         return root
 
-    def unrestricted_delete(self, individual=None, _=None):
+    def unrestricted_delete(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Remove a subtree rooted in any kind of rule node randomly without any
         further restriction.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the modified tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -537,14 +523,13 @@ class GeneratorTool:
         # Return with the original root, whether the deletion was successful or not.
         return root
 
-    def replicate_quantified(self, individual=None, _=None):
+    def replicate_quantified(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Select a quantified sub-tree randomly, replicate it and insert it again if
         the maximum quantification count is not reached yet.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the modified tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -555,20 +540,19 @@ class GeneratorTool:
         if node_options:
             node_to_repeat = random.choice(node_options)
             max_repeat = (self._limit.tokens - recipient_root_tokens) // annot.node_tokens[node_to_repeat] if self._limit.tokens != RuleSize.max.tokens else 1
-            repeat = random.randint(1, max_repeat) if max_repeat > 1 else 1
+            repeat = random.randint(1, int(max_repeat)) if max_repeat > 1 else 1
             for _ in range(repeat):
-                node_to_repeat.parent.insert_child(idx=random.randint(0, len(node_to_repeat.parent.children)), node=deepcopy(node_to_repeat))
+                node_to_repeat.parent.insert_child(idx=random.randint(0, len(node_to_repeat.parent.children)), node=deepcopy(node_to_repeat))  # type: ignore[union-attr]
 
         # Return with the original root, whether the replication was successful or not.
         return root
 
-    def shuffle_quantifieds(self, individual=None, _=None):
+    def shuffle_quantifieds(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Select a quantifier node and shuffle its quantified sub-trees.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the modified tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -580,16 +564,15 @@ class GeneratorTool:
         # Return with the original root, whether the shuffling was successful or not.
         return root
 
-    def hoist_rule(self, individual=None, _=None):
+    def hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Select an individual of the population to be mutated and select two
         rule nodes from it which share the same rule name and are in
         ancestor-descendant relationship making possible for the descendant
         to replace its ancestor.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the hoisted tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -602,15 +585,14 @@ class GeneratorTool:
                 parent = parent.parent
         return root
 
-    def unrestricted_hoist_rule(self, individual=None, _=None):
+    def unrestricted_hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Select two rule nodes from the input individual which are in
         ancestor-descendant relationship (without type compatibility check) and
         replace the ancestor with the selected descendant.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated.
+        :param individual: The population item to be mutated.
         :return: The root of the modified tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
@@ -627,19 +609,18 @@ class GeneratorTool:
                 return root
         return root
 
-    def swap_local_nodes(self, individual=None, _=None):
+    def swap_local_nodes(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Swap two non-overlapping subtrees at random positions in a single test
         where the nodes are compatible with each other (i.e., they share the same node name).
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated
+        :param individual: The population item to be mutated
         :return: The root of the mutated tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
 
-        options = dict(annot.rules_by_name)
+        options: dict[str, Sequence[Rule]] = dict(annot.rules_by_name)
         options.update(annot.quants_by_name)
         options.update(annot.alts_by_name)
 
@@ -676,6 +657,7 @@ class GeneratorTool:
 
                     first_parent = first_node.parent
                     second_parent = second_node.parent
+                    assert first_parent is not None and second_parent is not None, 'Both nodes must have a parent.'
                     first_parent.children[first_parent.children.index(first_node)] = second_node
                     second_parent.children[second_parent.children.index(second_node)] = first_node
                     first_node.parent = second_parent
@@ -683,16 +665,15 @@ class GeneratorTool:
                     return root
         return root
 
-    def insert_local_node(self, individual=None, _=None):
+    def insert_local_node(self, individual: Optional[Individual] = None, _=None) -> Rule:
         """
         Select two compatible quantifier nodes from a single test and
         insert a random quantified subtree of the second one into the
         first one at a random position, while the quantifier restrictions
         are ensured.
 
-        :param ~grammarinator.runtime.Individual individual: The population item to be mutated
+        :param individual: The population item to be mutated
         :return: The root of the mutated tree.
-        :rtype: Rule
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations

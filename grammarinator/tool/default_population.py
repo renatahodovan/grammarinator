@@ -5,16 +5,19 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+from __future__ import annotations
+
 import glob
 import logging
 import os
 import random
 
 from os.path import basename, join
+from typing import Optional
 from uuid import uuid4
 
 from ..runtime import Annotations, Individual, Population, Rule
-from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec
+from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec, TreeCodec
 
 logger = logging.getLogger(__name__)
 
@@ -25,27 +28,27 @@ class DefaultPopulation(Population):
     selection strategy used for mutation and recombination is purely random.
     """
 
-    def __init__(self, directory, extension, codec=None):
+    def __init__(self, directory: str, extension: str, codec: Optional[TreeCodec] = None) -> None:
         """
-        :param str directory: Path to the directory containing the trees.
-        :param str extension: Extension of the files containing the trees.
-        :param TreeCodec codec: Codec used to save trees into files (default:
+        :param directory: Path to the directory containing the trees.
+        :param extension: Extension of the files containing the trees.
+        :param codec: Codec used to save trees into files (default:
             :class:`PickleTreeCodec`).
         """
-        self._directory = directory
-        self._extension = extension
-        self._codec = codec or PickleTreeCodec()
+        self._directory: str = directory
+        self._extension: str = extension
+        self._codec: TreeCodec = codec or PickleTreeCodec()
 
         os.makedirs(directory, exist_ok=True)
         self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
 
-    def empty(self):
+    def empty(self) -> bool:
         """
         Check whether the population contains no individuals.
         """
         return len(self._files) == 0
 
-    def add_individual(self, root, path=None):
+    def add_individual(self, root: Rule, path: Optional[str] = None) -> None:
         """
         Save the tree to a new file. The name of the tree file is determined
         based on the pathname of the corresponding test case. From the pathname
@@ -65,24 +68,24 @@ class DefaultPopulation(Population):
         self._save(fn, root)
         self._files.append(fn)
 
-    def select_individual(self):
+    def select_individual(self) -> DefaultIndividual:
         """
         Randomly select an individual of the population and create a
         DefaultIndividual instance from it.
 
-        :return: DefaultIndividual instance created from a randomly selected population item.
-        :rtype: DefaultIndividual
+        :return: DefaultIndividual instance created from a randomly selected
+            population item.
         """
         return DefaultIndividual(self, random.sample(self._files, k=1)[0])
 
-    def _save(self, fn, root):
+    def _save(self, fn: str, root: Rule) -> None:
         with open(fn, 'wb') as f:
             if isinstance(self._codec, AnnotatedTreeCodec):
                 f.write(self._codec.encode_annotated(root, Annotations(root)))
             else:
                 f.write(self._codec.encode(root))
 
-    def _load(self, fn):
+    def _load(self, fn: str) -> tuple[Rule, Optional[Annotations]]:
         with open(fn, 'rb') as f:
             if isinstance(self._codec, AnnotatedTreeCodec):
                 root, annot = self._codec.decode_annotated(f.read())
@@ -100,24 +103,22 @@ class DefaultIndividual(Individual):
     tree codec in a lazy manner.
     """
 
-    def __init__(self, population, name):
+    def __init__(self, population: DefaultPopulation, name: str) -> None:
         """
-        :param DefaultPopulation population: The population this individual
-            belongs to.
-        :param str name: Path to the encoded tree file.
+        :param population: The population this individual belongs to.
+        :param name: Path to the encoded tree file.
         """
         super().__init__(name)
-        self._population = population
-        self._root = None
+        self._population: DefaultPopulation = population
+        self._root: Optional[Rule] = None
 
     @property
-    def root(self):
+    def root(self) -> Rule:
         """
         Get the root of the tree. Return the root if it is already loaded,
         otherwise load it immediately.
 
         :return: The root of the tree.
-        :rtype: ~grammarinator.runtime.Rule
         """
         if not self._root:
             self._root, self._annot = self._population._load(self.name)
