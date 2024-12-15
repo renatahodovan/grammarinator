@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -54,8 +54,8 @@ class ParserTool:
     """
 
     def __init__(self, grammars, parser_dir, antlr, population,
-                 rule=None, hidden=None, transformers=None, max_depth=RuleSize.max.depth, lib_dir=None, cleanup=True,
-                 encoding='utf-8', errors='strict'):
+                 rule=None, hidden=None, transformers=None, max_depth=RuleSize.max.depth, strict=False,
+                 lib_dir=None, cleanup=True, encoding='utf-8', errors='strict'):
         """
         :param list[str] grammars: List of resources (grammars and additional sources) needed to parse the input.
         :param str parser_dir: Directory where grammars and the generated parser will be placed.
@@ -69,6 +69,7 @@ class ParserTool:
         :param list transformers: List of transformers to be applied to postprocess
                the parsed tree before serializing it.
         :param int or float max_depth: Maximum depth of trees. Deeper trees are not saved.
+        :param bool strict: Tests that contain syntax errors are discarded.
         :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
         :param bool cleanup: Boolean to enable the removal of the helper parser resources after processing the inputs.
         :param str encoding: Encoding of the input file.
@@ -78,6 +79,7 @@ class ParserTool:
         self._hidden = hidden or []
         self._transformers = transformers or []
         self._max_depth = max_depth
+        self._strict = strict
         self._cleanup = cleanup
         self._encoding = encoding
         self._errors = errors
@@ -389,11 +391,14 @@ class ParserTool:
             parser = self._parser_cls(CommonTokenStream(lexer))
             parse_tree_root = getattr(parser, self._rule)()
             if parser._syntaxErrors:
+                if self._strict:
+                    logger.warning('%s syntax errors detected in %s. Skipping.', parser._syntaxErrors, fn)
+                    return None
                 logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
 
             root, depth, rules = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
             if depth > self._max_depth:
-                logger.info('The tree representation of %s is %s, too deep. Skipping.', fn, depth)
+                logger.warning('The tree representation of %s is %s, too deep. Skipping.', fn, depth)
                 return None
 
             self._adjust_tree_to_generator(rules)
