@@ -9,6 +9,8 @@ from copy import deepcopy
 from math import inf
 from textwrap import indent
 
+from itertools import zip_longest
+
 
 class RuleSize:
     """
@@ -218,6 +220,25 @@ class Rule:
         """
         return self.__class__ == other.__class__ and self.name == other.name
 
+    def equalTokens(self, other):
+        """
+        Compare the tokens in the sub-trees of two nodes.
+
+        :param Rule other: The node to compare the current node to.
+        :return: Whether the two nodes are equal.
+        :rtype: bool
+        """
+        return all(self_token == other_token for self_token, other_token in zip_longest(self.tokens(), other.tokens()))
+
+    def tokens(self):
+        """
+        Generator method to iterate over the (non-empty) tokens (i.e., strings) of the sub-tree of the node.
+
+        :return: Iterator over token string contents.
+        :rtype: iterator[str]
+        """
+        raise NotImplementedError()
+
     def _dbg_(self):
         """
         Called by :meth:`__format__` to compute the "debug" string
@@ -318,6 +339,10 @@ class ParentRule(Rule):
     def equals(self, other):
         return super().equals(other) and len(self.children) == len(other.children) and all(child.equals(other.children[i]) for i, child in enumerate(self.children))
 
+    def tokens(self):
+        for child in self.children:
+            yield from child.tokens()
+
     def __str__(self):
         return ''.join(str(child) for child in self.children)
 
@@ -390,6 +415,10 @@ class UnlexerRule(Rule):
 
     def equals(self, other):
         return super().equals(other) and self.src == other.src
+
+    def tokens(self):
+        if self.src:
+            yield self.src
 
     def __str__(self):
         return self.src
