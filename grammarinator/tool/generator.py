@@ -202,6 +202,7 @@ class GeneratorTool:
             self.shuffle_quantifieds,
             self.hoist_rule,
             self.swap_local_nodes,
+            self.insert_local_node,
         ]
         self._unrestricted_mutators = [
             self.unrestricted_delete,
@@ -300,7 +301,7 @@ class GeneratorTool:
         :meth:`delete_quantified`, :meth:`replicate_quantified`,
         :meth:`shuffle_quantifieds`, :meth:`hoist_rule`,
         :meth:`unrestricted_delete`, :meth:`unrestricted_hoist_rule`,
-        :meth:`swap_local_nodes`
+        :meth:`swap_local_nodes`, :meth:`insert_local_node`
 
         :param ~grammarinator.runtime.Individual individual: The population item to
             be mutated.
@@ -654,4 +655,38 @@ class GeneratorTool:
                     first_node.parent = second_parent
                     second_node.parent = first_parent
                     return root
+        return root
+
+    def insert_local_node(self, individual=None, _=None):
+        """
+        Select two compatible quantifier nodes from a single test and
+        insert a random quantified subtree of the second one into the
+        first one at a random position, while the quantifier restrictions
+        are ensured.
+
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated
+        :return: The root of the mutated tree.
+        :rtype: Rule
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+        options = [quantifiers for quantifiers in annot.quants_by_name.values() if len(quantifiers) > 1]
+        if not options:
+            return root
+
+        root_token_counts = annot.token_counts[root]
+        for quantifiers in random.sample(options, k=len(options)):
+            shuffled = random.sample(quantifiers, k=len(quantifiers))
+            for i, recipient_node in enumerate(shuffled[:-1]):
+                if len(recipient_node.children) >= recipient_node.stop:
+                    continue
+
+                recipient_node_level = annot.node_levels[recipient_node]
+                for donor_quantifier in shuffled[i + 1:]:
+                    for donor_quantified_node in donor_quantifier.children:
+                        if (recipient_node_level + annot.node_depths[donor_quantified_node] <= self._limit.depth
+                                and root_token_counts + annot.token_counts[donor_quantified_node] <= self._limit.tokens):
+                            recipient_node.insert_child(random.randint(0, len(recipient_node.children)) if recipient_node.children else 0,
+                                                        deepcopy(donor_quantified_node))
+                            return root
         return root
