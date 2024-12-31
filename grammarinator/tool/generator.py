@@ -201,6 +201,7 @@ class GeneratorTool:
             self.replicate_quantified,
             self.shuffle_quantifieds,
             self.hoist_rule,
+            self.swap_local_nodes,
         ]
         self._unrestricted_mutators = [
             self.unrestricted_delete,
@@ -298,7 +299,8 @@ class GeneratorTool:
         Supported mutation operators: :meth:`regenerate_rule`,
         :meth:`delete_quantified`, :meth:`replicate_quantified`,
         :meth:`shuffle_quantifieds`, :meth:`hoist_rule`,
-        :meth:`unrestricted_delete`, :meth:`unrestricted_hoist_rule`
+        :meth:`unrestricted_delete`, :meth:`unrestricted_hoist_rule`,
+        :meth:`swap_local_nodes`
 
         :param ~grammarinator.runtime.Individual individual: The population item to
             be mutated.
@@ -596,4 +598,60 @@ class GeneratorTool:
             if options:
                 random.choice(options).replace(rule)
                 return root
+        return root
+
+    def swap_local_nodes(self, individual=None, _=None):
+        """
+        Swap two non-overlapping subtrees at random positions in a single test
+        where the nodes are compatible with each other (i.e., they share the same node name).
+
+        :param ~grammarinator.runtime.Individual individual: The population item to be mutated
+        :return: The root of the mutated tree.
+        :rtype: Rule
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+
+        options = dict(annot.rules_by_name)
+        options.update(annot.quants_by_name)
+        options.update(annot.alts_by_name)
+
+        for _, nodes in random.sample(list(options.items()), k=len(options)):
+            # Skip node types without two instances.
+            if len(nodes) < 2:
+                continue
+
+            shuffled = random.sample(nodes, k=len(nodes))
+            for i, first_node in enumerate(shuffled[:-1]):
+                first_node_level = annot.node_levels[first_node]
+                first_node_depth = annot.node_depths[first_node]
+                for second_node in shuffled[i + 1:]:
+                    second_node_level = annot.node_levels[second_node]
+                    second_node_depth = annot.node_depths[second_node]
+                    if (first_node_level + second_node_depth > self._limit.depth
+                            and second_node_level + first_node_depth > self._limit.depth):
+                        continue
+
+                    # Avoid swapping two identical nodes with each other.
+                    if first_node.equalTokens(second_node):
+                        continue
+
+                    # Ensure the subtrees rooted at recipient and donor nodes are disjunct.
+                    upper_node, lower_node = (first_node, second_node) if first_node_level < second_node_level else (second_node, first_node)
+                    disjunct = True
+                    parent = lower_node.parent
+                    while parent and disjunct:
+                        disjunct = parent != upper_node
+                        parent = parent.parent
+
+                    if not disjunct:
+                        continue
+
+                    first_parent = first_node.parent
+                    second_parent = second_node.parent
+                    first_parent.children[first_parent.children.index(first_node)] = second_node
+                    second_parent.children[second_parent.children.index(second_node)] = first_node
+                    first_node.parent = second_parent
+                    second_node.parent = first_parent
+                    return root
         return root
