@@ -1,4 +1,4 @@
-Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
+Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
