@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -33,7 +33,7 @@ class HTMLCustomGenerator(HTMLGenerator):
             current = rule.current
             name = random.choice(tags[self.tag_stack[-1]]['children'] or tag_names if self.tag_stack else tag_names)
             self.tag_stack.append(name)
-            current += UnlexerRule(src=name)
+            current += UnlexerRule(name='TAG_NAME', src=name)
             self.tag_stack.append(name)
             return current
 
@@ -43,7 +43,7 @@ class HTMLCustomGenerator(HTMLGenerator):
             current = rule.current
             name = random.choice(list(tags[self.tag_stack[-1]]['attributes'].keys()) or ['""'])
             self.attr_stack.append(name)
-            current += UnlexerRule(src=name)
+            current += UnlexerRule(name='TAG_NAME', src=name)
             return current
 
     # Customize the function generated from the htmlAttributeValue parser rule to produce valid attribute values
@@ -51,7 +51,7 @@ class HTMLCustomGenerator(HTMLGenerator):
     def htmlAttributeValue(self, parent=None):
         with UnparserRuleContext(gen=self, name='htmlAttributeValue', parent=parent) as rule:
             current = rule.current
-            current += UnlexerRule(src=random.choice(tags[self.tag_stack[-1]]['attributes'].get(self.attr_stack.pop(), ['""']) or ['""']))
+            current += UnlexerRule(name='ATTVALUE_VALUE', src=random.choice(tags[self.tag_stack[-1]]['attributes'].get(self.attr_stack.pop(), ['""']) or ['""']))
             return current
 
     def _endOfHtmlElement(self):
