@@ -526,8 +526,9 @@ class GeneratorTool:
                         recipient_root_tokens < recipient_root_tokens + annot.node_tokens[child] <= self._limit.tokens]
         if node_options:
             node_to_repeat = random.choice(node_options)
-            max_repeat = (self._limit.tokens - recipient_root_tokens) // annot.node_tokens[node_to_repeat]
-            for _ in range(random.randint(1, max_repeat)):
+            max_repeat = (self._limit.tokens - recipient_root_tokens) // annot.node_tokens[node_to_repeat] if self._limit.tokens != RuleSize.max.tokens else 1
+            repeat = random.randint(1, max_repeat) if max_repeat > 1 else 1
+            for _ in range(repeat):
                 node_to_repeat.parent.insert_child(idx=random.randint(0, len(node_to_repeat.parent.children)), node=deepcopy(node_to_repeat))
 
         # Return with the original root, whether the replication was successful or not.
