@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -14,16 +14,25 @@ class Population:
     individuals) and can select trees for mutation or recombination based on some strategy.
     """
 
+    def empty(self):
+        """
+        Return whether the population is empty.
+
+        Raises :exc:`NotImplementedError` by default.
+
+        :return: ``True`` if the population is empty and ``False`` otherwise.
+        :rtype: bool
+        """
+        raise NotImplementedError()
+
     def __bool__(self):
         """
         Truth value testing of Populations.
 
-        Raises :exc:`NotImplementedError` by default.
-
         :return: ``True`` if the population is not empty and ``False`` otherwise.
         :rtype: bool
         """
-        raise NotImplementedError()
+        return not self.empty()
 
     def add_individual(self, root, path=None):
         """

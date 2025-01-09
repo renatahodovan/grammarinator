@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -39,11 +39,11 @@ class DefaultPopulation(Population):
         os.makedirs(directory, exist_ok=True)
         self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
 
-    def __bool__(self):
+    def empty(self):
         """
-        Check whether there is at least a single individual in the population.
+        Check whether the population contains no individuals.
         """
-        return len(self._files) > 0
+        return len(self._files) == 0
 
     def add_individual(self, root, path=None):
         """
