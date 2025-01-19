@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -355,30 +355,45 @@ class GrammarGraph:
         while changed:
             changed = False
             for ident, node in self.vertices.items():
-                children_sizes = [NodeSize(depth=min_sizes[out_node.id].depth + int(isinstance(out_node, RuleNode)),
-                                           tokens=min_sizes[out_node.id].tokens + int(isinstance(out_node, UnlexerRuleNode)))
-                                  for out_node in node.out_neighbours if not isinstance(out_node, QuantifierNode) or out_node.start > 0]
+                children_sizes = [min_sizes[out_node.id] for out_node in node.out_neighbours]
 
-                if isinstance(node, AlternationNode):
-                    min_size = NodeSize(depth=min((c.depth for c in children_sizes), default=0),
-                                        tokens=min((c.tokens for c in children_sizes), default=0))
+                if isinstance(node, UnlexerRuleNode):
+                    min_depth = max((c.depth for c in children_sizes), default=0) + 1
+                    min_tokens = sum(c.tokens for c in children_sizes) + 1
+                elif isinstance(node, UnparserRuleNode):
+                    min_depth = max((c.depth for c in children_sizes), default=0) + 1
+                    min_tokens = sum(c.tokens for c in children_sizes)
+                elif isinstance(node, AlternativeNode):
+                    min_depth = max((c.depth for c in children_sizes), default=0)
+                    min_tokens = sum(c.tokens for c in children_sizes)
+                elif isinstance(node, AlternationNode):
+                    min_depth = min((c.depth for c in children_sizes), default=0)
+                    min_tokens = min((c.tokens for c in children_sizes), default=0)
+                elif isinstance(node, QuantifierNode):
+                    if node.start > 0:
+                        min_depth = max((c.depth for c in children_sizes), default=0)
+                        min_tokens = sum(c.tokens for c in children_sizes)
+                    else:
+                        min_depth, min_tokens = 0, 0
                 else:
-                    min_size = NodeSize(depth=max((c.depth for c in children_sizes), default=0),
-                                        tokens=sum(c.tokens for c in children_sizes))
+                    min_depth, min_tokens = 0, 0
 
-                if min_size.depth < min_sizes[ident].depth:
-                    min_sizes[ident].depth = min_size.depth
+                if min_depth < min_sizes[ident].depth:
+                    min_sizes[ident].depth = min_depth
                     changed = True
-                if min_size.tokens < min_sizes[ident].tokens:
-                    min_sizes[ident].tokens = min_size.tokens
+                if min_tokens < min_sizes[ident].tokens:
+                    min_sizes[ident].tokens = min_tokens
                     changed = True
 
         # Assign the calculated size metric values to the vertices participating in generator decisions.
         for ident, node in self.vertices.items():
-            if isinstance(node, QuantifierNode):
-                node.min_size = append_unique(self.quant_sizes, min_sizes[ident])
-            elif isinstance(node, RuleNode):
+            if isinstance(node, RuleNode):
                 node.min_size = min_sizes[ident]
+            elif isinstance(node, QuantifierNode):
+                children_sizes = [min_sizes[out_node.id] for out_node in node.out_neighbours]
+                min_size = NodeSize(depth=max((c.depth for c in children_sizes), default=0),
+                                    tokens=sum(c.tokens for c in children_sizes))
+                node.min_size = append_unique(self.quant_sizes, min_size)
             elif isinstance(node, AlternationNode):
                 # Lift the minimal size of the alternatives to the alternations, where the decision will happen.
                 # The sizes of the alternatives are 0 if the alternation is inside a token.
@@ -386,11 +401,12 @@ class GrammarGraph:
 
         # In case of token size metric, calculate the minimum needed cost of finishing the generation (everything after the current node).
         for node in self.vertices.values():
+            if isinstance(node, AlternationNode):
+                continue
             reserve = 0
             for edge in reversed(node.out_edges):
                 edge.reserve = reserve
-                if not isinstance(node, AlternationNode) and (not isinstance(edge.dst, QuantifierNode) or edge.dst.start > 0):
-                    reserve += min_sizes[edge.dst.id].tokens + int(isinstance(edge.dst, UnlexerRuleNode))
+                reserve += min_sizes[edge.dst.id].tokens
 
     def find_immutable_rules(self):
         changed = True
