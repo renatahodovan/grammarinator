@@ -340,18 +340,38 @@ public:
 
   Rule* get_child(const std::string& child_name, int index = 0) {
     int count = 0;
-    for (Rule* child : children) {
-      if (child->name == child_name && count++ == index)
-        return child;
+    std::vector<Rule*> worklist(children.rbegin(), children.rend());
+
+    while (!worklist.empty()) {
+      Rule* child = worklist.back();
+      worklist.pop_back();
+
+      if (child->type == Rule::UnparserRuleQuantifierType || child->type == Rule::UnparserRuleQuantifiedType || child->type == Rule::UnparserRuleAlternativeType) {
+        const auto& grandchildren = static_cast<ParentRule*>(child)->children;
+        worklist.insert(worklist.end(), grandchildren.rbegin(), grandchildren.rend());
+      } else if (child->name == child_name) {
+        if (count++ == index)
+          return child;
+      }
     }
     return nullptr;
   }
 
   const Rule* get_child(const std::string& child_name, int index = 0) const {
     int count = 0;
-    for (const Rule* child : children) {
-      if (child->name == child_name && count++ == index)
-        return child;
+    std::vector<const Rule*> worklist(children.rbegin(), children.rend());
+
+    while (!worklist.empty()) {
+      const Rule* child = worklist.back();
+      worklist.pop_back();
+
+      if (child->type == Rule::UnparserRuleQuantifierType || child->type == Rule::UnparserRuleQuantifiedType || child->type == Rule::UnparserRuleAlternativeType) {
+        const auto& grandchildren = static_cast<const ParentRule*>(child)->children;
+        worklist.insert(worklist.end(), grandchildren.rbegin(), grandchildren.rend());
+      } else if (child->name == child_name) {
+        if (count++ == index)
+          return child;
+      }
     }
     return nullptr;
   }
