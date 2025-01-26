@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -6,10 +6,9 @@
 # according to those terms.
 
 from copy import deepcopy
+from itertools import zip_longest
 from math import inf
 from textwrap import indent
-
-from itertools import zip_longest
 
 
 class RuleSize:
@@ -346,16 +345,11 @@ class ParentRule(Rule):
     def __str__(self):
         return ''.join(str(child) for child in self.children)
 
-    def __repr__(self):
-        parts = [
-            f'name={self.name!r}',
-        ]
-        if self.children:
-            parts.append('children=[\n{children}\n]'.format(children=indent(',\n'.join(repr(child) for child in self.children), '  ')))
-        return f'{self.__class__.__name__}({", ".join(parts)})'
+    def _repr_children(self):
+        return 'children=[\n{children}]'.format(children=indent(',\n'.join(repr(child) for child in self.children), '  '))
 
-    def _dbg_(self):
-        return '{name}\n{children}'.format(name=self.name or self.__class__.__name__, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
+    def _dbg_children(self):
+        return '\n' + indent('\n'.join(child._dbg_() for child in self.children), '|  ') if self.children else ""
 
 
 class UnparserRule(ParentRule):
@@ -386,6 +380,17 @@ class UnparserRule(ParentRule):
             raise AttributeError(f'[{self.name}] No child with name {item!r} {[child.name for child in self.children]}.')
 
         return result[0] if len(result) == 1 else result
+
+    def __repr__(self):
+        parts = [
+            f'name={self.name!r}',
+        ]
+        if self.children:
+            parts.append(self._repr_children())
+        return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def _dbg_(self):
+        return f'{self.name}{self._dbg_children()}'
 
     def __deepcopy__(self, memo):
         return UnparserRule(name=deepcopy(self.name, memo), children=[deepcopy(child, memo) for child in self.children])
@@ -464,14 +469,14 @@ class UnparserRuleQuantifier(ParentRule):
             f'stop={self.stop}',
         ]
         if self.children:
-            parts.append('children=[\n{children}\n]'.format(children=indent(',\n'.join(repr(child) for child in self.children), '  ')))
+            parts.append(self._repr_children())
         return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def _dbg_(self):
+        return f'{self.__class__.__name__}:[{self.idx}]{self._dbg_children()}'
 
     def __deepcopy__(self, memo):
         return UnparserRuleQuantifier(idx=deepcopy(self.idx, memo), start=deepcopy(self.start, memo), stop=deepcopy(self.stop, memo), children=[deepcopy(child, memo) for child in self.children])
-
-    def _dbg_(self):
-        return '{name}:[{idx}]\n{children}'.format(idx=self.idx, name=self.__class__.__name__, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
 
 
 class UnparserRuleQuantified(ParentRule):
@@ -484,6 +489,12 @@ class UnparserRuleQuantified(ParentRule):
 
     def __init__(self, *, children=None):
         super().__init__(name=None, children=children)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._repr_children() if self.children else ""})'
+
+    def _dbg_(self):
+        return f'{self.__class__.__name__}{self._dbg_children()}'
 
     def __deepcopy__(self, memo):
         return UnparserRuleQuantified(children=[deepcopy(child, memo) for child in self.children])
@@ -511,14 +522,13 @@ class UnparserRuleAlternative(ParentRule):
             f'idx={self.idx}',
         ]
         if self.children:
-            parts.append('children=[\n{children}\n]'.format(
-                children=indent(',\n'.join(repr(child) for child in self.children), '  ')))
+            parts.append(self._repr_children())
         return f'{self.__class__.__name__}({", ".join(parts)})'
+
+    def _dbg_(self):
+        return f'{self.__class__.__name__}:[{self.alt_idx}/{self.idx}]{self._dbg_children()}'
 
     def __deepcopy__(self, memo):
         return UnparserRuleAlternative(alt_idx=deepcopy(self.alt_idx, memo),
                                        idx=deepcopy(self.idx, memo),
                                        children=[deepcopy(child, memo) for child in self.children])
-
-    def _dbg_(self):
-        return '{name}:[{alt_idx}/{idx}]\n{children}'.format(name=self.__class__.__name__, alt_idx=self.alt_idx, idx=self.idx, children=indent('\n'.join(child._dbg_() for child in self.children), '|  '))
