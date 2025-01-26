@@ -33,7 +33,7 @@
 parser grammar HTMLParser;
 
 options { tokenVocab=HTMLLexer;
-          dot=any_unicode_char;}
+          dot=any_ascii_char;}
 
 @header {
 from copy import deepcopy
