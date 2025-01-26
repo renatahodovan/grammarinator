@@ -187,7 +187,6 @@ class GeneratorTool:
         self._enable_generation = generate
         self._enable_mutation = mutate
         self._enable_recombination = recombine
-        self._enable_unrestricted_creators = unrestricted
         self._keep_trees = keep_trees
         self._cleanup = cleanup
         self._encoding = encoding
@@ -204,14 +203,15 @@ class GeneratorTool:
             self.swap_local_nodes,
             self.insert_local_node,
         ]
-        self._unrestricted_mutators = [
-            self.unrestricted_delete,
-            self.unrestricted_hoist_rule,
-        ]
         self._recombiners = [
             self.replace_node,
             self.insert_quantified,
         ]
+        if unrestricted:
+            self._mutators += [
+                self.unrestricted_delete,
+                self.unrestricted_hoist_rule,
+            ]
 
     def __enter__(self):
         return self
@@ -284,8 +284,6 @@ class GeneratorTool:
         if self._population:
             if self._enable_mutation:
                 creators.extend(self._mutators)
-                if self._enable_unrestricted_creators:
-                    creators.extend(self._unrestricted_mutators)
             if self._enable_recombination:
                 creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
@@ -312,10 +310,7 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if mutation is disabled.
         # If individual is None, population MUST exist.
         individual = self._ensure_individual(individual)
-        mutators = self._mutators
-        if self._enable_unrestricted_creators:
-            mutators.extend(self._unrestricted_mutators)
-        return self._create_tree(mutators, individual, None)
+        return self._create_tree(self._mutators, individual, None)
 
     def recombine(self, individual1=None, individual2=None):
         """
