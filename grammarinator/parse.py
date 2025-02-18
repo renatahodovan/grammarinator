@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -52,6 +52,8 @@ def execute():
                         help='list of hidden tokens to be built into the parsed tree.')
     parser.add_argument('--max-depth', type=int, default=RuleSize.max.depth,
                         help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
+    parser.add_argument('--strict', action='store_true',
+                        help='discard tests that contain syntax errors.')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
                         help='directory to save the trees (default: %(default)s).')
     parser.add_argument('--parser-dir', metavar='DIR',
@@ -82,7 +84,8 @@ def execute():
         parser.error(e)
 
     with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
+                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, strict=args.strict,
+                    lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
         if args.jobs > 1:
             with Pool(args.jobs) as pool:
                 for _ in pool.imap_unordered(parser_tool.parse, iter_files(args)):
