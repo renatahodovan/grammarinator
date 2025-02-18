@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class Context:
+
+    __slots__ = ('node',)
 
     def __init__(self, node):
         self.node = node
@@ -34,6 +36,8 @@ class RuleContext(Context):
     # Context manager wrapping rule generations. It is responsible for
     # keeping track of the value of `max_depth` and for transitively calling the
     # enter and exit methods of the registered listeners.
+
+    __slots__ = ('gen', 'ctx')
 
     def __init__(self, gen, node):
         super().__init__(node)
@@ -58,6 +62,8 @@ class RuleContext(Context):
 
 class UnlexerRuleContext(RuleContext):
     # Subclass of :class:`RuleContext` handling unlexer rules.
+
+    __slots__ = ('_start_depth', '_parent_name', '_name')
 
     def __init__(self, gen, name, parent=None, immutable=False):
         if isinstance(parent, UnlexerRule):
@@ -114,6 +120,8 @@ class UnparserRuleContext(RuleContext):
 
 class SubRuleContext(Context):
 
+    __slots__ = ('_rule', '_prev_ctx')
+
     def __init__(self, rule, node=None):
         super().__init__(node or rule.current)
         self._rule = rule
@@ -136,6 +144,8 @@ class AlternationContext(SubRuleContext):
     # custom predicates or rule definitions or contradicting size limits),
     # then it temporarily raises the maximum size to the minimum value
     # required to finish the generation.
+
+    __slots__ = ('idx', '_min_sizes', '_reserve', '_conditions', '_orig_depth_limit', '_weights', '_choice')
 
     def __init__(self, rule, idx, min_sizes, reserve, conditions):
         super().__init__(rule)  # No node created here, defer it to __enter__ when all information is available
@@ -187,6 +197,8 @@ class AlternationContext(SubRuleContext):
 
 
 class QuantifierContext(SubRuleContext):
+
+    __slots__ = ('idx', '_start', '_stop', '_min_size', '_reserve', '_cnt')
 
     def __init__(self, rule, idx, start, stop, min_size, reserve):
         super().__init__(rule, UnparserRuleQuantifier(idx=idx, start=start, stop=stop) if not isinstance(rule.node, UnlexerRule) else None)

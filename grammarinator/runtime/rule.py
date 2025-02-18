@@ -35,6 +35,8 @@ class RuleSize:
     the other size object.
     """
 
+    __slots__ = ('depth', 'tokens')
+
     def __init__(self, depth=0, tokens=0):
         """
         :param int or float depth: Derivation length (default: 0).
@@ -128,6 +130,8 @@ class Rule:
       ``'{:r}'.format(n)``
     - ``f'{n:|}'`` and ``'{:|}'.format(n)``
     """
+
+    __slots__ = ('name', 'parent')
 
     def __init__(self, *, name):
         """
@@ -266,6 +270,8 @@ class ParentRule(Rule):
     Abstract base class of tree nodes that can have children.
     """
 
+    __slots__ = ('children',)
+
     def __init__(self, *, name, children=None):
         """
         :param str name: Name of the corresponding parser rule in the grammar.
@@ -401,6 +407,8 @@ class UnlexerRule(Rule):
     Tree node representing a lexer rule or token. It has a string constant set in its ``src`` field.
     """
 
+    __slots__ = ('src', 'size', 'immutable')
+
     def __init__(self, *, name=None, src=None, size=None, immutable=False):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
@@ -452,6 +460,8 @@ class UnparserRuleQuantifier(ParentRule):
     Tree node representing the root of a quantified sub-tree. It can have one
     or more :class:`UnparserRuleQuantified` children.
     """
+
+    __slots__ = ('idx', 'start', 'stop')
 
     def __init__(self, *, idx, start, stop, children=None):
         super().__init__(name=None, children=children)
@@ -507,6 +517,8 @@ class UnparserRuleAlternative(ParentRule):
     :class:`UnparserRuleQuantifier` or :class:`UnparserRuleAlternative`
     children.
     """
+
+    __slots__ = ('alt_idx', 'idx')
 
     def __init__(self, *, alt_idx, idx, children=None):
         super().__init__(name=None, children=children)
