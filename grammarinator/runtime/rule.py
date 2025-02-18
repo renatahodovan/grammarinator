@@ -409,7 +409,7 @@ class UnlexerRule(Rule):
 
     __slots__ = ('src', 'size', 'immutable')
 
-    def __init__(self, *, name=None, src=None, size=None, immutable=False):
+    def __init__(self, *, name, src=None, size=None, immutable=False):
         """
         :param str name: Name of the corresponding lexer rule in the grammar.
         :param str src: String content of the lexer rule (default: "").

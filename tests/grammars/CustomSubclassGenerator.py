@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -17,7 +17,7 @@ class CustomSubclassGenerator(CustomGenerator):
     def tagname(self, parent=None):
         with UnparserRuleContext(self, 'tagname', parent) as rule:
             current = rule.current
-            current += UnlexerRule(src='customtag')
+            current += UnlexerRule(name='ID', src='customtag')
             return current
 
     def _custom_lexer_content(self):
