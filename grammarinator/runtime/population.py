@@ -129,12 +129,12 @@ class Annotations:
                     self.alts_by_name[node_name].append(current)
 
             self.node_depths[current] = 0
-            self.token_counts[current] = 0
+            self.node_tokens[current] = 0
             if isinstance(current, ParentRule):
                 for child in current.children:
                     _annotate(child, level + 1)
                     self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)
-                    self.token_counts[current] += self.token_counts[child] if isinstance(child, ParentRule) else child.size.tokens + 1
+                    self.node_tokens[current] += self.node_tokens[child] if isinstance(child, ParentRule) else child.size.tokens + 1
 
         current_rule_name = None
         self.rules_by_name = {}
@@ -142,7 +142,7 @@ class Annotations:
         self.quants_by_name = {}
         self.node_levels = {}
         self.node_depths = {}
-        self.token_counts = {}
+        self.node_tokens = {}
         _annotate(root, 0)
 
     @property
