@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -47,17 +47,15 @@ def process_args(args):
                     for alternative_idx, w in alternatives.items():
                         weights[(rule, int(alternation_idx), int(alternative_idx))] = w
             args.weights = weights
-    else:
-        args.weights = {}
 
     if args.population:
         args.population = abspath(args.population)
 
 
-def generator_tool_helper(args, weights, lock):
+def generator_tool_helper(args, lock=None):
     return GeneratorTool(generator_factory=DefaultGeneratorFactory(args.generator,
                                                                    model_class=args.model,
-                                                                   weights=weights,
+                                                                   weights=args.weights,
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out, lock=lock,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
@@ -146,13 +144,13 @@ def execute():
 
     if args.jobs > 1:
         with Manager() as manager:
-            with generator_tool_helper(args, weights=args.weights, lock=manager.Lock()) as generator_tool:
+            with generator_tool_helper(args, lock=manager.Lock()) as generator_tool:
                 parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
                 with Pool(args.jobs) as pool:
                     for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):
                         pass
     else:
-        with generator_tool_helper(args, weights=args.weights, lock=None) as generator_tool:
+        with generator_tool_helper(args) as generator_tool:
             for i in count(0) if args.n == inf else range(args.n):
                 create_test(generator_tool, i, seed=args.random_seed)
 
