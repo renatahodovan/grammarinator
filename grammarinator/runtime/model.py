@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -59,7 +59,7 @@ class Model:
             field identifies the corresponding grammar rule, which contains the
             charset.
         :param int idx: Index of the charset inside the current rule.
-        :param list[str] chars: List of characters to choose a single character
+        :param tuple[str] chars: List of characters to choose a single character
             from.
         :return: The chosen character.
         :rtype: str

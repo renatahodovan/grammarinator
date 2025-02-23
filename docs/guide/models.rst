@@ -42,11 +42,11 @@ models are:
 
        grammar Primitives;
 
-       primitive : string | (decimal | float) | bool ;
-       string : [a-zA-Z] ;
-       decimal : [0-9]+;
-       float : '0'? '.' [0-9]+ ;
-       bool : 'true' | 'false' ;
+       primitive : String | (Decimal | Float) | Bool ;
+       String : [a-zA-Z] ;
+       Decimal : [0-9]+;
+       Float : '0'? '.' [0-9]+ ;
+       Bool : 'true' | 'false' ;
 
     .. code-block:: python
        :caption: Example subclassing of DefaultModel
@@ -60,20 +60,17 @@ models are:
                    weights[1] *= 5
                return super().choice(node, idx, weights)
 
-          def quantify(self, node, idx, min, max):
-              if node.name == 'float' and idx == 1:
-                  # Generate floats with two decimal digits at least.
-                  min = 2
-              yield from super().quantify(node, idx, min, max)
+           def quantify(self, node, idx, cnt, start, stop):
+               if node.name == 'Float' and idx == 1:
+                   # Generate floats with two decimal digits at least.
+                   start = 2
+               return super().quantify(node, idx, cnt, start, stop)
 
-          def charset(self, node, idx, chars):
-              # Ensure not choosing `0` as the first digit of a decimal.
-              if node.name == 'decimal' and len(node.children) == 0:
-                  non_zero_chars = chars[:]
-                  non_zero_chars.remove('0')
-                  return super().charset(node, idx, non_zero_chars)
-              return super().charset(node, idx, chars)
-
+           def charset(self, node, idx, chars):
+               # Ensure not choosing `0` as the first digit of a decimal.
+               if node.name == 'Decimal' and len(node.src) == 0:
+                   chars = tuple(c for c in chars if c != '0')
+               return super().charset(node, idx, chars)
 
   2. :class:`grammarinator.runtime.DispatchingModel`: This model is a
      specialized version of :class:`grammarinator.runtime.DefaultModel` that
@@ -95,21 +92,19 @@ models are:
                # (decimal and float), i.e., choosing the second alternative.
                if idx == 1:
                    weights[1] *= 5
-               return super().choice(node, idx, weights)
+               return super(DispatchingModel, self).choice(node, idx, weights)
 
-          def quantify_float(self, node, idx, min, max):
-              if idx == 1:
-                  # Generate floats with two decimal digits at least.
-                  min = 2
-              yield from super().quantify(node, idx, min, max)
+           def quantify_Float(self, node, idx, cnt, start, stop):
+               if idx == 1:
+                   # Generate floats with two decimal digits at least.
+                   start = 2
+               return super(DispatchingModel, self).quantify(node, idx, cnt, start, stop)
 
-          def charset_decimal(self, node, idx, chars):
-              # Ensure not choosing `0` as the first digit of a decimal.
-              if len(node.children) == 0:
-                  non_zero_chars = chars[:]
-                  non_zero_chars.remove('0')
-                  return super().charset(node, idx, non_zero_chars)
-              return super().charset(node, idx, chars)
+           def charset_Decimal(self, node, idx, chars):
+               # Ensure not choosing `0` as the first digit of a decimal.
+               if len(node.src) == 0:
+                   chars = tuple(c for c in chars if c != '0')
+               return super(DispatchingModel, self).charset(node, idx, chars)
 
   3. :class:`grammarinator.runtime.WeightedModel`: This model modifies the
      behavior of another model by adjusting (pre-multiplying) the weights of
