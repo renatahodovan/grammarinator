@@ -293,14 +293,28 @@ class ParserTool:
                             quantifier_children += [(UnparserRuleQuantified(), quant_children)]
                             tree_node_pos = quant_tree_node_pos
 
+                        # Track the positions of quantified subexpressions for potential backtracking.
+                        backtrack_positions = []
                         for _ in range(int(vertex.start), int(vertex.stop)) if vertex.stop != 'inf' else itertools.count():
                             quant_children, quant_tree_node_pos = _match_seq(vertex.out_neighbours, tree_node_pos)
                             if quant_children is None:
                                 rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], tree_node_pos)
                                 if rest_children is not None:
                                     return seq_children + [(UnparserRuleQuantifier(idx=vertex.idx, start=vertex.start, stop=vertex.stop if vertex.stop != 'inf' else math.inf), quantifier_children)] + rest_children, rest_tree_node_pos
-                                return None, tree_node_pos
+
+                                # If matching fails, attempt to backtrack to a previous quantified position.
+                                while backtrack_positions:
+                                    tree_node_pos = backtrack_positions.pop()
+                                    quantifier_children.pop()  # Remove the last unsuccessful quantified attempt
+
+                                    rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], tree_node_pos)
+                                    if rest_children is not None:
+                                        return seq_children + [(UnparserRuleQuantifier(idx=vertex.idx, start=vertex.start, stop=vertex.stop if vertex.stop != 'inf' else math.inf), quantifier_children)] + rest_children, rest_tree_node_pos
+                                return None, tree_node_pos  # Complete failure, return the last unmatched position
+
+                            # Successful match, store the position for possible backtracking.
                             quantifier_children += [(UnparserRuleQuantified(), quant_children)]
+                            backtrack_positions.append(tree_node_pos)
                             tree_node_pos = quant_tree_node_pos
 
                         rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], tree_node_pos)
