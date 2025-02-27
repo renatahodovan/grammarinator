@@ -259,8 +259,9 @@ class ParserTool:
                         return None, tree_node_pos
 
                     if isinstance(vertex, UnlexerRuleNode):
-                        if tree_node_pos < len(tree_nodes) and isinstance(tree_nodes[tree_node_pos], UnlexerRule) and (vertex.name == '_'.join(tree_nodes[tree_node_pos].name)
-                                                                                                                       or tree_nodes[tree_node_pos].name == ('<INVALID>',) and tree_nodes[tree_node_pos].src == vertex.out_neighbours[0].src):
+                        if (tree_node_pos < len(tree_nodes) and isinstance(tree_nodes[tree_node_pos], UnlexerRule)
+                            and (vertex.name == '_'.join(tree_nodes[tree_node_pos].name)
+                                 or tree_nodes[tree_node_pos].name == ('<INVALID>',) and vertex.name.startswith('T__') and tree_nodes[tree_node_pos].src == vertex.out_neighbours[0].src)):
                             seq_children += [tree_nodes[tree_node_pos]]
                             tree_node_pos += 1
                             continue
