@@ -8,16 +8,11 @@
 #ifndef GRAMMARINATOR_RUNTIME_RULE_HPP
 #define GRAMMARINATOR_RUNTIME_RULE_HPP
 
-// #include "../util/print.hpp"
-
 #include <algorithm>
-// #include <cassert>
 #include <format>
 #include <limits>
 #include <string>
 #include <vector>
-// #include <iostream>
-// #include <sstream>
 
 namespace grammarinator {
 namespace runtime {
@@ -184,8 +179,6 @@ public:
       return format_str();
     }
   }
-
-  // std::string print_dot();
 
   Rule* left_sibling();
   const Rule* left_sibling() const;
@@ -496,7 +489,7 @@ public:
   RuleSize size;
   bool immutable;
 
-  explicit UnlexerRule(const std::string& name, bool immutable = false)  // FIXME: Python version does not mandate name
+  explicit UnlexerRule(const std::string& name, bool immutable = false)
       : UnlexerRule(name, "", RuleSize(), immutable) { }
 
   UnlexerRule(const std::string& name, const std::string& src, const RuleSize& size, bool immutable)
@@ -517,7 +510,7 @@ public:
       return false;
 
     const UnlexerRule& otherRule = static_cast<const UnlexerRule&>(other);
-    return src == otherRule.src && immutable == otherRule.immutable;  // FIXME: python version does not compare for immutable!!!
+    return src == otherRule.src && immutable == otherRule.immutable;
   }
 
 protected:
@@ -543,7 +536,7 @@ protected:
   }
 
   std::string format_dbg(int level) const override {
-    return std::format("{}{}{}\'{}\'", indent(level, "|  "), name, !name.empty() ? ":" : "", src);  // NOTE: immutable is not part of the dbg format
+    return std::format("{}{}{}\'{}\'{}", indent(level, "|  "), name, !name.empty() ? ":" : "", src, immutable ? " (immutable)" : "");
   }
 };
 
@@ -631,10 +624,6 @@ inline const Rule* Rule::root() const noexcept {
 }
 
 inline Rule* Rule::replace(Rule* node) {
-  // if (name != node->name) {
-  //   grammarinator::util::perrf("{} != {}", name, node->name);
-  //   assert(false);
-  // }
   node->remove();
   if (parent && node != this) {
     auto it = std::find(parent->children.begin(), parent->children.end(), this);
@@ -652,44 +641,6 @@ inline void Rule::remove() {
     parent = nullptr;
   }
 }
-
-/*
-inline std::string Rule::print_dot() {
-  std::stringstream r;
-  r << "graph AST {\n";
-  std::vector<Rule*> wl = {this};
-
-  while (!wl.empty()) {
-    Rule* current = wl.back();
-    wl.pop_back();
-    if (current->type != Rule::UnlexerRuleType) {
-      r << "\t" << current->id << "[label=";
-
-      if (current->type == Rule::UnparserRuleType) r << current->name;
-      else if (current->type == Rule::UnparserRuleQuantifierType) r << "q_" << static_cast<UnparserRuleQuantifier*>(current)->idx << ", style=filled, fillcolor=forestgreen";
-      else if (current->type == Rule::UnparserRuleQuantifiedType) r << "qd" << ", style=filled, fillcolor=greenyellow";
-      else if (current->type == Rule::UnparserRuleAlternativeType) r << "a_" << static_cast<UnparserRuleAlternative*>(current)->alt_idx << "_" << static_cast<UnparserRuleAlternative*>(current)->idx << ", style=filled, fillcolor=lightblue";
-      else r << "other";
-
-      r << "]\n";
-      for (auto child : static_cast<ParentRule*>(current)->children) {
-        r << "\t" << current->id << " -- " << child->id << ";\n";
-
-        if (child->type == Rule::UnlexerRuleType) r << "\t" << child->id << "[label=" << child->name << "]\n";
-        // else if (child->type == Rule::UnparserRuleQuantifierType) r << "q_" << static_cast<UnparserRuleQuantifier*>(child)->idx;
-        // else if (child->type == Rule::UnparserRuleQuantifiedType) r << "qd";
-        // else if (child->type == Rule::UnparserRuleAlternativeType) r << "a_" << static_cast<UnparserRuleAlternative*>(child)->alt_idx << "_" << static_cast<UnparserRuleAlternative*>(child)->idx;
-        // else r << "other";
-        // r << "]\n";
-        wl.push_back(child);
-      }
-    }
-  }
-  r << "}\n";
-  std::cout << r.str() << std::endl;
-  return r.str();
-}
-*/
 
 } // namespace runtime
 } // namespace grammarinator

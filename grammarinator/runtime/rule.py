@@ -427,7 +427,7 @@ class UnlexerRule(Rule):
         self.immutable = immutable
 
     def equals(self, other):
-        return super().equals(other) and self.src == other.src
+        return super().equals(other) and self.src == other.src and self.immutable == other.immutable
 
     def tokens(self):
         if self.src:
@@ -449,7 +449,7 @@ class UnlexerRule(Rule):
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
     def _dbg_(self):
-        return f'{self.name or ""}{":" if self.name else ""}{self.src!r}'
+        return f'{self.name or ""}{":" if self.name else ""}{self.src!r}{" (immutable)" if self.immutable else ""}'
 
     def __deepcopy__(self, memo):
         return UnlexerRule(name=deepcopy(self.name, memo), src=deepcopy(self.src, memo), size=deepcopy(self.size, memo), immutable=deepcopy(self.immutable, memo))
