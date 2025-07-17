@@ -14,7 +14,6 @@
 #define FLATBUFFERS_DEBUG_VERIFICATION_FAILURE
 #include "grammarinator/tool/fbs/FBRule_generated.h"
 
-// #include <cassert>
 #include <cstring>
 #include <string>
 
@@ -43,9 +42,6 @@ public:
     flatbuffers::FlatBufferBuilder builder;
     builder.Finish(buildFBRule(builder, root));
 
-    // std::vector<uint8_t> encodedData(builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize());
-    // decode(encodedData.data(), encodedData.size());
-
     const uint8_t* buf = builder.GetBufferPointer();
     size_t size = builder.GetSize();
     if (size <= maxsize) {
@@ -57,7 +53,6 @@ public:
   }
 
   runtime::Rule* decode(const uint8_t* buffer, size_t size) const override {
-    // return readFBRule(GetFBRule(buffer));
     flatbuffers::Verifier verifier(buffer, size, {512, 1000000, false, false, FLATBUFFERS_MAX_BUFFER_SIZE, true});
     if (fbs::VerifyFBRuleBuffer(verifier)) {
       auto root = readFBRule(fbs::GetFBRule(buffer));
@@ -69,7 +64,6 @@ public:
       return root;
     }
     util::perrf("Flatbuffer verification failed (maxsize: {}).", size);
-    // assert(false);
     return nullptr;
   }
 
