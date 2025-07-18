@@ -12,8 +12,12 @@ Test Generation
 
 After :doc:`constructing a fuzzer<fuzzer_building>` and, if desired,
 :doc:`creating a population<population>`, the ``grammarinator-generate``
-utility can be used o generate test cases based on the format specified in the
-input grammar.
+utility or the ``grammarinator-generate-<name>`` binaries can be used to
+generate test cases based on the format specified in the input grammar.
+
+----------------
+Python-based CLI
+----------------
 
 .. _grammarinator-generate:
 
@@ -22,7 +26,6 @@ input grammar.
 .. runcmd:: python -m grammarinator.generate --help
    :syntax: none
    :replace: "generate.py/grammarinator-generate"
-
 
 The ``grammarinator-generate`` utility requires a mandatory parameter which is
 the reference to the generator class in the ``package.module.class`` format.
@@ -77,3 +80,50 @@ the :meth:`~grammarinator.tool.GeneratorTool.generate` method will initialize th
 population, enabling the use of mutation and recombination operators later on.
 To disable specific operators, the ``--no-generate``, ``--no-mutate``, or
 ``--no-recombine`` arguments can be used.
+
+-------------
+C++-based CLI
+-------------
+
+In addition to the Python command line tool, Grammarinator also supports test
+generation via **compiled C++ executables**. These are generated using the
+``grammarinator-process`` tool with the ``--language hpp`` option, followed by
+:ref:`building the generator<cpp_compilation>`.
+
+Once built, a standalone executable is created with the name
+``grammarinator-generate-<name>``, where ``<name>`` corresponds to the
+generator class (e.g., ``grammarinator-generate-html``).
+
+The C++ binary exposes a command-line interface that is **similar** to
+``grammarinator-generate`` in terms of supported command line arguments
+(max depth, max tokens, output pattern, population directory, etc.), but with
+one key difference:
+
+In the C++ backend, the generator class, :doc:`model class <models>`,
+:doc:`listeners <listeners>`, :doc:`serializer <serializers>` and
+:doc:`transformer <transformers>` are statically compiled into the binary.
+These cannot be specified at runtime -- the binary is fully self-contained in
+this regard. The rest of the generation parameters seen in
+``grammarinator-generate``, such as output count, maximum depth, population
+settings, etc., can be configured dynamically.
+
+Example usage of a C++ generator::
+
+  grammarinator-cxx/build/Release/bin/grammarinator-generate-html \
+    -r htmlDocument -d 20 \
+    -o examples/tests/test_%d.html -n 100
+
+This command generates 100 HTML test cases using the ``htmlDocument`` start
+rule, up to a maximum derivation depth of 20, and writes the results to the
+``examples/tests/`` directory using a formatted file name.
+
+..
+
+    **Notes**
+
+    - If you need to change the generator logic (e.g., use a different
+      serializer or transformer), a new C++ binary must be rebuilt with
+      those components linked in.
+    - C++ binaries are useful in performance-critical or standalone fuzzing
+      setups, including native
+      :ref:`integration with libFuzzer<libfuzzer integration>`.

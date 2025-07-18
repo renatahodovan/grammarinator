@@ -10,6 +10,45 @@ Grammarinator to maintain a set of trees, known as the population. The
 population can be created by either processing existing sources or by
 :doc:`generating trees from scratch <test_generation>`.
 
+Grammarinator supports **multiple tree serialization formats** to represent
+population members. These formats determine how the population is stored on disk
+and consumed by various generation or fuzzing tools.
+
+Supported Tree Formats
+-----------------------
+
+1. **FlatBuffer-encoded trees** (``.grtf``):
+
+   - **Recommended** format for both Python and C++ workflows.
+   - Compact and fast to read/write.
+   - Cross-language compatible (e.g., usable from Python, C++, etc. with
+     FlatBuffer_ bindings).
+   - Supported natively by:
+
+     - ``grammarinator-generate`` (Python)
+     - C++ backend generators (e.g., ``grammarinator-generate-html``)
+     - libFuzzer integration (``libgrlf-html.a``)
+
+   - Default format when tree codec is not explicitly selected.
+
+2. **JSON-encoded trees** (``.grtj``):
+
+   - Portable and human-readable format.
+   - Slower to process than FlatBuffer.
+   - Useful for debugging or language-agnostic inspection.
+   - Supported by both Python and C++ components.
+
+3. **Pickle-encoded trees** (``.grtp``):
+
+   - Python-specific format based on the :mod:`pickle` module.
+   - Not portable across languages or even Python versions.
+   - **Only** usable with ``grammarinator-generate``.
+   - Retained primarily for backward compatibility and prototyping.
+
+When creating or using a population, the appropriate format must be specified
+consistently across tools using the ``--tree-format`` flag.
+
+.. _FlatBuffer: https://flatbuffers.dev
 
 -----------------------------------------
 Population Creation From Existing Sources
@@ -34,8 +73,10 @@ It takes a set of inputs and processes them with the specified grammars
 (``FILE``). Inputs can be listed as files or directories (using ``--input``), or
 specified with file patterns (using ``--glob``). The listed directories are
 traversed recursively. The start rule, which determines the root of every tree
-in the population, can be defined using the ``--rule`` argument. After the
-parsing is completed and the tree is created, various
+in the population, can be defined using the ``--rule`` argument.
+The ``--tree-format`` option controls the serialization format of the output
+trees. If omitted, the default is ``flatbuffer`` (producing ``.grtf`` files). After
+the parsing is completed and the tree is created, various
 :doc:`transformers <transformers>` (``--transformer``) can be applied to
 modify the tree before saving it to the file system using the ``--out`` option.
 
@@ -84,5 +125,5 @@ The listed directories are traversed recursively.
 First, the files are converted to trees using the appropriate tree codec
 specified by ``--tree-format``. The resulting trees are then serialized using
 the function defined by ``--serializer`` (or :class:`str` by default). The
-serialized tests are saved into the `--out` directory with the ``--ext``
+serialized tests are saved into the ``--out`` directory with the ``--ext``
 extension and encoded with ``--encoding``.
