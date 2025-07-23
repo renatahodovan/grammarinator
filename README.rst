@@ -204,6 +204,12 @@ Background on *Grammarinator* is published in:
   Test Case Design, Selection, and Evaluation (A-TEST 2018), pages 45-48, Lake
   Buena Vista, Florida, USA, November 2018. ACM.
   https://doi.org/10.1145/3278186.3278193
+* Renata Hodovan, Akos Kiss. Grammarinator Meets LibFuzzer: A Structure-Aware
+  In-Process Approach.
+  In Proceedings of the 20th International Conference on Software Technologies
+  (ICSOFT 2025), pages 178-189, Bilbao, Spain, June 2025. SciTePress.
+  Best paper award.
+  https://doi.org/10.5220/0013571500003964
 
 .. end included documentation
 
