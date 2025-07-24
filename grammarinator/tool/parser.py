@@ -214,7 +214,7 @@ class ParserTool:
                 return None, 0, []
 
             if not self._hidden:
-                node = UnlexerRule(name=(name,), src=text, immutable=(name,) in self._graph.immutables)
+                node = UnlexerRule(name=(name,), src=text, immutable=(name,) in self._graph.immutables or name == '<INVALID>')
                 rules.add(node)
             else:
                 node = []
@@ -226,7 +226,7 @@ class ParserTool:
                             node.append(UnlexerRule(name=hidden_name, src=token.text, immutable=hidden_name in self._graph.immutables))
                             visited.add(token)
 
-                node.append(UnlexerRule(name=(name,), src=text, immutable=(name,) in self._graph.immutables))
+                node.append(UnlexerRule(name=(name,), src=text, immutable=(name,) in self._graph.immutables or name == '<INVALID>'))
                 hidden_tokens_to_right = parser.getTokenStream().getHiddenTokensToRight(antlr_node.symbol.tokenIndex, -1) or []
                 for token in hidden_tokens_to_right:
                     if parser.symbolicNames[token.type] in self._hidden:

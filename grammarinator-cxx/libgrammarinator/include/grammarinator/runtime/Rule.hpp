@@ -517,7 +517,7 @@ public:
       return false;
 
     const UnlexerRule& otherRule = static_cast<const UnlexerRule&>(other);
-    return src == otherRule.src && immutable == otherRule.immutable;  // FIXME: python version does not compare for immutable!!!
+    return src == otherRule.src && immutable == otherRule.immutable;
   }
 
 protected:
