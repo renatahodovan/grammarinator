@@ -427,7 +427,7 @@ class UnlexerRule(Rule):
         self.immutable = immutable
 
     def equals(self, other):
-        return super().equals(other) and self.src == other.src
+        return super().equals(other) and self.src == other.src and self.immutable == other.immutable
 
     def tokens(self):
         if self.src:
