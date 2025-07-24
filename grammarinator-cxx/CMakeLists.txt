@@ -8,8 +8,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(grammarinator-cxx CXX)
 
-option(GRAMMARINATOR_GRLF "build libgrlf" OFF)
 option(GRAMMARINATOR_TOOLS "build tool artefacts" OFF)
+option(GRAMMARINATOR_GRLF "build libgrlf" OFF)
+option(GRAMMARINATOR_FUZZNULL "build fuzznull tool" OFF)
 
 set(GRAMMARINATOR_GENERATOR "" CACHE STRING "name of the generator class created by grammarinator-process (mandatory for specialized artefacts)")
 set(GRAMMARINATOR_MODEL "" CACHE STRING "name of the decision model class (for specialized artefacts)")
@@ -58,15 +59,16 @@ execute_process(COMMAND git describe --tags
                 OUTPUT_VARIABLE GRAMMARINATOR_VERSION
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-if(GRAMMARINATOR_TOOLS)
+if(GRAMMARINATOR_FUZZNULL)
   set(GRAMMARINATOR_GRLF ON)
 endif()
 
 grammarinator_status(GRAMMARINATOR_VERSION)
-grammarinator_status(GRAMMARINATOR_GRLF)
 grammarinator_status(GRAMMARINATOR_TOOLS)
+grammarinator_status(GRAMMARINATOR_GRLF)
+grammarinator_status(GRAMMARINATOR_FUZZNULL)
 
-if(GRAMMARINATOR_GRLF OR GRAMMARINATOR_TOOLS)
+if(GRAMMARINATOR_TOOLS OR GRAMMARINATOR_GRLF OR GRAMMARINATOR_FUZZNULL)
   if ("${GRAMMARINATOR_SUFFIX}" STREQUAL "")
     set(GRAMMARINATOR_SUFFIX "${GRAMMARINATOR_GENERATOR}")
     string(TOLOWER "${GRAMMARINATOR_SUFFIX}" GRAMMARINATOR_SUFFIX)
@@ -106,6 +108,6 @@ add_subdirectory(libgrammarinator)
 if(GRAMMARINATOR_GRLF)
   add_subdirectory(libgrlf)
 endif()
-if(GRAMMARINATOR_TOOLS)
+if(GRAMMARINATOR_TOOLS OR GRAMMARINATOR_FUZZNULL)
   add_subdirectory(tools)
 endif()

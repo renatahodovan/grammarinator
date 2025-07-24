@@ -5,16 +5,18 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-find_package(cxxopts REQUIRED)
+if(GRAMMARINATOR_TOOLS)
+    find_package(cxxopts REQUIRED)
+    grammarinator_spec_target_name(GENERATE generate)
+    add_executable(${GENERATE} generate.cpp)
+    grammarinator_spec_definitions(${GENERATE})
+    target_link_libraries(${GENERATE} grammarinator cxxopts::cxxopts -std=c++20)
+    # install(TARGETS ${GENERATE} DESTINATION bin)
+endif()
 
-grammarinator_spec_target_name(GENERATE generate)
-add_executable(${GENERATE} generate.cpp)
-grammarinator_spec_definitions(${GENERATE})
-target_link_libraries(${GENERATE} grammarinator cxxopts::cxxopts -std=c++20)
-
-# install(TARGETS ${GENERATE} DESTINATION bin)
-
-grammarinator_spec_target_name(FUZZNULL fuzznull)
-add_executable(${FUZZNULL} fuzznull.cpp)
-target_compile_options(${FUZZNULL} PRIVATE -fsanitize=fuzzer)
-target_link_libraries(${FUZZNULL} ${GRLF} -fsanitize=fuzzer,address -std=c++20)
+if(GRAMMARINATOR_FUZZNULL)
+    grammarinator_spec_target_name(FUZZNULL fuzznull)
+    add_executable(${FUZZNULL} fuzznull.cpp)
+    target_compile_options(${FUZZNULL} PRIVATE -fsanitize=fuzzer)
+    target_link_libraries(${FUZZNULL} ${GRLF} -fsanitize=fuzzer,address -std=c++20)
+endif()

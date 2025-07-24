@@ -28,7 +28,8 @@ def generate_build_options(args):
     build_options_append('CMAKE_INSTALL_PREFIX', args.install)
     build_options_append('GRAMMARINATOR_TOOLS', 'ON' if args.tools else 'OFF')
     build_options_append('GRAMMARINATOR_GRLF', 'ON' if args.grlf else 'OFF')
-    if args.tools or args.grlf:
+    build_options_append('GRAMMARINATOR_FUZZNULL', 'ON' if args.fuzznull else 'OFF')
+    if args.tools or args.grlf or args.fuzznull:
         build_options_append('GRAMMARINATOR_GENERATOR', args.generator)
         build_options_append('GRAMMARINATOR_MODEL', args.model)
         build_options_append('GRAMMARINATOR_LISTENER', args.listener)
@@ -91,10 +92,12 @@ def main():
                       help='install after build (default: don\'t install; default directory if install: OS-specific)')
 
     sgrp = parser.add_argument_group('specialization options')
-    sgrp.add_argument('--grlf', default=False, action='store_true',
-                      help='build specialized libgrlf beside general libgrammarinator (default: %(default)s)')
     sgrp.add_argument('--tools', default=False, action='store_true',
-                      help='build specialized tools beside general libgrammarinator (default: %(default)s)')
+                      help='build a standalone blackbox generator tool for the given grammar (default: %(default)s)')
+    sgrp.add_argument('--grlf', default=False, action='store_true',
+                      help='build a static libgrlf library for libFuzzer integration (default: %(default)s)')
+    sgrp.add_argument('--fuzznull', default=False, action='store_true',
+                      help='build a dummy fuzznull binary to test libFuzzer integration without a real fuzz target (default: %(default)s)')
     sgrp.add_argument('--generator', metavar='NAME',
                       help='name of the generator class')
     sgrp.add_argument('--model', metavar='NAME',
