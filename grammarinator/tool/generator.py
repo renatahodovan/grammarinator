@@ -127,7 +127,7 @@ class GeneratorTool:
 
     def __init__(self, generator_factory, out_format, lock=None, rule=None, limit=None,
                  population=None, generate=True, mutate=True, recombine=True, unrestricted=True, keep_trees=False,
-                 transformers=None, serializer=None,
+                 transformers=None, serializer=None, memo_size=0, unique_attempts=2,
                  cleanup=True, encoding='utf-8', errors='strict', dry_run=False):
         """
         :param type[~grammarinator.runtime.Generator] or GeneratorFactory generator_factory:
@@ -166,6 +166,11 @@ class GeneratorTool:
                the generated tree before serializing it.
         :param serializer: A serializer that takes a tree and produces a string from it (default: :class:`str`).
                See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
+        :param int memo_size: The number of most recently created unique tests
+            memoized (default: 0).
+        :param int unique_attempts: The limit on how many times to try to
+            generate a unique (i.e., non-memoized) test case. It has no effect
+            if ``memo_size`` is 0 (default: 2).
         :param bool cleanup: Enable deleting the generated tests at :meth:`__exit__`.
         :param str encoding: Output file encoding.
         :param str errors: Encoding error handling scheme.
@@ -188,6 +193,9 @@ class GeneratorTool:
         self._enable_mutation = mutate
         self._enable_recombination = recombine
         self._keep_trees = keep_trees
+        self._memo = {}  # NOTE: value associated to test is unimportant, but dict keeps insertion order while set does not
+        self._memo_size = memo_size
+        self._unique_attempts = max(unique_attempts, 1)
         self._cleanup = cleanup
         self._encoding = encoding
         self._errors = errors
@@ -237,8 +245,12 @@ class GeneratorTool:
             saved.
         :rtype: str
         """
-        root = self.create()
-        test = self._serializer(root)
+        for attempt in range(1, self._unique_attempts + 1):
+            root = self.create()
+            test = self._serializer(root)
+            if self._memoize_test(test):
+                break
+            logger.debug("test case #%d, attempt %d/%d: already generated among the last %d unique test cases", index, attempt, self._unique_attempts, len(self._memo))
         if self._dry_run:
             return None
 
@@ -255,6 +267,22 @@ class GeneratorTool:
                 print(test)
 
         return test_fn
+
+    def _memoize_test(self, test):
+        # Memoize the test case. The size of the memo is capped by
+        # ``memo_size``, i.e., it contains at most that many test cases.
+        # Returns ``False`` if the test case was already in the memo, ``True``
+        # if it got added now (or memoization is disabled by ``memo_size=0``).
+        # When the memo is full and a new test case is added, the oldest entry
+        # is evicted.
+        if self._memo_size < 1:
+            return True
+        if test in self._memo:
+            return False
+        self._memo[test] = None
+        if len(self._memo) > self._memo_size:
+            del self._memo[next(iter(self._memo))]
+        return True
 
     def _select_creator(self, creators, individual1, individual2):  # pylint: disable=unused-argument
         # NOTE: May be overridden.

@@ -62,6 +62,7 @@ def generator_tool_helper(args, lock=None):
                          population=DefaultPopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, unrestricted=args.unrestricted, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
+                         memo_size=args.memo_size, unique_attempts=args.unique_attempts,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
 
 
@@ -119,6 +120,10 @@ def execute():
                         help='print test cases to stdout (alias for --out=%(const)r)')
     parser.add_argument('-n', default=1, type=int_or_inf, metavar='NUM',
                         help='number of tests to generate, \'inf\' for continuous generation (default: %(default)s).')
+    parser.add_argument('--memo-size', default=0, type=int, metavar='NUM',
+                        help='memoize the last NUM unique tests; if a memoized test case is generated again, it is discarded and generation of a unique test case is retried (default: %(default)s).')
+    parser.add_argument('--unique-attempts', default=2, type=int, metavar='NUM',
+                        help='limit on how many times to try to generate a unique (i.e., non-memoized) test case; no effect if --memo-size=0 (default: %(default)s).')
     parser.add_argument('--random-seed', type=int, metavar='NUM',
                         help='initialize random number generator with fixed seed (not set by default).')
     parser.add_argument('--dry-run', default=False, action='store_true',
