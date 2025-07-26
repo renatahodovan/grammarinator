@@ -380,7 +380,14 @@ class UnparserRule(ParentRule):
         if item in ['name', 'children']:
             raise AttributeError()
 
-        result = [child for child in self.children if child.name == item]
+        result = []
+        worklist = list(reversed(self.children))
+        while worklist:
+            child = worklist.pop()
+            if isinstance(child, ParentRule) and not isinstance(child, UnparserRule):
+                worklist.extend(reversed(child.children))
+            elif child.name == item:
+                result.append(child)
 
         if not result:
             raise AttributeError(f'[{self.name}] No child with name {item!r} {[child.name for child in self.children]}.')
