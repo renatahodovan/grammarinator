@@ -7,11 +7,11 @@
 
 if(GRAMMARINATOR_TOOLS)
     find_package(cxxopts REQUIRED)
-    grammarinator_spec_target_name(GENERATE generate)
+    grammarinator_spec_target_name(GENERATE grammarinator-generate)
     add_executable(${GENERATE} generate.cpp)
     grammarinator_spec_definitions(${GENERATE})
     target_link_libraries(${GENERATE} grammarinator cxxopts::cxxopts -std=c++20)
-    # install(TARGETS ${GENERATE} DESTINATION bin)
+    install(TARGETS ${GENERATE} DESTINATION bin)
 endif()
 
 if(GRAMMARINATOR_FUZZNULL)
