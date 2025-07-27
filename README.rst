@@ -31,7 +31,7 @@ The `trophy page`_ of the found issues is available from the wiki.
 Requirements
 ============
 
-* Python_ >= 3.8
+* Python_ >= 3.9
 * Java_ SE >= 11 JRE or JDK (the latter is optional)
 
 .. _Python: https://www.python.org
