@@ -14,7 +14,6 @@ import random
 
 from os.path import basename, join
 from typing import Optional
-from uuid import uuid4
 
 from ..runtime import Annotations, Individual, Population, Rule
 from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec, TreeCodec
@@ -51,20 +50,12 @@ class DefaultPopulation(Population):
     def add_individual(self, root: Rule, path: Optional[str] = None) -> None:
         """
         Save the tree to a new file. The name of the tree file is determined
-        based on the pathname of the corresponding test case. From the pathname
-        of the test case, the base name is kept up to the first period only. If
-        no file name can be determined, the population class name is used as a
-        fallback. To avoid naming conflicts, a unique identifier is concatenated
-        to the file name.
+        from the basename of the given path, or from the population class name
+        if none is provided. The output file is saved with the appropriate
+        extension defined by the current tree codec.
         """
-        if path:
-            path = basename(path)
-        if path:
-            path = path.split('.')[0]
-        if not path:
-            path = type(self).__name__
-
-        fn = join(self._directory, f'{path}.{uuid4().hex}.{self._extension}')
+        path = basename(path) if path else type(self).__name__
+        fn = join(self._directory, f'{path}.{self._extension}')
         self._save(fn, root)
         self._files.append(fn)
 

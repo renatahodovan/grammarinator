@@ -10,7 +10,6 @@
 
 #include "../runtime/Population.hpp"
 #include "../util/print.hpp"
-#include "../util/random.hpp"
 #include "FlatBuffersTreeCodec.hpp"
 #include "TreeCodec.hpp"
 
@@ -87,23 +86,12 @@ public:
   bool empty() const override { return files_.size() == 0; }
 
   void add_individual(runtime::Rule* root, const std::string& path = "") override {
-    char uid[32];
-    for (int i = 0; i < 16; i++) {
-      const char hex[] = "0123456789abcdef";
-      uint8_t byte = util::random_int<uint8_t>(0, 255);
-      uid[i * 2] = hex[byte >> 4];
-      uid[i * 2 + 1] = hex[byte & 0xf];
-    }
+    std::string fn = std::filesystem::path(path).filename();
 
-    std::filesystem::path stem = std::filesystem::path(path).filename();
-    while (!stem.extension().empty()) {
-      stem = stem.stem();
-    }
-    std::string fn = stem;
     if (fn.empty()) {
       fn = "DefaultPopulation";
     }
-    fn = std::filesystem::path(directory_) / (fn + "." + std::string(uid, uid + 32) + "." + extension_);
+    fn = std::filesystem::path(directory_) / (fn + "." + extension_);
 
     save(fn, root);
     files_.push_back(fn);
