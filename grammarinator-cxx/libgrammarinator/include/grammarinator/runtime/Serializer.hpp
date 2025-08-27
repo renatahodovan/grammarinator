@@ -8,7 +8,6 @@
 #ifndef GRAMMARINATOR_RUNTIME_SERIALIZER_HPP
 #define GRAMMARINATOR_RUNTIME_SERIALIZER_HPP
 
-// #include "../util/print.hpp"
 #include "Rule.hpp"
 
 #include <string>
@@ -19,17 +18,11 @@ namespace runtime {
 inline std::string SimpleSpaceSerializer(const Rule* root) {
   std::string src;
   for (auto it = root->tokens_begin(); it != root->tokens_end(); ++it) {
-    const std::string& current_src = *it;
-    if (current_src == "<EOF>") {
-      continue;
-    }
     if (!src.empty()) {
       src += " ";
     }
-    src += current_src;
+    src += *it;
   }
-  // grammarinator::util::poutf("SimpleSpaceSerializer: '{}'", src);
-  // grammarinator::util::poutf("{:|}{}", *root, src);
   return src;
 }
 
