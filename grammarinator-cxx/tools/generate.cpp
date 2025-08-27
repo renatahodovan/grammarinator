@@ -58,6 +58,10 @@ int main(int argc, char **argv) {
        "maximum token number during generation",
        cxxopts::value<int>()->default_value(std::to_string(RuleSize::max().tokens)),
        "NUM")
+      ("weights",
+       "JSON file defining custom weights for alternatives",
+       cxxopts::value<std::string>(),
+       "FILE")
       ("p,population",
        "directory of grammarinator tree pool",
        cxxopts::value<std::string>(),
@@ -135,8 +139,14 @@ int main(int argc, char **argv) {
     std::string tree_extension = std::get<0>(tree_format_it->second);
     TreeCodec* tree_codec = std::get<1>(tree_format_it->second)();
 
+    // Parse optional custom weights from JSON
+    runtime::WeightedModel::WeightMap weights;
+    if (args.count("weights")) {
+      JsonWeightLoader().load(args["weights"].as<std::string>(), weights);
+    }
+
     int seed = args.count("random-seed") ? args["random-seed"].as<int>() : std::random_device()();
-    GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(),  // generator_factory
+    GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights),  // generator_factory
                             args.count("stdout") ? "" : args["out"].as<std::string>(),  // out_format
                             args.count("rule") ? args["rule"].as<std::string>() : "",  // rule
                             RuleSize(args["max-depth"].as<int>(), args["max-tokens"].as<int>()),  // limit

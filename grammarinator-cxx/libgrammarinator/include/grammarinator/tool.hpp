@@ -14,6 +14,7 @@
 #include "tool/GeneratorFactory.hpp"
 #include "tool/GeneratorTool.hpp"
 #include "tool/JsonTreeCodec.hpp"
+#include "tool/JsonWeightLoader.hpp"
 #include "tool/LibFuzzerTool.hpp"
 #include "tool/Tool.hpp"
 #include "tool/TreeCodec.hpp"
