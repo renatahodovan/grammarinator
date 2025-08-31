@@ -59,10 +59,10 @@ public:
                     const TreeCodec& codec = FlatBuffersTreeCodec())
       : directory_(directory), extension_(extension), codec_(codec) {
     if (!directory.empty()) {
-      if (!std::filesystem::exists(directory)) {
-        if (!std::filesystem::create_directories(directory)) {
-          util::perrf("Failed to create population directory: {}", directory);
-        }
+      try {
+        std::filesystem::create_directories(directory);
+      } catch (const std::filesystem::filesystem_error& e) {
+        util::perrf("Failed to create population directory '{}': {}", directory, e.what());
       }
 
       glob_t glob_result;
