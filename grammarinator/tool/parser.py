@@ -12,13 +12,15 @@ import os
 import shutil
 import sys
 
+from math import inf
 from os import listdir
 from os.path import basename, commonprefix, split, splitext
 from subprocess import CalledProcessError, PIPE, run
+from typing import Callable, Iterable, Optional, Union
 
-from antlr4 import CommonTokenStream, error, FileStream, ParserRuleContext, TerminalNode, Token
+from antlr4 import CommonTokenStream, error, FileStream, InputStream, Lexer, ParseTreeListener, Parser, ParserRuleContext, TerminalNode, Token
 
-from ..runtime import RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
+from ..runtime import Population, Rule, RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 from .processor import AlternationNode, AlternativeNode, LambdaNode, ProcessorTool, QuantifierNode, UnlexerRuleNode, UnparserRuleNode
 
 
@@ -53,27 +55,26 @@ class ParserTool:
     trees can be reused later by generation.
     """
 
-    def __init__(self, grammars, parser_dir, antlr, population,
-                 rule=None, hidden=None, transformers=None, max_depth=RuleSize.max.depth, strict=False,
-                 lib_dir=None, cleanup=True, encoding='utf-8', errors='strict'):
+    def __init__(self, grammars: list[str], parser_dir: str, antlr: str, population: Optional[Population],
+                 rule: Optional[str] = None, hidden: Optional[list[str]] = None, transformers: Optional[list[Callable[[Rule], Rule]]] = None, max_depth: Union[int, float] = RuleSize.max.depth, strict: bool = False,
+                 lib_dir: Optional[str] = None, cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict'):
         """
-        :param list[str] grammars: List of resources (grammars and additional sources) needed to parse the input.
-        :param str parser_dir: Directory where grammars and the generated parser will be placed.
-        :param str antlr: Path to the ANTLR4 tool (Java jar binary).
-        :param ~grammarinator.runtime.Population population: Tree pool where the
-            trees will be saved, e.g., an instance of
+        :param grammars: List of resources (grammars and additional sources) needed to parse the input.
+        :param parser_dir: Directory where grammars and the generated parser will be placed.
+        :param antlr: Path to the ANTLR4 tool (Java jar binary).
+        :param population: Tree pool where the trees will be saved, e.g., an instance of
             :class:`DefaultPopulation`.
-        :param str rule: Name of the rule to start parsing with (default: first
+        :param rule: Name of the rule to start parsing with (default: first
             parser rule in the grammar).
-        :param list[str] hidden: List of hidden rule names that are expected to be added to the grammar tree (hidden rules are skipped by default).
-        :param list transformers: List of transformers to be applied to postprocess
-               the parsed tree before serializing it.
-        :param int or float max_depth: Maximum depth of trees. Deeper trees are not saved.
-        :param bool strict: Tests that contain syntax errors are discarded.
+        :param hidden: List of hidden rule names that are expected to be added to the grammar tree (hidden rules are skipped by default).
+        :param transformers: List of transformers to be applied to postprocess
+            the parsed tree before serializing it.
+        :param max_depth: Maximum depth of trees. Deeper trees are not saved.
+        :param strict: Tests that contain syntax errors are discarded.
         :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
-        :param bool cleanup: Boolean to enable the removal of the helper parser resources after processing the inputs.
-        :param str encoding: Encoding of the input file.
-        :param str errors: Encoding error handling scheme.
+        :param cleanup: Boolean to enable the removal of the helper parser resources after processing the inputs.
+        :param encoding: Encoding of the input file.
+        :param errors: Encoding error handling scheme.
         """
         self._population = population
         self._hidden = hidden or []
@@ -106,7 +107,7 @@ class ParserTool:
             shutil.rmtree(self._parser_dir, ignore_errors=True)
 
     @staticmethod
-    def _build_grammars(in_files, out, antlr, lib_dir=None):
+    def _build_grammars(in_files: list[str], out: str, antlr: str, lib_dir: Optional[str] = None) -> tuple[type[Lexer], type[Parser], type[ParseTreeListener]]:
         """
         Build lexer and grammar from ANTLRv4 grammar files in Python3 target.
 
@@ -114,7 +115,7 @@ class ParserTool:
         :param out: Directory where grammars are placed and where the output will be generated to.
         :param antlr: Path to the ANTLR4 tool (Java jar binary).
         :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
-        :return: List of references/names of the lexer, parser and listener classes of the target.
+        :return: Tuple of references/names of the lexer, parser and listener classes of the target.
         """
         try:
             # TODO: support Java parsers too.
@@ -154,11 +155,12 @@ class ParserTool:
             if out not in sys.path:
                 sys.path.append(out)
 
-            return (getattr(__import__(x, globals(), locals(), [x], 0), x) for x in [lexer, parser, listener])
+            return tuple(getattr(__import__(x, globals(), locals(), [x], 0), x) for x in [lexer, parser, listener])
         except Exception as e:
             logger.error('Exception while loading parser modules', exc_info=e)
             raise
 
+    # TODO: Typing of _antlr_to_grammarinator_tree is a nightmare, hence it's postponed.
     def _antlr_to_grammarinator_tree(self, antlr_node, parser, visited=None):
         """
         Convert an ANTRL tree to Grammarinator tree.
@@ -245,7 +247,7 @@ class ParserTool:
     # to every tree node a grammar rule that produced it, it is sufficient to perform the
     # matching - and hence the reconstruction - on a single rule level. In other words, there is
     # no need to recursively match the entire tree.
-    def _adjust_tree_to_generator(self, rules):
+    def _adjust_tree_to_generator(self, rules: Iterable[Union[UnlexerRule, UnparserRule]]) -> None:
 
         def _adjust_rule(rule):
             def _match_seq(grammar_vertices, tree_node_pos):
@@ -302,7 +304,7 @@ class ParserTool:
 
                         # Track the positions of quantified subexpressions for potential backtracking.
                         backtrack_positions = []
-                        for _ in range(int(vertex.start), int(vertex.stop)) if vertex.stop != 'inf' else itertools.count():
+                        for _ in range(int(vertex.start), int(vertex.stop)) if vertex.stop != inf else itertools.count():
                             quant_children, quant_tree_node_pos = _match_seq(vertex.out_neighbours, tree_node_pos)
                             if quant_children is None:
                                 rest_children, rest_tree_node_pos = _match_seq(grammar_vertices[vertex_pos + 1:], tree_node_pos)
@@ -406,7 +408,7 @@ class ParserTool:
             rule.name = '_'.join(rule.name)
 
     # Create an ANTLR tree from the input stream and convert it to Grammarinator tree.
-    def _create_tree(self, input_stream, fn):
+    def _create_tree(self, input_stream: InputStream, fn: Optional[str]) -> Optional[Rule]:
         try:
             lexer = self._lexer_cls(input_stream)
             lexer.addErrorListener(ExtendedErrorListener())
@@ -419,6 +421,7 @@ class ParserTool:
                 logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
 
             root, depth, rules = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
+            assert root and isinstance(root, UnparserRule), 'The root of the converted tree is None or not a parser rule.'
             if depth > self._max_depth:
                 logger.warning('The tree representation of %s is %s, too deep. Skipping.', fn, depth)
                 return None
@@ -430,20 +433,20 @@ class ParserTool:
             return root
 
         except Exception as e:
-            logger.warning('Exception while parsing %s.', fn, exc_info=e)
+            logger.warning('Exception while parsing %s.', fn or '', exc_info=e)
         return None
 
-    def parse(self, fn):
+    def parse(self, fn: str) -> None:
         """
         Load content from file, parse it to an ANTLR tree, convert it to
         Grammarinator tree, and save it to population.
 
-        :param str fn: Path to the input file.
+        :param fn: Path to the input file.
         """
         logger.info('Process file %s.', fn)
         try:
             root = self._create_tree(FileStream(fn, encoding=self._encoding, errors=self._errors), fn)
-            if root is not None:
+            if root is not None and self._population is not None:
                 self._population.add_individual(root, path=fn)
         except Exception as e:
             logger.warning('Exception while processing %s.', fn, exc_info=e)

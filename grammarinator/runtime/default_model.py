@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -7,7 +7,10 @@
 
 import random
 
+from typing import Union
+
 from .model import Model
+from .rule import Rule
 
 
 class DefaultModel(Model):
@@ -15,7 +18,7 @@ class DefaultModel(Model):
     Default decision model implementation.
     """
 
-    def choice(self, node, idx, weights):
+    def choice(self, node: Rule, idx: int, weights: list[float]) -> int:
         """
         The decision is solely based upon the provided ``weights``.
 
@@ -24,7 +27,7 @@ class DefaultModel(Model):
         # assert sum(weights) > 0, 'Sum of weights is zero.'
         return random.choices(range(len(weights)), weights=weights)[0]
 
-    def quantify(self, node, idx, cnt, start, stop):
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: Union[int, float]) -> bool:
         """
         After generating the minimum expected items (``start``) and before
         reaching the maximum expected items (``stop``), quantify decides about
@@ -35,7 +38,7 @@ class DefaultModel(Model):
         """
         return bool(random.getrandbits(1))
 
-    def charset(self, node, idx, chars):
+    def charset(self, node: Rule, idx: int, chars: tuple[int, ...]) -> str:
         """
         A single character is chosen randomly from the set of possible options
         (``chars``).

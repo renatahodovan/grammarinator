@@ -8,6 +8,7 @@ dist
 .idea
 .cache
 .pytest_cache
+.mypy_cache
 .tox
 .coverage*
 *.interp

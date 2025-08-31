@@ -9,8 +9,9 @@ import json
 import random
 
 from os.path import dirname, join
+from typing import Optional
 
-from grammarinator.runtime import UnlexerRule, UnparserRuleContext
+from grammarinator.runtime import ParentRule, Rule, UnlexerRule, UnparserRuleContext
 
 from HTMLGenerator import HTMLGenerator
 
@@ -23,12 +24,12 @@ tag_names = list(tags.keys())
 
 class HTMLCustomGenerator(HTMLGenerator):
 
-    attr_stack = []
-    tag_stack = []
-    tags = set()
+    attr_stack: list[str] = []
+    tag_stack: list[str] = []
+    tags: set[str] = set()
 
     # Customize the function generated from the htmlTagName parser rule to produce valid tag names.
-    def htmlTagName(self, parent=None):
+    def htmlTagName(self, parent: Optional[ParentRule] = None) -> Rule:
         with UnparserRuleContext(gen=self, name='htmlTagName', parent=parent) as rule:
             current = rule.current
             name = random.choice(tags[self.tag_stack[-1]]['children'] or tag_names if self.tag_stack else tag_names)
@@ -38,7 +39,7 @@ class HTMLCustomGenerator(HTMLGenerator):
             return current
 
     # Customize the function generated from the htmlAttributeName parser rule to produce valid attribute names.
-    def htmlAttributeName(self, parent=None):
+    def htmlAttributeName(self, parent: Optional[ParentRule] = None) -> Rule:
         with UnparserRuleContext(gen=self, name='htmlAttributeName', parent=parent) as rule:
             current = rule.current
             name = random.choice(list(tags[self.tag_stack[-1]]['attributes'].keys()) or ['""'])
@@ -48,15 +49,15 @@ class HTMLCustomGenerator(HTMLGenerator):
 
     # Customize the function generated from the htmlAttributeValue parser rule to produce valid attribute values
     # to the current tag and attribute name.
-    def htmlAttributeValue(self, parent=None):
+    def htmlAttributeValue(self, parent: Optional[ParentRule] = None) -> Rule:
         with UnparserRuleContext(gen=self, name='htmlAttributeValue', parent=parent) as rule:
             current = rule.current
             current += UnlexerRule(name='ATTVALUE_VALUE', src=random.choice(tags[self.tag_stack[-1]]['attributes'].get(self.attr_stack.pop(), ['""']) or ['""']))
             return current
 
-    def _endOfHtmlElement(self):
+    def _endOfHtmlElement(self) -> None:
         self.tag_stack.pop()
 
     # You probably want to rewrite this with a distinct CSS fuzzer.
-    def _style_sheet(self):
+    def _style_sheet(self) -> str:
         return '* { background: green; }'

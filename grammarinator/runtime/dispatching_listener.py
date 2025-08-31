@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -6,6 +6,7 @@
 # according to those terms.
 
 from .listener import Listener
+from .rule import Rule
 
 
 class DispatchingListener(Listener):
@@ -16,7 +17,7 @@ class DispatchingListener(Listener):
     ``[enter|exit]_{rule_name}``.
     """
 
-    def enter_rule(self, node):
+    def enter_rule(self, node: Rule) -> None:
         """
         Trampoline to the ``enter_{node.name}`` method of the subclassed listener, if it is defined.
         """
@@ -24,7 +25,7 @@ class DispatchingListener(Listener):
         if hasattr(self, fn):
             getattr(self, fn)(node)
 
-    def exit_rule(self, node):
+    def exit_rule(self, node: Rule) -> None:
         """
         Trampoline to the ``exit_{node.name}`` method of the subclassed listener, if it is defined.
         """

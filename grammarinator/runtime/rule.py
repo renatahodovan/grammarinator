@@ -5,10 +5,13 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+from __future__ import annotations
+
 from copy import deepcopy
 from itertools import zip_longest
 from math import inf
 from textwrap import indent
+from typing import Any, ClassVar, Iterator, Optional, Union
 
 
 class RuleSize:
@@ -37,51 +40,49 @@ class RuleSize:
 
     __slots__ = ('depth', 'tokens')
 
-    def __init__(self, depth=0, tokens=0):
+    max: ClassVar[RuleSize]  # pylint: disable=declare-non-slot
+    """Maxium possible size (``(inf, inf)``)."""
+
+    def __init__(self, depth: Union[int, float] = 0, tokens: Union[int, float] = 0) -> None:
         """
-        :param int or float depth: Derivation length (default: 0).
-        :param int or float tokens: Token count (default: 0).
-
-        :ivar int or float depth: Derivation length.
-        :ivar int or float tokens: Token count.
-
-        :cvar RuleSize max: All size metrics set to ``inf``.
+        :param depth: Derivation length (default: 0).
+        :param tokens: Token count (default: 0).
         """
-        self.depth = depth
-        self.tokens = tokens
+        self.depth: Union[int, float] = depth  #: Derivation length.
+        self.tokens: Union[int, float] = tokens  #: Token count.
 
-    def __add__(self, other):
+    def __add__(self, other: RuleSize) -> RuleSize:
         return RuleSize(depth=self.depth + other.depth, tokens=self.tokens + other.tokens)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: RuleSize) -> RuleSize:
         self.depth += other.depth
         self.tokens += other.tokens
         return self
 
-    def __sub__(self, other):
+    def __sub__(self, other: RuleSize) -> RuleSize:
         return RuleSize(depth=self.depth - other.depth, tokens=self.tokens - other.tokens)
 
-    def __isub__(self, other):
+    def __isub__(self, other: RuleSize) -> RuleSize:
         self.depth -= other.depth
         self.tokens -= other.tokens
         return self
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, RuleSize):
             return NotImplemented
         return self.depth == other.depth and self.tokens == other.tokens
 
-    def __le__(self, other):
+    def __le__(self, other: RuleSize) -> bool:
         # This defines a partial order (i.e., reflexive, antisymmetric, and transitive).
         # Not every pair of objects are comparable.
         return self.depth <= other.depth and self.tokens <= other.tokens
 
-    def __lt__(self, other):
+    def __lt__(self, other: RuleSize) -> bool:
         # This defines a strict partial order (i.e., irreflexive, asymmetric, and transitive).
         # Not every pair of objects are comparable.
         return self.depth < other.depth and self.tokens < other.tokens
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}(depth={self.depth!r}, tokens={self.tokens!r})'
 
 
@@ -133,24 +134,21 @@ class Rule:
 
     __slots__ = ('name', 'parent')
 
-    def __init__(self, *, name):
+    def __init__(self, *, name: str) -> None:
         """
-        :param str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-
-        :ivar str name: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        :ivar UnparserRule parent: Parent node object.
+        :param name: Name of the node, i.e., name of the corresponding parser
+            or lexer rule in the grammar.
         """
-        self.name = name
-        self.parent = None
+        self.name: str = name  #: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
+        self.parent: Optional[ParentRule] = None  #: Parent node object.
 
     @property
-    def left_sibling(self):
+    def left_sibling(self) -> Optional[Rule]:
         """
         Get the left sibling of the node if any. Return ``None`` if the node has
         no parent or is the leftmost child of its parent.
 
         :return: The left sibling of the current node or ``None``.
-        :rtype: Rule
         """
         if not self.parent:
             return None
@@ -160,13 +158,12 @@ class Rule:
         return self.parent.children[self_idx - 1]
 
     @property
-    def right_sibling(self):
+    def right_sibling(self) -> Optional[Rule]:
         """
         Get the right sibling of the node if any. Return ``None`` if the node
         has no parent or is the rightmost child of its parent.
 
         :return: The right sibling of the current node or ``None``.
-        :rtype: Rule
         """
         if not self.parent:
             return None
@@ -176,25 +173,23 @@ class Rule:
         return self.parent.children[self_idx + 1]
 
     @property
-    def root(self):
+    def root(self) -> Rule:
         """
         Get the root of the node, i.e., the node at the top of the parent chain.
 
         :return: The root of the current node.
-        :rtype: Rule
         """
         node = self
         while node.parent:
             node = node.parent
         return node
 
-    def replace(self, node):
+    def replace(self, node: Rule) -> Rule:
         """
         Replace the current node with ``node`` among its siblings.
 
-        :param Rule node: The replacement node.
+        :param node: The replacement node.
         :return: ``node``
-        :rtype: Rule
         """
         node.remove()
         if self.parent and node is not self:
@@ -203,7 +198,7 @@ class Rule:
             self.parent = None
         return node
 
-    def remove(self):
+    def remove(self) -> None:
         """
         Remove the current node from its parent.
         """
@@ -211,45 +206,42 @@ class Rule:
             self.parent.children.remove(self)
             self.parent = None
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         """
         Compare two nodes (potentially including any children) for equality.
         The comparison is not implemented within ``__eq__`` to ensure that
         nodes can be added to collections based on identity.
 
-        :param Rule other: The node to compare the current node to.
+        :param other: The node to compare the current node to.
         :return: Whether the two nodes are equal.
-        :rtype: bool
         """
         return self.__class__ == other.__class__ and self.name == other.name
 
-    def equalTokens(self, other):
+    def equalTokens(self, other: Rule) -> bool:
         """
         Compare the tokens in the sub-trees of two nodes.
 
-        :param Rule other: The node to compare the current node to.
+        :param other: The node to compare the current node to.
         :return: Whether the two nodes are equal.
-        :rtype: bool
         """
         return all(self_token == other_token for self_token, other_token in zip_longest(self.tokens(), other.tokens()))
 
-    def tokens(self):
+    def tokens(self) -> Iterator[str]:
         """
         Generator method to iterate over the (non-empty) tokens (i.e., strings) of the sub-tree of the node.
 
         :return: Iterator over token string contents.
-        :rtype: iterator[str]
         """
         raise NotImplementedError()
 
-    def _dbg_(self):
+    def _dbg_(self) -> str:
         """
         Called by :meth:`__format__` to compute the "debug" string
         representation of a node.
         """
         raise NotImplementedError()
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec: str) -> str:
         if format_spec in ['', 's']:
             return str(self)
         if format_spec == 'r':
@@ -258,10 +250,10 @@ class Rule:
             return self._dbg_()
         raise TypeError
 
-    def __copy__(self):
+    def __copy__(self) -> Rule:
         raise TypeError('shallow copy not supported')
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> Rule:
         raise NotImplementedError()
 
 
@@ -272,32 +264,30 @@ class ParentRule(Rule):
 
     __slots__ = ('children',)
 
-    def __init__(self, *, name, children=None):
+    def __init__(self, *, name: str, children: Optional[list[Rule]] = None) -> None:
         """
-        :param str name: Name of the corresponding parser rule in the grammar.
-        :param list[Rule] children: Children of the rule (default: no children).
-
-        :ivar list[Rule] children: Children of the rule.
+        :param name: Name of the corresponding parser rule in the grammar.
+        :param children: Children of the rule (default: no children).
         """
         super().__init__(name=name)
-        self.children = []
+        self.children: list[Rule] = []  #: Children of the rule.
         if children:
             self.add_children(children)
 
     @property
-    def last_child(self):
+    def last_child(self) -> Optional[Rule]:
         """
         Get the last child of the current node if any. Return ``None`` if the
         node has no children.
         """
         return self.children[-1] if self.children else None
 
-    def insert_child(self, idx, node):
+    def insert_child(self, idx: int, node: Rule) -> None:
         """
         Insert node as child at position.
 
-        :param int idx: Index of position to insert ``node`` at.
-        :param Rule node: Node to be inserted.
+        :param idx: Index of position to insert ``node`` at.
+        :param node: Node to be inserted.
         """
         if not node:
             return
@@ -305,11 +295,11 @@ class ParentRule(Rule):
         self.children.insert(idx, node)
         node.parent = self
 
-    def add_child(self, node):
+    def add_child(self, node: Rule) -> None:
         """
         Add node to the end of the list of the children.
 
-        :param Rule node: Node to be added to children.
+        :param node: Node to be added to children.
         """
         if node is None:
             return
@@ -317,23 +307,22 @@ class ParentRule(Rule):
         self.children.append(node)
         node.parent = self
 
-    def add_children(self, nodes):
+    def add_children(self, nodes: list[Rule]) -> None:
         """
         Add mulitple nodes to the end of the list of the children.
 
-        :param list[Rule] nodes: List of nodes to be added to children.
+        :param nodes: List of nodes to be added to children.
         """
         for node in nodes:
             self.add_child(node)
 
-    def __iadd__(self, item):
+    def __iadd__(self, item: Union[Rule, list[Rule]]) -> ParentRule:
         """
         Support for ``+=`` operation to add one or more children to the current node. An alias to
         :meth:`add_child` or :meth:`add_children` depending on the type of ``child``.
 
-        :param Rule or list[Rule] item: The node(s) to be added as child.
+        :param item: The node(s) to be added as child.
         :return: The current node with extended children.
-        :rtype: Rule
         """
         if isinstance(item, list):
             self.add_children(item)
@@ -341,20 +330,20 @@ class ParentRule(Rule):
             self.add_child(item)
         return self
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         return super().equals(other) and len(self.children) == len(other.children) and all(child.equals(other.children[i]) for i, child in enumerate(self.children))
 
-    def tokens(self):
+    def tokens(self) -> Iterator[str]:
         for child in self.children:
             yield from child.tokens()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ''.join(str(child) for child in self.children)
 
-    def _repr_children(self):
+    def _repr_children(self) -> str:
         return 'children=[\n{children}]'.format(children=indent(',\n'.join(repr(child) for child in self.children), '  '))
 
-    def _dbg_children(self):
+    def _dbg_children(self) -> str:
         return '\n' + indent('\n'.join(child._dbg_() for child in self.children), '|  ') if self.children else ""
 
 
@@ -365,7 +354,7 @@ class UnparserRule(ParentRule):
     or :class:`UnparserRuleAlternative` children.
     """
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Union[Rule, list[Rule]]:
         # This check is needed to avoid infinite recursions when loading a tree
         # with pickle. In such cases, the loaded instance is prepared by
         # creating an empty object with the expected ``__class__`` and by
@@ -394,7 +383,7 @@ class UnparserRule(ParentRule):
 
         return result[0] if len(result) == 1 else result
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         parts = [
             f'name={self.name!r}',
         ]
@@ -402,10 +391,10 @@ class UnparserRule(ParentRule):
             parts.append(self._repr_children())
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
-    def _dbg_(self):
+    def _dbg_(self) -> str:
         return f'{self.name}{self._dbg_children()}'
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> UnparserRule:
         return UnparserRule(name=deepcopy(self.name, memo), children=[deepcopy(child, memo) for child in self.children])
 
 
@@ -416,34 +405,30 @@ class UnlexerRule(Rule):
 
     __slots__ = ('src', 'size', 'immutable')
 
-    def __init__(self, *, name, src=None, size=None, immutable=False):
+    def __init__(self, *, name: str, src: str = '', size: Optional[RuleSize] = None, immutable: bool = False) -> None:
         """
-        :param str name: Name of the corresponding lexer rule in the grammar.
-        :param str src: String content of the lexer rule (default: "").
-        :param RuleSize size: Size of the lexer rule (default: (1,1) if ``src``
-            is not empty, (0,0) otherwise).
-        :param bool immutable: Boolean to mark literal Unlexer nodes as immutable.
-
-        :ivar str src: String content of the lexer rule.
-        :ivar RuleSize size: Size of the lexer rule, aggregated from the
-            token fragments it is composed of.
+        :param name: Name of the corresponding lexer rule in the grammar.
+        :param src: String content of the lexer rule (default: "").
+        :param size: Size of the lexer rule (default: (1,1) if ``src`` is not
+            empty, (0,0) otherwise).
+        :param immutable: Boolean to mark literal Unlexer nodes as immutable.
         """
         super().__init__(name=name)
-        self.src = src or ''
-        self.size = size or (RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0))
-        self.immutable = immutable
+        self.src: str = src  #: String content of the lexer rule.
+        self.size: RuleSize = size or (RuleSize(depth=1, tokens=1) if src else RuleSize(depth=0, tokens=0))  #: Size of the lexer rule, aggregated from the token fragments it is composed of.
+        self.immutable: bool = immutable  #: Whether the lexer rule is immutable, i.e., its source is defined as a literal and cannot be changed.
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         return super().equals(other) and self.src == other.src and self.immutable == other.immutable
 
-    def tokens(self):
+    def tokens(self) -> Iterator[str]:
         if self.src:
             yield self.src
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.src
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         parts = []
         if self.name:
             parts.append(f'name={self.name!r}')
@@ -455,10 +440,10 @@ class UnlexerRule(Rule):
             parts.append(f'immutable={self.immutable}')
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
-    def _dbg_(self):
+    def _dbg_(self) -> str:
         return f'{self.name or ""}{":" if self.name else ""}{self.src!r}{" (immutable)" if self.immutable else ""}'
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> UnlexerRule:
         return UnlexerRule(name=deepcopy(self.name, memo), src=deepcopy(self.src, memo), size=deepcopy(self.size, memo), immutable=deepcopy(self.immutable, memo))
 
 
@@ -470,16 +455,22 @@ class UnparserRuleQuantifier(ParentRule):
 
     __slots__ = ('idx', 'start', 'stop')
 
-    def __init__(self, *, idx, start, stop, children=None):
-        super().__init__(name=None, children=children)
-        self.idx = idx
-        self.start = start
-        self.stop = stop
+    def __init__(self, *, idx: int, start: int, stop: Union[int, float], children: Optional[list[Rule]] = None) -> None:
+        """
+        :param idx: Index of the quantifier in the parent rule.
+        :param start: Minimum number of expected items in the sub-tree.
+        :param stop: Maximum number of expected items in the sub-tree.
+        :param children: Children of the quantifier (default: no children).
+        """
+        super().__init__(name='', children=children)
+        self.idx: int = idx  #: Index of the quantifier in the parent rule.
+        self.start: int = start  #: Minimum number of expected items in the sub-tree.
+        self.stop: Union[int, float] = stop  #: Maximum number of expected items in the sub-tree.
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         return super().equals(other) and self.idx == other.idx and self.start == other.start and self.stop == other.stop
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         parts = [
             f'idx={self.idx}',
             f'start={self.start}',
@@ -489,10 +480,10 @@ class UnparserRuleQuantifier(ParentRule):
             parts.append(self._repr_children())
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
-    def _dbg_(self):
+    def _dbg_(self) -> str:
         return f'{self.__class__.__name__}:[{self.idx}]{self._dbg_children()}'
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> UnparserRuleQuantifier:
         return UnparserRuleQuantifier(idx=deepcopy(self.idx, memo), start=deepcopy(self.start, memo), stop=deepcopy(self.stop, memo), children=[deepcopy(child, memo) for child in self.children])
 
 
@@ -504,16 +495,19 @@ class UnparserRuleQuantified(ParentRule):
     children.
     """
 
-    def __init__(self, *, children=None):
-        super().__init__(name=None, children=children)
+    def __init__(self, *, children: Optional[list[Rule]] = None) -> None:
+        """
+        :param children: Children of the quantified rule (default: no children).
+        """
+        super().__init__(name='', children=children)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self._repr_children() if self.children else ""})'
 
-    def _dbg_(self):
+    def _dbg_(self) -> str:
         return f'{self.__class__.__name__}{self._dbg_children()}'
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> UnparserRuleQuantified:
         return UnparserRuleQuantified(children=[deepcopy(child, memo) for child in self.children])
 
 
@@ -527,15 +521,20 @@ class UnparserRuleAlternative(ParentRule):
 
     __slots__ = ('alt_idx', 'idx')
 
-    def __init__(self, *, alt_idx, idx, children=None):
-        super().__init__(name=None, children=children)
-        self.alt_idx = alt_idx
-        self.idx = idx
+    def __init__(self, *, alt_idx: int, idx: int, children: Optional[list[Rule]] = None) -> None:
+        """
+        :param alt_idx: Index of the alternation in the parent rule.
+        :param idx: Index of the alternative in the parent alternation.
+        :param children: Children of the alternative (default: no children).
+        """
+        super().__init__(name='', children=children)
+        self.alt_idx: int = alt_idx  #: Index of the alternation in the parent rule.
+        self.idx: int = idx  #: Index of the alternative in the parent alternation.
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         return super().equals(other) and self.alt_idx == other.alt_idx and self.idx == other.idx
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         parts = [
             f'alt_idx={self.alt_idx}',
             f'idx={self.idx}',
@@ -544,10 +543,10 @@ class UnparserRuleAlternative(ParentRule):
             parts.append(self._repr_children())
         return f'{self.__class__.__name__}({", ".join(parts)})'
 
-    def _dbg_(self):
+    def _dbg_(self) -> str:
         return f'{self.__class__.__name__}:[{self.alt_idx}/{self.idx}]{self._dbg_children()}'
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[int, Any]) -> UnparserRuleAlternative:
         return UnparserRuleAlternative(alt_idx=deepcopy(self.alt_idx, memo),
                                        idx=deepcopy(self.idx, memo),
                                        children=[deepcopy(child, memo) for child in self.children])

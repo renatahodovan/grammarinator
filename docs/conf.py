@@ -29,7 +29,9 @@ release = version
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx_autodoc_typehints',
     'sphinx.ext.intersphinx',
+    "sphinx.ext.viewcode",
     'sphinxcontrib.runcmd',
 ]
 
@@ -69,4 +71,7 @@ intersphinx_mapping = {
 }
 
 autoclass_content = 'both'
-autodoc_inherit_docstrings = False
+autodoc_inherit_docstrings = True
+autodoc_typehints = 'signature'
+
+always_use_bars_union = True

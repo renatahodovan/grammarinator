@@ -34,8 +34,10 @@ def test_parser(inp, expected, tmpdir):
 
     tool = ParserTool(grammars=[os.path.join(parser_dir, 'Parse.g4')], rule='start', parser_dir=str(tmpdir), antlr=default_antlr_jar_path(), population=None)
     root = tool._create_tree(InputStream(src), None)
+    assert root, f'Parsing of {inp} failed.'
 
     with open(expected, 'rb') as f:
         expected_root = JsonTreeCodec().decode(f.read())
+    assert expected_root, f'Loading of {expected} failed.'
 
     assert root.equals(expected_root), f'{root:|} != {expected_root:|}'
