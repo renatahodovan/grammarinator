@@ -83,9 +83,9 @@ public:
                          const runtime::RuleSize& limit = runtime::RuleSize::max(), bool unrestricted = true, const std::vector<TransformerFn>& transformers = {},
                          SerializerFn serializer = nullptr, const TreeCodec& codec = FlatBuffersTreeCodec(),
                          bool print_mutators = false)
-      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, unrestricted, transformers, serializer, print_mutators), codec(codec) {
+      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr, unrestricted, transformers, serializer, print_mutators), codec(codec) {
     if (unrestricted) {
-      this->mutators.push_back([this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
+      this->mutators.emplace("libfuzzer_mutate", [this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
     }
   }
 
@@ -120,7 +120,8 @@ public:
 
     size_t outsize = 0;
     do {
-      auto root = this->create_tree(this->generators, nullptr, nullptr);
+      auto creators = this->generators;
+      auto root = this->create_tree(creators, nullptr, nullptr);
       outsize = codec.encode(root, data, maxsize);
       delete root;
     } while (outsize == 0);

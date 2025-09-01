@@ -33,7 +33,6 @@ public:
 
 private:
   std::string out_format;
-  runtime::Population* population;
   bool enable_generation;
   bool enable_mutation;
   bool enable_recombination;
@@ -58,8 +57,8 @@ public:
                          // const std::string& encoding = "utf-8",
                          // const std::string& errors = "strict",
                          bool dry_run = false, bool print_mutators = false)
-      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, unrestricted, transformers, serializer, print_mutators),
-        out_format(out_format), population(population), enable_generation(generate), enable_mutation(mutate),
+      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, population, unrestricted, transformers, serializer, print_mutators),
+        out_format(out_format), enable_generation(generate), enable_mutation(mutate),
         enable_recombination(recombine), keep_trees(keep_trees), memo_size(memo_size), unique_attempts(std::max(unique_attempts, 1)),
         // cleanup(cleanup), encoding(encoding), errors(errors),
         dry_run(dry_run) {
@@ -104,8 +103,8 @@ public:
         util::pout(test);
       }
 
-      if (population && keep_trees) {
-        population->add_individual(root, test_fn);
+      if (this->population && keep_trees) {
+        this->population->add_individual(root, test_fn);
       }
     }
 
@@ -116,21 +115,22 @@ public:
   runtime::Rule* create() {
     runtime::Individual* individual1 = nullptr;
     runtime::Individual* individual2 = nullptr;
-    if (population && !population->empty()) {
-      individual1 = population->select_individual();
-      individual2 = population->select_individual();
+    if (this->population && !this->population->empty()) {
+      auto inds = this->ensure_individuals(nullptr, nullptr);
+      individual1 = inds.first;
+      individual2 = inds.second;
     }
 
-    std::vector<CreatorFn> creators;
+    std::map<std::string, CreatorFn> creators;
     if (enable_generation) {
-      creators.insert(creators.end(), this->generators.begin(), this->generators.end());
+      creators.insert(this->generators.begin(), this->generators.end());
     }
-    if (population && !population->empty()) {
+    if (this->population && !this->population->empty()) {
       if (enable_mutation) {
-        creators.insert(creators.end(),this->mutators.begin(), this->mutators.end());
+        creators.insert(this->mutators.begin(), this->mutators.end());
       }
       if (enable_recombination) {
-        creators.insert(creators.end(), this->recombiners.begin(), this->recombiners.end());
+        creators.insert(this->recombiners.begin(), this->recombiners.end());
       }
     }
     auto root = this->create_tree(creators, individual1, individual2);
