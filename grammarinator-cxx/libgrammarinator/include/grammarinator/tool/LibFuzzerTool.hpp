@@ -81,9 +81,9 @@ private:
 public:
   explicit LibFuzzerTool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
                          const runtime::RuleSize& limit = runtime::RuleSize::max(), bool unrestricted = true, const std::vector<TransformerFn>& transformers = {},
-                         SerializerFn serializer = nullptr, const TreeCodec& codec = FlatBuffersTreeCodec(),
+                         SerializerFn serializer = nullptr, int memo_size = 0, const TreeCodec& codec = FlatBuffersTreeCodec(),
                          bool print_mutators = false)
-      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr, unrestricted, transformers, serializer, print_mutators), codec(codec) {
+      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr, unrestricted, transformers, serializer, memo_size, print_mutators), codec(codec) {
     if (unrestricted) {
       this->mutators.emplace("libfuzzer_mutate", [this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
     }
@@ -132,6 +132,11 @@ public:
       // util::pout("!!! mutation failed, result could not be encoded");
       return 0;
     }
+    if (!this->memoize_test(data, outsize)) {
+      util::poutf("mutation attempt: already generated among the last {} unique test cases", this->memo.size());
+      // util::pout(this->serializer(mutated_root));
+      return 0;
+    }
 
     if (cache_hit && root != mutated_root) {
       // if mutated_root != root, then this->mutate(root) has completely replaced
@@ -159,6 +164,12 @@ public:
     size_t outsize = this->codec.encode(cross_over_root, out, maxoutsize);
     if (outsize == 0) {
       // util::pout("!!! crossover failed, result could not be encoded");
+      return 0;
+    }
+
+    if (!this->memoize_test(out, outsize)) {
+      util::poutf("crossover attempt: already generated among the last {} unique test cases", this->memo.size());
+      // util::pout(this->serializer(cross_over_root));
       return 0;
     }
 

@@ -16,8 +16,6 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <list>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -37,9 +35,6 @@ private:
   bool enable_mutation;
   bool enable_recombination;
   bool keep_trees;
-  std::set<std::string> memo;
-  std::list<std::set<std::string>::iterator> memo_order;
-  int memo_size;
   int unique_attempts;
   // bool cleanup;
   // std::string encoding;
@@ -52,14 +47,14 @@ public:
                          runtime::Population* population = nullptr, bool generate = true, bool mutate = true,
                          bool recombine = true, bool unrestricted = true, bool keep_trees = false,
                          const std::vector<TransformerFn>& transformers = {}, SerializerFn serializer = nullptr,
-                         const int memo_size = 0, const int unique_attempts = 2,
+                         int memo_size = 0, int unique_attempts = 2,
                          // bool cleanup = true,
                          // const std::string& encoding = "utf-8",
                          // const std::string& errors = "strict",
                          bool dry_run = false, bool print_mutators = false)
-      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, population, unrestricted, transformers, serializer, print_mutators),
+      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, population, unrestricted, transformers, serializer, memo_size, print_mutators),
         out_format(out_format), enable_generation(generate), enable_mutation(mutate),
-        enable_recombination(recombine), keep_trees(keep_trees), memo_size(memo_size), unique_attempts(std::max(unique_attempts, 1)),
+        enable_recombination(recombine), keep_trees(keep_trees), unique_attempts(std::max(unique_attempts, 1)),
         // cleanup(cleanup), encoding(encoding), errors(errors),
         dry_run(dry_run) {
     if (!out_format.empty() && !dry_run) {
@@ -83,9 +78,11 @@ public:
       root = create();
       test = this->serializer(root);
 
-      if (memoize_test(test)) {
+      if (this->memoize_test(test.data(), test.size())) {
         break;
       }
+      util::poutf("test case #{}, attempt {}/{}: already generated among the last {} unique test cases", index, attempt, unique_attempts, this->memo.size());
+      // util::pout(test);
     }
 
     std::string test_fn;
@@ -140,33 +137,6 @@ public:
     if (individual1) delete individual1;
     if (individual2) delete individual2;
     return root;
-  }
-
-private:
-
-  bool memoize_test(const std::string& test) {
-    // Memoize the test case. The size of the memo is capped by
-    // ``memo_size``, i.e., it contains at most that many test cases.
-    // Returns ``false`` if the test case was already in the memo, ``true``
-    // if it got added now (or memoization is disabled by ``memo_size=0``).
-    // When the memo is full and a new test case is added, the oldest entry
-    // is evicted.
-    if (memo_size < 1) {
-      return true;
-    }
-
-    auto inserted = memo.insert(test);  // {iterator, success}
-    if (!inserted.second) {
-      return false;
-    }
-    memo_order.push_back(inserted.first);
-
-    if (memo.size() > memo_size) {
-      memo.erase(memo_order.front());
-      memo_order.pop_front();
-    }
-
-    return true;
   }
 };
 
