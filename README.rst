@@ -233,7 +233,7 @@ With the C++ backend::
         --includedir examples/fuzzer/ \
         --tools
 
-    grammarinator-cxx/build/Release/bin/generate-html \
+    grammarinator-cxx/build/Release/bin/grammarinator-generate-html \
         -r htmlDocument -d 20 \
         -o examples/tests/test_%d.html -n 100
 
