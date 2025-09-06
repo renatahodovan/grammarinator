@@ -25,7 +25,7 @@ def generate_build_options(args):
 
     build_options_append('CMAKE_BUILD_TYPE', args.build_type)
     build_options_append('CMAKE_VERBOSE_MAKEFILE', 'ON' if args.verbose else 'OFF')
-    build_options_append('CMAKE_INSTALL_PREFIX', args.install)
+    build_options_append('CMAKE_INSTALL_PREFIX', os.path.abspath(args.install) if args.install else None)
     build_options_append('GRAMMARINATOR_TOOLS', 'ON' if args.tools else 'OFF')
     build_options_append('GRAMMARINATOR_GRLF', 'ON' if args.grlf else 'OFF')
     build_options_append('GRAMMARINATOR_FUZZNULL', 'ON' if args.fuzznull else 'OFF')
