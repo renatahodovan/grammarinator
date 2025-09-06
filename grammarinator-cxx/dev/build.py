@@ -10,6 +10,7 @@
 import os
 import shutil
 import subprocess
+import sys
 
 from argparse import ArgumentParser, SUPPRESS
 
@@ -56,22 +57,22 @@ def configure_cmake(args):
     configure_output_dir(args)
     #conan install conanfile.txt -s compiler=clang -s compiler.version=15 -s compiler.cppstd=20 --build=missing --remote conancenter --output-folder=build/
 
-    subprocess.run(['conan', 'install', 'conanfile.txt', '-s', 'compiler=clang', '-s', 'compiler.version=15', '-s', 'compiler.cppstd=20', '--build=missing', '--remote', 'conancenter', f'--output-folder={args.builddir}', '-s', f'build_type={args.build_type}'], cwd=PROJECT_DIR)
+    subprocess.run(['conan', 'install', 'conanfile.txt', '-s', 'compiler=clang', '-s', 'compiler.version=15', '-s', 'compiler.cppstd=20', '--build=missing', '--remote', 'conancenter', f'--output-folder={args.builddir}', '-s', f'build_type={args.build_type}'], cwd=PROJECT_DIR, check=True)
     build_options = generate_build_options(args)
-    subprocess.run(['cmake', '-S', PROJECT_DIR, '-B', args.builddir, *build_options], cwd=PROJECT_DIR)
+    subprocess.run(['cmake', '-S', PROJECT_DIR, '-B', args.builddir, *build_options], cwd=PROJECT_DIR, check=True)
 
 
 def cmake_build(args):
     cmd = ['cmake', '--build', args.builddir]
     if args.verbose:
         cmd.append('--verbose')
-    subprocess.run(cmd, cwd=PROJECT_DIR)
+    subprocess.run(cmd, cwd=PROJECT_DIR, check=True)
 
 
 def cmake_install(args):
     if args.install is not None:
         cmd = ['cmake', '--install', args.builddir]
-        subprocess.run(cmd, cwd=PROJECT_DIR)
+        subprocess.run(cmd, cwd=PROJECT_DIR, check=True)
 
 
 def main():
@@ -126,9 +127,13 @@ def main():
     if (args.grlf or args.tools) and (not args.includedir or not args.generator):
         parser.error('To build specialized artefacts, the `--generator` and `--includedir` arguments must be defined.')
 
-    configure_cmake(args)
-    cmake_build(args)
-    cmake_install(args)
+    try:
+        configure_cmake(args)
+        cmake_build(args)
+        cmake_install(args)
+    except subprocess.CalledProcessError as e:
+        print(f'{os.path.basename(sys.argv[0])}: Command `{" ".join(e.cmd)}` returned non-zero exit status {e.returncode}.', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
