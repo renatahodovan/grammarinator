@@ -84,7 +84,7 @@ done using the ``build.py`` utility script, which is located in
 
 .. describe:: The CLI of grammarinator-cxx/dev/build.py
 
-.. runcmd:: python3 grammarinator-cxx/dev/build.py --help
+.. runcmd:: python ../grammarinator-cxx/dev/build.py --help
    :syntax: none
 
 The ``build.py`` script takes the configuration of the desired generator and
