@@ -65,41 +65,34 @@ current = rule.current();
 {
     AlternationContext alt{{ node.idx }}(rule, {{ node.idx }}, {{ graph.name }}::_alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}{ {{ resolveVarRefs(node.conditions | join(', ')) }} }{% else %}{{ graph.name }}::_alt_conds[{{ node.conditions }}]{% endif %});
     current = rule.current();
-    {{ alternationContent(node) | indent }}
+    {% set simple_lits, simple_rules = node.simple_alternatives() %}
+    {# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
+    {% if simple_lits and simple_rules %}
+    size_t choice{{ node.idx }} = alt{{ node.idx }}();
+    const char* alt_src = std::vector<const char*>{ {% for lit in simple_lits %}{% if lit is not none %}"{{ lit | escape_string }}"{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
+    RuleFn alt_rule = std::vector<RuleFn>{ {% for rule in simple_rules %}{% if rule is not none %}&{{ graph.name }}::{{ rule | join('_') }}{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
+    if (alt_src) {
+        static_cast<UnlexerRule*>(current)->src += alt_src;
+    } else {
+        (this->*alt_rule)(current);
+    }
+    {% elif simple_lits %}
+    static_cast<UnlexerRule*>(current)->src += std::vector<std::string>{ {% for lit in simple_lits %}"{{ lit | escape_string }}"{% if not loop.last %}, {% endif %}{% endfor %} }[{% if choice is none %}alt{{ node.idx }}(){% else %}{{ choice }}{% endif %}];
+    {% elif simple_rules %}
+    std::vector<RuleFn> options{ {% for rule in simple_rules %}&{{ graph.name }}::{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %} };
+    RuleFn fn = options[alt{{ node.idx }}()];
+    (this->*fn)(current);
+    {% else %}
+    size_t choice{{ node.idx }} = alt{{ node.idx }}();
+    switch (choice{{ node.idx }}) {
+    {% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
+        case {{ edge.dst.idx }}:
+            {{ processNode(edge.dst, edge) | indent | indent | indent }}            break;
+    {% endfor %}
+    }
+    {% endif %}
 }
 current = rule.current();
-{% endmacro %}
-
-
-{% macro alternationContent(node, choice=None) %}
-{% set simple_lits, simple_rules = node.simple_alternatives() %}
-{# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
-{% if simple_lits and simple_rules %}
-{% if choice is none %}size_t choice{{ node.idx }} = alt{{ node.idx }}();{% endif %}
-const char* alt_src = std::vector<const char*>{ {% for lit in simple_lits %}{% if lit is not none %}"{{ lit | escape_string }}"{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
-RuleFn alt_rule = std::vector<RuleFn>{ {% for rule in simple_rules %}{% if rule is not none %}&{{ graph.name }}::{{ rule | join('_') }}{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
-if (alt_src) {
-    static_cast<UnlexerRule*>(current)->src += alt_src;
-} else {
-    (this->*alt_rule)(current);
-}
-{% elif simple_lits %}
-static_cast<UnlexerRule*>(current)->src += std::vector<std::string>{ {% for lit in simple_lits %}"{{ lit | escape_string }}"{% if not loop.last %}, {% endif %}{% endfor %} }[{% if choice is none %}alt{{ node.idx }}(){% else %}{{ choice }}{% endif %}];
-{% elif simple_rules %}
-std::vector<RuleFn> options{ {% for rule in simple_rules %}&{{ graph.name }}::{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %} };
-RuleFn fn = options[{% if choice is none %}alt{{ node.idx }}(){% else %}{{ choice }}{% endif %}];
-(this->*fn)(current);
-{% else %}
-{% if choice is none %}
-size_t choice{{ node.idx }} = alt{{ node.idx }}();
-{% endif %}
-switch ({% if choice is none %}choice{{ node.idx }}{% else %}{{ choice }}{% endif %}) {
-{% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
-    case {{ edge.dst.idx }}:
-        {{ processNode(edge.dst, edge) | indent | indent }}            break;
-{% endfor %}
-}
-{% endif %}
 {% endmacro %}
 
 
@@ -110,47 +103,9 @@ switch ({% if choice is none %}choice{{ node.idx }}{% else %}{{ choice }}{% endi
 {% endmacro %}
 
 
-{% macro processPermutationNode(node, inedge) %}
-{% set alt_node = node.out_neighbours[0] %}
-{
-    PermutationContext perm{{ node.idx }}(rule, {{ node.idx }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {% if alt_node.conditions is sequence %}({{ resolveVarRefs(alt_node.conditions | join(', ')) }}){% else %}{{ graph.name }}._alt_conds[{{ alt_node.conditions }}]{% endif %});
-    current = rule.current();
-    while (perm{{ node.idx }}()) {
-        {
-            AlternationContext alt{{ alt_node.idx }}(rule, {{ alt_node.idx }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {{ node.out_edges[0].reserve }}, perm{{ node.idx }}.conditions);
-            current = rule.current();
-            {{ alternationContent(alt_node, "perm{}.choice(alt{}())".format(node.idx, alt_node.idx)) | indent | indent | indent }}
-        }
-        current = rule.current();
-    }
-}
-current = rule.current();
-{% endmacro %}
-
-
-{% macro processMultiSelectNode(node, inedge) %}
-{% set alt_node = node.out_neighbours[0] %}
-{
-    MultiSelectContext multi{{ node.idx }}(rule, {{ node.idx }}, {{ node.start }}, {{ node.stop | replace('inf', 'INT_MAX') }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {{ inedge.reserve }}, {% if alt_node.conditions is sequence %}({{ resolveVarRefs(alt_node.conditions | join(', ')) }}){% else %}{{ graph.name }}::_alt_conds[{{ alt_node.conditions }}]{% endif %});
-    current = rule.current();
-    while (multi{{ node.idx }}()) {
-        {
-            AlternationContext alt{{ alt_node.idx }}(rule, {{ alt_node.idx }}, {{ graph.name }}::_alt_sizes[{{ alt_node.min_sizes }}], {{ node.out_edges[0].reserve }}, multi{{ node.idx }}.conditions);
-            current = rule.current();
-            {{ alternationContent(alt_node, "multi{}.choice(alt{}())".format(node.idx, alt_node.idx)) | indent | indent }}
-        }
-        current = rule.current();
-    }
-}
-current = rule.current();
-{% endmacro %}
-
-
 {% macro processNode(node, inedge) %}
 {% set processors = {
     'QuantifierNode': processQuantifierNode,
-    'PermutationNode': processPermutationNode,
-    'MultiSelectNode': processMultiSelectNode,
     'UnlexerRuleNode': processRuleNode,
     'UnparserRuleNode': processRuleNode,
     'ImagRuleNode': processRuleNode,
@@ -172,11 +127,8 @@ current = rule.current();
 #ifndef GRAMMARINATOR_GENERATED_{{ graph.name | upper }}_HPP
 #define GRAMMARINATOR_GENERATED_{{ graph.name | upper }}_HPP
 
-#include <array>
 #include <climits>
-#include <cmath>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -225,7 +177,7 @@ public:
             {{ t }} {{ k }}{% if v %} = {{ resolveVarRefs(v) }}{% endif %};
             {% endfor %}
             {% for name, is_list in rule.labels.items() %}
-            {%+ if is_list %}vector<{% endif %}Rule*{% if is_list%}>{% endif %} {{ name }}{% if is_list %} = {}{% endif %};
+            {%+ if is_list %}std::vector<{% endif %}Rule*{% if is_list%}>{% endif %} {{ name }}{% if is_list %} = {}{% endif %};
             {% endfor %}
         } local_ctx;
         {% endif %}
