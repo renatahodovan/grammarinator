@@ -24,13 +24,13 @@ namespace runtime {
 class Annotations {
 public:
   struct NodeKey {
-    enum NodeKeyType { RuleType, QuantifierType, AlternativeType };
+    enum NodeKeyType { RuleKey, QuantifierKey, AlternativeKey };
 
     std::string name;
     NodeKeyType type;
     int idx;
 
-    explicit NodeKey(const std::string& name) : name(name), type(RuleType), idx() { }
+    explicit NodeKey(const std::string& name) : name(name), type(RuleKey), idx() { }
     NodeKey(const std::string& name, NodeKeyType type, int idx) : name(name), type(type), idx(idx) { }
     NodeKey(const NodeKey& other) = default;
     NodeKey& operator=(const NodeKey& other) = default;
@@ -41,9 +41,9 @@ public:
     auto operator<=>(const NodeKey& other) const = default;
 
     std::string format() const {
-      if (type == QuantifierType) {
+      if (type == QuantifierKey) {
         return std::format("\"{}\", q, {}", name, idx);
-      } else if (type == AlternativeType) {
+      } else if (type == AlternativeKey) {
         return std::format("\"{}\", a, ", name, idx);
       } else {
         return std::format("\"{}\"", name);
@@ -175,7 +175,7 @@ private:
       current_rule_name = !current->name.empty() && current->name != "<INVALID>" ? &current->name : nullptr;
     } else if (current->type == Rule::UnparserRuleAlternativeType && current_rule_name) {
       alts_by_name_[NodeKey(*current_rule_name,
-                            NodeKey::AlternativeType,
+                            NodeKey::AlternativeKey,
                             static_cast<const UnparserRuleAlternative*>(current)->alt_idx)].push_back(current);
     }
 
@@ -191,7 +191,7 @@ private:
       current_rule_name = !current->name.empty() && current->name != "<INVALID>" ? &current->name : nullptr;
     } if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
       quants_by_name_[NodeKey(*current_rule_name,
-                              NodeKey::QuantifierType,
+                              NodeKey::QuantifierKey,
                               static_cast<const UnparserRuleQuantifier*>(current)->idx)].push_back(current);
     }
 
