@@ -386,7 +386,7 @@ class GeneratorTool:
         individual1 = self._ensure_individual(individual1)
         if individual2 is None:
             assert self._population is not None
-            individual2 = self._population.select_individual()
+            individual2 = self._population.select_individual(individual1)
         return individual1, individual2
 
     def regenerate_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:

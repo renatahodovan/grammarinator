@@ -59,11 +59,12 @@ class DefaultPopulation(Population):
         self._save(fn, root)
         self._files.append(fn)
 
-    def select_individual(self) -> DefaultIndividual:
+    def select_individual(self, recipient: Optional[Individual] = None) -> Individual:
         """
         Randomly select an individual of the population and create a
         DefaultIndividual instance from it.
 
+        :param recipient: Unused.
         :return: DefaultIndividual instance created from a randomly selected
             population item.
         """

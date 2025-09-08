@@ -48,12 +48,16 @@ class Population:
         """
         raise NotImplementedError()
 
-    def select_individual(self) -> Individual:
+    def select_individual(self, recipient: Optional[Individual] = None) -> Individual:
         """
         Select an individual of the population.
 
         Raises :exc:`NotImplementedError` by default.
 
+        :param recipient: If None, the caller looks for an individual that
+            could be mutated or recombined (i.e., a recipient). If not None,
+            the caller looks for an individual (i.e., a donor) that could be
+            recombined with the given individual (i.e., with the recipient).
         :return: A single individual of the population.
         """
         raise NotImplementedError()
