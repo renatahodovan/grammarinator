@@ -193,8 +193,8 @@ class GeneratorTool:
         self._errors = errors
         self._dry_run = dry_run
 
-        self._generators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]] = [self.generate]
-        self._mutators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]] = [
+        self._generators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = [self.generate]
+        self._mutators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = [
             self.regenerate_rule,
             self.delete_quantified,
             self.replicate_quantified,
@@ -203,7 +203,7 @@ class GeneratorTool:
             self.swap_local_nodes,
             self.insert_local_node,
         ]
-        self._recombiners: list[Callable[[Optional[Individual], Optional[Individual]], Rule]] = [
+        self._recombiners: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = [
             self.replace_node,
             self.insert_quantified,
         ]
@@ -275,13 +275,22 @@ class GeneratorTool:
             del self._memo[next(iter(self._memo))]
         return True
 
-    def _select_creator(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Callable[[Optional[Individual], Optional[Individual]], Rule]:  # pylint: disable=unused-argument
+    def _select_creator(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]:  # pylint: disable=unused-argument
         # NOTE: May be overridden.
         return random.choice(creators)
 
-    def _create_tree(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Rule]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Rule:
-        creator = self._select_creator(creators, individual1, individual2)
-        root = creator(individual1, individual2)
+    def _create_tree(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Rule:
+        # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
+        while creators:
+            creator = self._select_creator(creators, individual1, individual2)
+            root = creator(individual1, individual2)
+            if root:
+                break
+            creators.remove(creator)
+        else:
+            assert individual1 is not None
+            root = individual1.root
+
         for transformer in self._transformers:
             root = transformer(root)
         return root
@@ -326,7 +335,7 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if mutation is disabled.
         # If individual is None, population MUST exist.
         individual = self._ensure_individual(individual)
-        return self._create_tree(self._mutators, individual, None)
+        return self._create_tree(self._mutators[:], individual, None)
 
     def recombine(self, individual1: Optional[Individual] = None, individual2: Optional[Individual] = None) -> Rule:
         """
@@ -348,7 +357,7 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if recombination is disabled.
         # If any of the individuals is None, population MUST exist.
         individual1, individual2 = self._ensure_individuals(individual1, individual2)
-        return self._create_tree(self._recombiners, individual1, individual2)
+        return self._create_tree(self._recombiners[:], individual1, individual2)
 
     def generate(self, _individual1: Optional[Individual] = None, _individual2: Optional[Individual] = None, *, rule: Optional[str] = None, reserve: Optional[RuleSize] = None) -> Union[UnlexerRule, UnparserRule]:
         """
@@ -409,7 +418,7 @@ class GeneratorTool:
         # and generate a brand new one instead.
         return self.generate(rule=root.name)
 
-    def replace_node(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Rule:
+    def replace_node(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Optional[Rule]:
         """
         Recombine two trees at random positions where the nodes are compatible
         with each other (i.e., they share the same node name). One of the trees
@@ -450,11 +459,9 @@ class GeneratorTool:
                     recipient_node.replace(donor_node)
                     return recipient_root
 
-        # If selection strategy fails, we practically cause the whole recipient tree
-        # to be the result of recombination.
-        return recipient_root
+        return None
 
-    def insert_quantified(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Rule:
+    def insert_quantified(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Optional[Rule]:
         """
         Selects two compatible quantifier nodes from two trees randomly and if
         the quantifier node of the recipient tree is not full (the number of
@@ -483,12 +490,9 @@ class GeneratorTool:
                         and recipient_root_tokens + donor_annot.node_tokens[donor_node] < self._limit.tokens):
                     recipient_node.insert_child(random.randint(0, len(recipient_node.children)), donor_node)
                     return recipient_root
+        return None
 
-        # If selection strategy fails, we practically cause the whole recipient tree
-        # to be the result of insertion.
-        return recipient_root
-
-    def delete_quantified(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def delete_quantified(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Removes an optional subtree randomly from a quantifier node.
 
@@ -501,11 +505,10 @@ class GeneratorTool:
         if options:
             removed_node = random.choice(options)
             removed_node.remove()
+            return root
+        return None
 
-        # Return with the original root, whether the deletion was successful or not.
-        return root
-
-    def unrestricted_delete(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def unrestricted_delete(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Remove a subtree rooted in any kind of rule node randomly without any
         further restriction.
@@ -519,11 +522,10 @@ class GeneratorTool:
         if options:
             removed_node = random.choice(options)
             removed_node.remove()
+            return root
+        return None
 
-        # Return with the original root, whether the deletion was successful or not.
-        return root
-
-    def replicate_quantified(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def replicate_quantified(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Select a quantified sub-tree randomly, replicate it and insert it again if
         the maximum quantification count is not reached yet.
@@ -543,11 +545,10 @@ class GeneratorTool:
             repeat = random.randint(1, int(max_repeat)) if max_repeat > 1 else 1
             for _ in range(repeat):
                 node_to_repeat.parent.insert_child(idx=random.randint(0, len(node_to_repeat.parent.children)), node=deepcopy(node_to_repeat))  # type: ignore[union-attr]
+            return root
+        return None
 
-        # Return with the original root, whether the replication was successful or not.
-        return root
-
-    def shuffle_quantifieds(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def shuffle_quantifieds(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Select a quantifier node and shuffle its quantified sub-trees.
 
@@ -560,11 +561,10 @@ class GeneratorTool:
         if options:
             node_to_shuffle = random.choice(options)
             random.shuffle(node_to_shuffle.children)
+            return root
+        return None
 
-        # Return with the original root, whether the shuffling was successful or not.
-        return root
-
-    def hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Select an individual of the population to be mutated and select two
         rule nodes from it which share the same rule name and are in
@@ -583,9 +583,9 @@ class GeneratorTool:
                     parent.replace(rule)
                     return root
                 parent = parent.parent
-        return root
+        return None
 
-    def unrestricted_hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def unrestricted_hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Select two rule nodes from the input individual which are in
         ancestor-descendant relationship (without type compatibility check) and
@@ -607,9 +607,9 @@ class GeneratorTool:
             if options:
                 random.choice(options).replace(rule)
                 return root
-        return root
+        return None
 
-    def swap_local_nodes(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def swap_local_nodes(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Swap two non-overlapping subtrees at random positions in a single test
         where the nodes are compatible with each other (i.e., they share the same node name).
@@ -663,9 +663,9 @@ class GeneratorTool:
                     first_node.parent = second_parent
                     second_node.parent = first_parent
                     return root
-        return root
+        return None
 
-    def insert_local_node(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def insert_local_node(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
         """
         Select two compatible quantifier nodes from a single test and
         insert a random quantified subtree of the second one into the
@@ -696,4 +696,4 @@ class GeneratorTool:
                             recipient_node.insert_child(random.randint(0, len(recipient_node.children)) if recipient_node.children else 0,
                                                         deepcopy(donor_quantified_node))
                             return root
-        return root
+        return None

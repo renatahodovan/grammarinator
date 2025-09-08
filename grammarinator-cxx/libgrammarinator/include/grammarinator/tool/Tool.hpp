@@ -8,6 +8,7 @@
 #ifndef GRAMMARINATOR_TOOL_TOOL_HPP
 #define GRAMMARINATOR_TOOL_TOOL_HPP
 
+#include "../runtime/Population.hpp"
 #include "../runtime/Rule.hpp"
 #include "../util/print.hpp"
 #include "../util/random.hpp"
@@ -40,30 +41,31 @@ public:
   bool print_mutators;
 
 protected:
-  std::vector<CreatorFn> generators{};
-  std::vector<CreatorFn> mutators{};
-  std::vector<CreatorFn> recombiners{};
+  std::map<std::string, CreatorFn> generators;
+  std::map<std::string, CreatorFn> mutators;
+  std::map<std::string, CreatorFn> recombiners;
+  runtime::Population* population;
 
 public:
   explicit Tool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
-                const runtime::RuleSize& limit = runtime::RuleSize::max(), bool unrestricted = true, const std::vector<TransformerFn>& transformers = {},
+                const runtime::RuleSize& limit = runtime::RuleSize::max(), runtime::Population* population = nullptr, bool unrestricted = true, const std::vector<TransformerFn>& transformers = {},
                 SerializerFn serializer = nullptr, bool print_mutators = false)
-      : generator_factory(generator_factory), rule(rule), limit(limit), unrestricted(unrestricted),
+      : generator_factory(generator_factory), rule(rule), limit(limit), population(population), unrestricted(unrestricted),
         transformers(transformers), serializer(serializer), print_mutators(print_mutators) {
-    generators.push_back([this](auto i1, auto i2) { return generate(); });
-    mutators.push_back([this](auto i1, auto i2) { return regenerate_rule(i1); });
-    mutators.push_back([this](auto i1, auto i2) { return delete_quantified(i1); });
-    mutators.push_back([this](auto i1, auto i2) { return replicate_quantified(i1); });
-    mutators.push_back([this](auto i1, auto i2) { return shuffle_quantifieds(i1); });
-    mutators.push_back([this](auto i1, auto i2) { return hoist_rule(i1); });
-    mutators.push_back([this](auto i1, auto i2) { return swap_local_nodes(i1); });
-    mutators.push_back([this](auto i1, auto i2) { return insert_local_node(i1); });
-    recombiners.push_back([this](auto i1, auto i2) { return replace_node(i1, i2); });
-    recombiners.push_back([this](auto i1, auto i2) { return insert_quantified(i1, i2); });
+    generators.emplace("generate", [this](auto i1, auto i2) { return generate(); });
+    mutators.emplace("regenerate_rule", [this](auto i1, auto i2) { return regenerate_rule(i1); });
+    mutators.emplace("delete_quantified", [this](auto i1, auto i2) { return delete_quantified(i1); });
+    mutators.emplace("replicate_quantified", [this](auto i1, auto i2) { return replicate_quantified(i1); });
+    mutators.emplace("shuffle_quantifieds", [this](auto i1, auto i2) { return shuffle_quantifieds(i1); });
+    mutators.emplace("hoist_rule", [this](auto i1, auto i2) { return hoist_rule(i1); });
+    mutators.emplace("swap_local_nodes", [this](auto i1, auto i2) { return swap_local_nodes(i1); });
+    mutators.emplace("insert_local_node", [this](auto i1, auto i2) { return insert_local_node(i1); });
+    recombiners.emplace("replace_node", [this](auto i1, auto i2) { return replace_node(i1, i2); });
+    recombiners.emplace("insert_quantified", [this](auto i1, auto i2) { return insert_quantified(i1, i2); });
     if (unrestricted) {
-      mutators.push_back([this](auto i1, auto i2) { return unrestricted_delete(i1); });
-      mutators.push_back([this](auto i1, auto i2) { return unrestricted_hoist_rule(i1); });
-      // recombiners.push_back([this](auto i1, auto i2) { return replace_node_random(i1, i2); });  // FIXME: unused?
+      mutators.emplace("unrestricted_delete", [this](auto i1, auto i2) { return unrestricted_delete(i1); });
+      mutators.emplace("unrestricted_hoist_rule", [this](auto i1, auto i2) { return unrestricted_hoist_rule(i1); });
+      // recombiners.emplace("replace_node_random", [this](auto i1, auto i2) { return replace_node_random(i1, i2); });  // FIXME: unused?
     }
   }
 
@@ -73,14 +75,40 @@ public:
   Tool& operator=(Tool&& other) = delete;
   virtual ~Tool() = default;
 
-  runtime::Rule* create_tree(std::vector<CreatorFn>& creators, runtime::Individual* individual1, runtime::Individual* individual2) {
+protected:
+  runtime::Individual* ensure_individual(runtime::Individual* individual) const {
+    if (individual == nullptr) {
+      assert(population != nullptr);
+      individual = population->select_individual();
+    }
+    return individual;
+  }
+
+  std::pair<runtime::Individual*, runtime::Individual*> ensure_individuals(runtime::Individual* individual1, runtime::Individual* individual2) const {
+    individual1 = ensure_individual(individual1);
+    if (individual2 == nullptr) {
+      assert(population != nullptr);
+      individual2 = population->select_individual();
+    }
+    return {individual1, individual2};
+  }
+
+  virtual std::map<std::string, CreatorFn>::iterator select_creator(std::map<std::string, CreatorFn>& creators, runtime::Individual* individual1, runtime::Individual* individual2) const  {
+    size_t idx = util::random_int<size_t>(0, creators.size() - 1);
+    return std::next(creators.begin(), idx);
+  }
+
+  runtime::Rule* create_tree(std::map<std::string, CreatorFn>& creators, runtime::Individual* individual1, runtime::Individual* individual2) {
+    // Note: creators is potentially modified (creators that return null are removed). Always ensure it is a copy when calling this method.
     runtime::Rule* root = nullptr;
-    std::shuffle(creators.begin(), creators.end(), util::random_engine);
-    for (auto creator : creators) {
-      root = creator(individual1, individual2);
+
+    while (!creators.empty()) {
+      auto creatorit = select_creator(creators, individual1, individual2);
+      root = creatorit->second(individual1, individual2);
       if (root) {
         break;
       }
+      creators.erase(creatorit->first);
     }
     if (!root) {
       root = individual1->root();
@@ -91,8 +119,10 @@ public:
     return root;
   }
 
-  runtime::Rule* mutate(runtime::Individual* individual) {
+public:
+  runtime::Rule* mutate(runtime::Individual* individual = nullptr) {
     // Regenerate root if it has no children.
+    individual = ensure_individual(individual);
     auto root = static_cast<runtime::ParentRule*>(individual->root());
     if (root->children.size() == 0) {
       root->add_child(generate());
@@ -107,11 +137,14 @@ public:
       }
     }
 
-    return create_tree(mutators, individual, nullptr);
+    auto creators = mutators;
+    return create_tree(creators, individual, nullptr);
   }
 
-  runtime::Rule* recombine(runtime::Individual* recipient_individual, runtime::Individual* donor_individual) {
-    return create_tree(recombiners, recipient_individual, donor_individual);
+  runtime::Rule* recombine(runtime::Individual* recipient_individual = nullptr, runtime::Individual* donor_individual = nullptr) {
+    auto [ensured_recipient, ensured_donor] = ensure_individuals(recipient_individual, donor_individual);
+    auto creators = recombiners;
+    return create_tree(creators, ensured_recipient, ensured_donor);
   }
 
   template<typename... Args>
@@ -133,7 +166,8 @@ public:
     return (generator.*rule_it->second)(nullptr);
   }
 
-  runtime::Rule* regenerate_rule(runtime::Individual* individual) {
+  runtime::Rule* regenerate_rule(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
     const auto& node_info = annot->node_info();
@@ -170,11 +204,12 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* replace_node(runtime::Individual* recipient_individual, runtime::Individual* donor_individual) {
-    auto recipient_root = recipient_individual->root();
-    auto recipient_annot = recipient_individual->annotations();
+  runtime::Rule* replace_node(runtime::Individual* recipient_individual = nullptr, runtime::Individual* donor_individual = nullptr) {
+    auto [ensured_recipient, ensured_donor] = ensure_individuals(recipient_individual, donor_individual);
+    auto recipient_root = ensured_recipient->root();
+    auto recipient_annot = ensured_recipient->annotations();
     const auto& recipient_node_info = recipient_annot->node_info();
-    auto donor_annot = donor_individual->annotations();
+    auto donor_annot = ensured_donor->annotations();
     const auto& donor_node_info = donor_annot->node_info();
 
     // NOTE: merges clear the data structures of recipient_lookup
@@ -231,12 +266,13 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* insert_quantified(runtime::Individual* recipient_individual, runtime::Individual* donor_individual) {
-    auto recipient_root = recipient_individual->root();
-    auto recipient_annot = recipient_individual->annotations();
+  runtime::Rule* insert_quantified(runtime::Individual* recipient_individual = nullptr, runtime::Individual* donor_individual = nullptr) {
+    auto [ensured_recipient, ensured_donor] = ensure_individuals(recipient_individual, donor_individual);
+    auto recipient_root = ensured_recipient->root();
+    auto recipient_annot = ensured_recipient->annotations();
     const auto& recipient_node_info = recipient_annot->node_info();
     auto& recipient_quants_by_name = recipient_annot->quants_by_name();
-    auto donor_annot = donor_individual->annotations();
+    auto donor_annot = ensured_donor->annotations();
     const auto& donor_node_info = donor_annot->node_info();
     auto& donor_quants_by_name = donor_annot->quants_by_name();
 
@@ -283,7 +319,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* delete_quantified(runtime::Individual* individual) {
+  runtime::Rule* delete_quantified(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -310,7 +347,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* unrestricted_delete(runtime::Individual* individual) {
+  runtime::Rule* unrestricted_delete(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -327,7 +365,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* replicate_quantified(runtime::Individual* individual) {
+  runtime::Rule* replicate_quantified(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
     const auto& node_info = annot->node_info();
@@ -363,7 +402,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* shuffle_quantifieds(runtime::Individual* individual) {
+  runtime::Rule* shuffle_quantifieds(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -386,7 +426,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* hoist_rule(runtime::Individual* individual) {
+  runtime::Rule* hoist_rule(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -411,7 +452,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* unrestricted_hoist_rule(runtime::Individual* individual) {
+  runtime::Rule* unrestricted_hoist_rule(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -443,7 +485,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* swap_local_nodes(runtime::Individual* individual) {
+  runtime::Rule* swap_local_nodes(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -517,7 +560,8 @@ public:
     return nullptr;
   }
 
-  runtime::Rule* insert_local_node(runtime::Individual* individual) {
+  runtime::Rule* insert_local_node(runtime::Individual* individual = nullptr) {
+    individual = ensure_individual(individual);
     auto root = individual->root();
     auto annot = individual->annotations();
 
