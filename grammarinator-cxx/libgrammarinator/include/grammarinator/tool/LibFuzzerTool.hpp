@@ -115,21 +115,6 @@ public:
     return test;
   }
 
-  size_t blackbox(uint8_t* data, size_t size, size_t maxsize, unsigned int seed) {
-    util::random_engine.seed(seed);
-
-    size_t outsize = 0;
-    do {
-      auto creators = this->generators;
-      auto root = this->create_tree(creators, nullptr, nullptr);
-      outsize = codec.encode(root, data, maxsize);
-      delete root;
-    } while (outsize == 0);
-
-    // getCache()->store(data, outsize, root);
-    return outsize;
-  }
-
   size_t custom_mutator(uint8_t* data, size_t size, size_t maxsize, unsigned int seed) {
     util::random_engine.seed(seed);
 
