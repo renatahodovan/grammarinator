@@ -125,15 +125,13 @@ public:
 
     // util::poutf("MUTATE({})\n---------------\n{}", size, this->serializer(root));
 
-    runtime::Rule* mutated_root = nullptr;
-    size_t outsize = 0;
-    do {
-      LibFuzzerIndividual individual(root);
-      mutated_root = this->mutate(&individual);
-      outsize = this->codec.encode(mutated_root, data, maxsize);
-      if (outsize == 0)
-        util::pout("!!! mutation failed, result could not been encoded");
-    } while (outsize == 0);
+    LibFuzzerIndividual individual(root);
+    auto mutated_root = this->mutate(&individual);
+    size_t outsize = this->codec.encode(mutated_root, data, maxsize);
+    if (outsize == 0) {
+      // util::pout("!!! mutation failed, result could not be encoded");
+      return 0;
+    }
 
     if (cache_hit && root != mutated_root) {
       // if mutated_root != root, then this->mutate(root) has completely replaced
@@ -154,30 +152,15 @@ public:
     bool cache_hit = recipient_root != nullptr;
     if (!cache_hit)
       recipient_root = decode(data1, size1);
-
     auto donor_root = decode(data2, size2);
 
-    runtime::Rule* cross_over_root = nullptr;
-    size_t outsize = 0;
-    // size_t sanity_size = this->codec.encode(recipient_root, out, maxoutsize);
-    // if (sanity_size == 0)
-    //   util::poutf("!!! encoded recipient_root is too large: cache_hit: {}, decode_success: {}, size1: {}", cache_hit, decode_success, size1);
-    // assert(sanity_size > 0);
-
-    // TODO: this do-while causes infinite loop in some cases which causes libfuzzer
-    // size_t idx = 0;
-    do {
-      // sanity_size = this->codec.encode(recipient_root, out, maxoutsize);
-      // if (sanity_size == 0)
-      //   util::poutf("!!! Recipient size is insufficient in #{} iteration !!!", idx);
-      // assert(sanity_size > 0);
-      LibFuzzerIndividual recipient_individual(recipient_root), donor_individual(donor_root);
-      cross_over_root = this->recombine(&recipient_individual, &donor_individual);
-      outsize = this->codec.encode(cross_over_root, out, maxoutsize);
-      // if (outsize == 0)
-      //   util::poutf("#{}. outsize is 0 after cross-over\nRESULT:{}\nRECIPIENT:{}\nDONOR:{}", idx, this->serializer(cross_over_root), this->serializer(recipient_root), this->serializer(donor_root));
-      // idx += 1;
-    } while (outsize == 0);
+    LibFuzzerIndividual recipient_individual(recipient_root), donor_individual(donor_root);
+    auto cross_over_root = this->recombine(&recipient_individual, &donor_individual);
+    size_t outsize = this->codec.encode(cross_over_root, out, maxoutsize);
+    if (outsize == 0) {
+      // util::pout("!!! crossover failed, result could not be encoded");
+      return 0;
+    }
 
     // util::poutf("++++++++++++++\n{}", this->serializer(cross_over_root));
     if (cache_hit && recipient_root != cross_over_root) {
