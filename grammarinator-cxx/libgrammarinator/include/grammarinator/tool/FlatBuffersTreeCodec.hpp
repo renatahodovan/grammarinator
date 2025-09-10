@@ -55,13 +55,7 @@ public:
   runtime::Rule* decode(const uint8_t* buffer, size_t size) const override {
     flatbuffers::Verifier verifier(buffer, size, {512, 1000000, false, false, FLATBUFFERS_MAX_BUFFER_SIZE, true});
     if (fbs::VerifyFBRuleBuffer(verifier)) {
-      auto root = readFBRule(fbs::GetFBRule(buffer));
-      if (root->name != "<ROOT>") {
-        auto imag_root = new runtime::UnparserRule("<ROOT>");
-        imag_root->add_child(root);
-        return imag_root;
-      }
-      return root;
+      return readFBRule(fbs::GetFBRule(buffer));
     }
     util::perrf("Flatbuffer verification failed (maxsize: {}).", size);
     return nullptr;

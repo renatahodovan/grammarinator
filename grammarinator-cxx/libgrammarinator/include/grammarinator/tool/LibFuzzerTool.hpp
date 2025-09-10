@@ -120,25 +120,8 @@ public:
 
     auto root = getCache()->load(data, size);
     bool cache_hit = root != nullptr;
-    // bool decode_success = false;
-    if (!cache_hit) {
+    if (!cache_hit)
       root = decode(data, size);
-      // decode_success = root != nullptr;
-      if (!root) {
-        auto new_root = new runtime::UnparserRule("<ROOT>");
-        new_root->add_child(new runtime::UnparserRule(this->rule));
-        root = new_root;
-      }
-    }
-    if (root->name != "<ROOT>") {
-        // util::pout("root is not artificial");
-        auto new_root = new runtime::UnparserRule("<ROOT>");
-        new_root->add_child(root);
-        root = new_root;
-    }
-
-    if (static_cast<runtime::ParentRule*>(root)->children.size() == 0)
-        util::poutf("!!! root has no children: {}, cache_hit: {}", root->name, cache_hit);
 
     // util::poutf("MUTATE({})\n---------------\n{}", size, this->serializer(root));
 
@@ -169,22 +152,10 @@ public:
 
     auto recipient_root = getCache()->load(data1, size1);
     bool cache_hit = recipient_root != nullptr;
-    // bool decode_success = false;
-    if (!cache_hit) {
+    if (!cache_hit)
       recipient_root = decode(data1, size1);
-      // decode_success = recipient_root != nullptr;
-      if (!recipient_root) {
-        auto new_recipient_root = new runtime::UnparserRule("<ROOT>");
-        new_recipient_root->add_child(new runtime::UnparserRule(this->rule));
-        recipient_root = new_recipient_root;
-      }
-    }
+
     auto donor_root = decode(data2, size2);
-    if (!donor_root) {
-      auto new_donor_root = new runtime::UnparserRule("<ROOT>");
-      new_donor_root->add_child(new runtime::UnparserRule(this->rule));
-      donor_root = new_donor_root;
-    }
 
     runtime::Rule* cross_over_root = nullptr;
     size_t outsize = 0;
@@ -250,23 +221,18 @@ public:
 
 private:
   runtime::Rule* decode(const uint8_t* data, size_t size) const {
-    if (size < 2) {
-      // util::poutf("too small data to decode: {}", size);
-      // auto root = new runtime::UnparserRule(this->rule);
-      // util::perrf("codec error on data of size {}", size);
-      return nullptr;
-    }
-
-    // util::pout(data);
-    // util::pout(size);
     auto root = codec.decode(data, size);
-    if (!root) {
-      // root = new runtime::UnparserRule(this->rule);
-      // if (size > 1) {
-      //   util::perrf("codec error on data of size {}", size);
-      // }
+    if (root) {
+      if (root->name == "<ROOT>") {
+        return root;
+      }
+      auto new_root = new runtime::UnparserRule("<ROOT>");
+      new_root->add_child(root);
+      return new_root;
     }
-    return root;
+    auto new_root = new runtime::UnparserRule("<ROOT>");
+    new_root->add_child(new runtime::UnparserRule(this->rule));
+    return new_root;
   }
 
   LastMutationCache* getCache() {
