@@ -26,6 +26,7 @@ struct {
   bool random_mutators = true;
   int max_tokens = 0;
   int max_depth = 0;
+  int memo_size = 0;
 } settings;
 
 void initialize_int_arg(const std::string& arg, const std::string& name, int& dest) {
@@ -84,6 +85,7 @@ libfuzzer_tool() {
        settings.random_mutators,
        GRAMMARINATOR_TRANSFORMER ? std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{},
        GRAMMARINATOR_SERIALIZER,
+       settings.memo_size,
        treeCodec,
        settings.print_mutators);
 
@@ -110,6 +112,7 @@ int GrammarinatorInitialize(int* argc, char*** argv) {
       initialize_bool_arg((*argv)[i], "random_mutators", settings.random_mutators);
       initialize_int_arg((*argv)[i], "max_tokens", settings.max_tokens);
       initialize_int_arg((*argv)[i], "max_depth", settings.max_depth);
+      initialize_int_arg((*argv)[i], "memo_size", settings.memo_size);
     }
   }
   return 0;

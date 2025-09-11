@@ -16,6 +16,8 @@ from os.path import abspath, dirname
 from shutil import rmtree
 from typing import Callable, Optional, Sequence, Union
 
+import xxhash
+
 from ..runtime import Generator, DefaultModel, Individual, Listener, Model, Population, Rule, RuleSize, UnlexerRule, UnparserRule, WeightedModel
 
 logger = logging.getLogger(__name__)
@@ -185,7 +187,7 @@ class GeneratorTool:
         self._enable_mutation = mutate
         self._enable_recombination = recombine
         self._keep_trees = keep_trees
-        self._memo: dict[str, None] = {}  # NOTE: value associated to test is unimportant, but dict keeps insertion order while set does not
+        self._memo: dict[int, None] = {}  # NOTE: value associated to test is unimportant, but dict keeps insertion order while set does not
         self._memo_size = memo_size
         self._unique_attempts = max(unique_attempts, 1)
         self._cleanup = cleanup
@@ -259,15 +261,16 @@ class GeneratorTool:
 
         return test_fn
 
-    def _memoize_test(self, test: str) -> bool:
-        # Memoize the test case. The size of the memo is capped by
-        # ``memo_size``, i.e., it contains at most that many test cases.
+    def _memoize_test(self, input: str) -> bool:
+        # Memoize the (hash of the) test case. The size of the memo is capped
+        # by ``memo_size``, i.e., it contains at most that many test cases.
         # Returns ``False`` if the test case was already in the memo, ``True``
         # if it got added now (or memoization is disabled by ``memo_size=0``).
         # When the memo is full and a new test case is added, the oldest entry
         # is evicted.
         if self._memo_size < 1:
             return True
+        test = xxhash.xxh3_64_intdigest(input)
         if test in self._memo:
             return False
         self._memo[test] = None

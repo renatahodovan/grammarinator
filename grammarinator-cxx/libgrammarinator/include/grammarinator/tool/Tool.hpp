@@ -13,11 +13,16 @@
 #include "../util/print.hpp"
 #include "../util/random.hpp"
 
+#define XXH_INLINE_ALL
+#include <xxhash.h>
+
 #include <algorithm>
 #include <format>
 #include <functional>
 #include <iostream>
+#include <list>
 #include <map>
+#include <set>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -45,13 +50,16 @@ protected:
   std::map<std::string, CreatorFn> mutators;
   std::map<std::string, CreatorFn> recombiners;
   runtime::Population* population;
+  int memo_size;
+  std::set<XXH64_hash_t> memo;
+  std::list<std::set<XXH64_hash_t>::iterator> memo_order;
 
 public:
   explicit Tool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
                 const runtime::RuleSize& limit = runtime::RuleSize::max(), runtime::Population* population = nullptr, bool unrestricted = true, const std::vector<TransformerFn>& transformers = {},
-                SerializerFn serializer = nullptr, bool print_mutators = false)
+                SerializerFn serializer = nullptr, int memo_size = 0, bool print_mutators = false)
       : generator_factory(generator_factory), rule(rule), limit(limit), population(population), unrestricted(unrestricted),
-        transformers(transformers), serializer(serializer), print_mutators(print_mutators) {
+        transformers(transformers), serializer(serializer), memo_size(memo_size), print_mutators(print_mutators) {
     generators.emplace("generate", [this](auto i1, auto i2) { return generate(); });
     mutators.emplace("regenerate_rule", [this](auto i1, auto i2) { return regenerate_rule(i1); });
     mutators.emplace("delete_quantified", [this](auto i1, auto i2) { return delete_quantified(i1); });
@@ -117,6 +125,32 @@ protected:
       root = transformer(root);
     }
     return root;
+  }
+
+  bool memoize_test(const void *input, size_t length) {
+    // Memoize the (hash of the) test case. The size of the memo is capped by
+    // ``memo_size``, i.e., it contains at most that many test cases.
+    // Returns ``false`` if the test case was already in the memo, ``true``
+    // if it got added now (or memoization is disabled by ``memo_size=0``).
+    // When the memo is full and a new test case is added, the oldest entry
+    // is evicted.
+    if (memo_size < 1) {
+      return true;
+    }
+
+    auto test = XXH3_64bits(input, length);
+    auto inserted = memo.insert(test);  // {iterator, success}
+    if (!inserted.second) {
+      return false;
+    }
+    memo_order.push_back(inserted.first);
+
+    if (memo.size() > memo_size) {
+      memo.erase(memo_order.front());
+      memo_order.pop_front();
+    }
+
+    return true;
   }
 
 public:

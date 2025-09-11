@@ -2,6 +2,7 @@
 cxxopts/3.2.0
 nlohmann_json/3.11.3
 flatbuffers/24.12.23
+xxhash/0.8.3
 
 [generators]
 CMakeDeps
