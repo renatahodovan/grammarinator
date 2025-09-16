@@ -13,7 +13,6 @@
 #include "../util/print.hpp"
 #include "../util/random.hpp"
 
-#define XXH_INLINE_ALL
 #include <xxhash.h>
 
 #include <algorithm>
