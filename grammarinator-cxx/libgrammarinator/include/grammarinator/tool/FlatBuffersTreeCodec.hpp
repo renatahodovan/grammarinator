@@ -53,6 +53,8 @@ public:
   }
 
   runtime::Rule* decode(const uint8_t* buffer, size_t size) const override {
+    if (size < FLATBUFFERS_MIN_BUFFER_SIZE)
+      return nullptr;
     flatbuffers::Verifier verifier(buffer, size, {512, 1000000, false, false, FLATBUFFERS_MAX_BUFFER_SIZE, true});
     if (fbs::VerifyFBRuleBuffer(verifier)) {
       return readFBRule(fbs::GetFBRule(buffer));
