@@ -120,16 +120,19 @@ public:
 protected:
   RuleContext(Generator* gen, Rule* node) : Context(node), gen(gen) {
     ctx = this;
+  }
+
+  void enter() {
     gen->_size.depth++;
     gen->_enter_rule(node);
   }
 
-public:
-  ~RuleContext() {
+  void exit() {
     gen->_exit_rule(node);
     gen->_size.depth--;
   }
 
+public:
   Rule* current() {
     return ctx->node;
   }
@@ -153,13 +156,15 @@ public:
       // So, save the name of the parent node
       // and rename it to reflect the name of the sub-rule
       parent_name = parent->name;
-      parent->name = name;  // FIXME: for C++, this is too late, listeners have already been notified using the wrong name
+      parent->name = name;
     } else {
       if (parent) {
         static_cast<ParentRule*>(parent)->add_child(node);
       }
       start_depth = gen->_size.depth;
     }
+
+    enter();
 
     gen->_size.tokens++;
     UnlexerRule* unlexer_node = static_cast<UnlexerRule*>(node);
@@ -170,6 +175,8 @@ public:
   }
 
   ~UnlexerRuleContext() {
+    exit();
+
     if (start_depth > 0) {
       static_cast<UnlexerRule*>(node)->size.depth -= start_depth;
     }
@@ -188,6 +195,11 @@ public:
     if (parent) {
       static_cast<ParentRule*>(parent)->add_child(node);
     }
+    enter();
+  }
+
+  ~UnparserRuleContext() {
+    exit();
   }
 };
 
