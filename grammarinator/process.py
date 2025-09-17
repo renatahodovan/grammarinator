@@ -39,7 +39,7 @@ def execute():
     parser.add_argument('--lib', metavar='DIR',
                         help='alternative location of import grammars.')
     parser.add_argument('--pep8', default=False, action='store_true',
-                        help='enable autopep8 to format the generated fuzzer.')
+                        help='enable autopep8 to format the generated fuzzer (only if --language=py).')
     parser.add_argument('-o', '--out', metavar='DIR', default=getcwd(),
                         help='temporary working directory (default: %(default)s).')
     add_encoding_argument(parser, help='grammar file encoding (default: %(default)s).')
