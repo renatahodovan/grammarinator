@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -57,7 +57,7 @@ start
   ;
 
 tag
-  : '<' remember=tagname '>' (cnt+=CONTENT)* {assert isinstance($cnt, list)} '</' tagname {current.last_child.replace(deepcopy($remember))} '>'
+  : '<' remember=tagname '>' (cnt+=CONTENT)+ {assert isinstance($cnt, list)} '</' tagname {current.last_child.replace(deepcopy($remember))} '>'
   ;
 
 tagname
