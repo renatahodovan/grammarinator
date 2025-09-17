@@ -15,7 +15,6 @@
 
 #include <filesystem>
 #include <fstream>
-#include <glob.h>
 #include <string>
 #include <vector>
 
@@ -59,21 +58,19 @@ public:
                     const TreeCodec& codec = FlatBuffersTreeCodec())
       : directory_(directory), extension_(extension), codec_(codec) {
     if (!directory.empty()) {
+      std::filesystem::path dirpath(directory);
       try {
-        std::filesystem::create_directories(directory);
+        std::filesystem::create_directories(dirpath);
       } catch (const std::filesystem::filesystem_error& e) {
         util::perrf("Failed to create population directory '{}': {}", directory, e.what());
       }
 
-      glob_t glob_result;
-      std::string pattern = directory + "/*." + extension;
-      glob(pattern.c_str(), GLOB_TILDE, NULL, &glob_result);
-
-      for (size_t i = 0; i < glob_result.gl_pathc; i++) {
-        files_.push_back(glob_result.gl_pathv[i]);
+      for (auto const& entry : std::filesystem::directory_iterator(dirpath)) {
+        auto const& entrypath = entry.path();
+        if (entrypath.extension().string() == "." + extension) {
+          files_.push_back(entrypath.string());
+        }
       }
-
-      globfree(&glob_result);
     }
   }
 
@@ -86,12 +83,12 @@ public:
   bool empty() const override { return files_.size() == 0; }
 
   void add_individual(runtime::Rule* root, const std::string& path = "") override {
-    std::string fn = std::filesystem::path(path).filename();
+    std::string fn = std::filesystem::path(path).filename().string();
 
     if (fn.empty()) {
       fn = "DefaultPopulation";
     }
-    fn = std::filesystem::path(directory_) / (fn + "." + extension_);
+    fn = (std::filesystem::path(directory_) / (fn + "." + extension_)).string();
 
     save(fn, root);
     files_.push_back(fn);

@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
        "NAME")
       ("o,out",
        "output file name pattern",
-       cxxopts::value<std::string>()->default_value(std::filesystem::current_path() / "tests" / "test_%d"),
+       cxxopts::value<std::string>()->default_value((std::filesystem::current_path() / "tests" / "test_%d").string()),
        "FILE")
       ("stdout",
        "print test cases to stdout (alias for --out='')",
