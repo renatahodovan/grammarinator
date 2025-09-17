@@ -9,7 +9,7 @@ grammarinator_spec_target_name(GRLF grlf)
 add_library(${GRLF} STATIC grlf.cpp)
 target_include_directories(${GRLF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 grammarinator_spec_definitions(${GRLF})
-target_link_libraries(${GRLF} PRIVATE grammarinator -std=c++20)
+target_link_libraries(${GRLF} PRIVATE grammarinator)
 
 configure_file(libgrlf.pc.in lib${GRLF}.pc @ONLY)
 
