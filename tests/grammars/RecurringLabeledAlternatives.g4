@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2024-2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -13,14 +13,14 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -m {grammar}Generator.CustomModel -j 1 -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -m {grammar}Generator.{grammar}Model -j 1 -o {tmpdir}/{grammar}%d.txt
 
 grammar RecurringLabeledAlternatives;
 
 @header {
 from grammarinator.runtime import DefaultModel
 
-class CustomModel(DefaultModel):
+class RecurringLabeledAlternativesModel(DefaultModel):
 
     def choice(self, node, idx, weights):
         assert node.name in ['start', 'start_Binary'], node.name

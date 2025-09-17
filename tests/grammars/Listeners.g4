@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -8,15 +8,14 @@
  */
 
 /*
- * This test checks whether DefaultListener and DispatchingListener
- * work as expected.
+ * This test checks whether Listener and DispatchingListener work as expected.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener grammarinator.runtime.Listener -o {tmpdir}/{grammar}LS%d.txt
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --listener grammarinator.runtime.Listener -o {tmpdir}/{grammar}LM%d.txt
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener {grammar}Generator.CustomListener -o {tmpdir}/{grammar}CS%d.txt
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --listener {grammar}Generator.CustomListener -o {tmpdir}/{grammar}CM%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 --listener {grammar}Generator.{grammar}Listener -o {tmpdir}/{grammar}CS%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 2 -n 5 --listener {grammar}Generator.{grammar}Listener -o {tmpdir}/{grammar}CM%d.txt
 
 grammar Listeners;
 
@@ -25,7 +24,7 @@ grammar Listeners;
 from grammarinator.runtime import DispatchingListener
 
 
-class CustomListener(DispatchingListener):
+class ListenersListener(DispatchingListener):
 
     def __init__(self):
         self.enter_cnt = 0

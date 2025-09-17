@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -14,7 +14,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir} -Ddot=any_ascii_letter
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 --model {grammar}Generator.DotModel -o {tmpdir}/{grammar}.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 --model {grammar}Generator.{grammar}Model -o {tmpdir}/{grammar}.txt
 // TEST-ANTLR: {grammar}.g4 -o {tmpdir}
 // TEST-REPARSE: -p {grammar}Parser -l {grammar}Lexer -r start {tmpdir}/{grammar}%d.txt
 
