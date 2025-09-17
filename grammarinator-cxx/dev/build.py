@@ -38,13 +38,13 @@ def generate_build_options(args):
         build_options_append('GRAMMARINATOR_SERIALIZER', args.serializer)
         build_options_append('GRAMMARINATOR_TREECODEC', args.treecodec)
         build_options_append('GRAMMARINATOR_INCLUDE', args.include)
-        build_options_append('GRAMMARINATOR_INCLUDEDIR', os.path.abspath(args.includedir))
+        build_options_append('GRAMMARINATOR_INCLUDEDIRS', ';'.join(os.path.abspath(includedir) for includedir in args.includedir))
         build_options_append('GRAMMARINATOR_SUFFIX', args.suffix)
     return build_options
 
 
 def configure_output_dir(args):
-    args.builddir = os.path.join(os.path.abspath(args.builddir), args.build_type)
+    args.builddir = os.path.abspath(args.builddir)
 
     if args.clean and os.path.exists(args.builddir):
         shutil.rmtree(args.builddir)
@@ -108,13 +108,13 @@ def main():
     sgrp.add_argument('--transformer', metavar='NAME',
                       help='name of the transformer function (default: nullptr, signaling no transformer)')
     sgrp.add_argument('--serializer', metavar='NAME',
-                      help='name of the serializer function (default: grammarinator::runtime::SimpleSpaceSerializer)')
+                      help='name of the serializer function (default: grammarinator::runtime::NoSpaceSerializer)')
     sgrp.add_argument('--tree-format', metavar='NAME', choices=['json', 'flatbuffers'],
                       help='format of the saved trees (choices: %(choices)s; default: flatbuffers)')
     sgrp.add_argument('--include', metavar='FILE',
                       help='file to include when compiling the specialized artefacts (default: derived from the generator class name by appending .hpp)')
-    sgrp.add_argument('--includedir', metavar='DIR',
-                      help='directory to append to the include path, usually which contains the file produced by grammarinator-process')
+    sgrp.add_argument('--includedir', metavar='DIR', action='append',
+                      help='directory to append to the include path, usually which contains the file produced by grammarinator-process (may be specified multiple times)')
     sgrp.add_argument('--suffix', metavar='NAME',
                       help='suffix of the specialized artefacts, possibly referring to the input format (default: derived from the generator class name by removing Generator and lowercasing)')
 

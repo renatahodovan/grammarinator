@@ -26,7 +26,7 @@
 #endif
 
 #ifndef GRAMMARINATOR_SERIALIZER
-#define GRAMMARINATOR_SERIALIZER grammarinator::runtime::SimpleSpaceSerializer
+#define GRAMMARINATOR_SERIALIZER grammarinator::runtime::NoSpaceSerializer
 #endif
 
 #ifndef GRAMMARINATOR_TREECODEC
