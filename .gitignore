@@ -5,6 +5,7 @@ dist
 .eggs
 *.egg-info
 .DS_Store
+.antlr
 .idea
 .cache
 .pytest_cache
