@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -12,6 +12,7 @@ option(GRAMMARINATOR_GENERATE "build generator tool" OFF)
 option(GRAMMARINATOR_DECODE "build decoder tool" OFF)
 option(GRAMMARINATOR_FUZZNULL "build fuzznull tool" OFF)
 option(GRAMMARINATOR_GRLF "build libgrlf" OFF)
+option(GRAMMARINATOR_GRAFL "build libgrafl" OFF)
 
 set(GRAMMARINATOR_GENERATOR "" CACHE STRING "name of the generator class created by grammarinator-process (mandatory for specialized artefacts)")
 set(GRAMMARINATOR_MODEL "" CACHE STRING "name of the decision model class (for specialized artefacts)")
@@ -71,8 +72,9 @@ grammarinator_status(GRAMMARINATOR_GENERATE)
 grammarinator_status(GRAMMARINATOR_DECODE)
 grammarinator_status(GRAMMARINATOR_FUZZNULL)
 grammarinator_status(GRAMMARINATOR_GRLF)
+grammarinator_status(GRAMMARINATOR_GRAFL)
 
-if(GRAMMARINATOR_GENERATE OR GRAMMARINATOR_DECODE OR GRAMMARINATOR_FUZZNULL OR GRAMMARINATOR_GRLF)
+if(GRAMMARINATOR_GENERATE OR GRAMMARINATOR_DECODE OR GRAMMARINATOR_FUZZNULL OR GRAMMARINATOR_GRLF OR GRAMMARINATOR_GRAFL)
   if ("${GRAMMARINATOR_SUFFIX}" STREQUAL "")
     set(GRAMMARINATOR_SUFFIX "${GRAMMARINATOR_GENERATOR}")
     string(TOLOWER "${GRAMMARINATOR_SUFFIX}" GRAMMARINATOR_SUFFIX)
@@ -125,6 +127,9 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 add_subdirectory(libgrammarinator)
 if(GRAMMARINATOR_GRLF)
   add_subdirectory(libgrlf)
+endif()
+if(GRAMMARINATOR_GRAFL)
+  add_subdirectory(libgrafl)
 endif()
 if(GRAMMARINATOR_GENERATE OR GRAMMARINATOR_DECODE OR GRAMMARINATOR_FUZZNULL)
   add_subdirectory(tools)

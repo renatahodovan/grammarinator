@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -11,6 +11,7 @@
 #include "Rule.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <format>
 #include <map>
 #include <string>
@@ -32,6 +33,30 @@ public:
 
     explicit NodeKey(const std::string& name) : name(name), type(RuleKey), idx() { }
     NodeKey(const std::string& name, NodeKeyType type, int idx) : name(name), type(type), idx(idx) { }
+
+    explicit NodeKey(const Rule* node, const std::string& name = "") : name(name.empty() ? node->rule_name() : name), idx() {
+      switch (node->type) {
+      case Rule::UnparserRuleType:
+      case Rule::UnlexerRuleType:
+        type = RuleKey;
+        break;
+      case Rule::UnparserRuleAlternativeType:
+        type = AlternativeKey;
+        idx = static_cast<const UnparserRuleAlternative*>(node)->alt_idx;
+        break;
+      case Rule::UnparserRuleQuantifierType:
+        type = QuantifierKey;
+        idx = static_cast<const UnparserRuleQuantifier*>(node)->idx;
+        break;
+      case Rule::UnparserRuleQuantifiedType:
+        type = QuantifiedKey;
+        idx = static_cast<const UnparserRuleQuantifier*>(node->parent)->idx;
+        break;
+      default:
+        assert(false);
+      }
+    }
+
     NodeKey(const NodeKey& other) = default;
     NodeKey& operator=(const NodeKey& other) = default;
     NodeKey(NodeKey&& other) = default;
@@ -147,18 +172,11 @@ private:
         current->name != "<INVALID>" && current->name != "<ROOT>" &&
         (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
       nodes_by_name_[NodeKey(current->name)].push_back(current);
-    } else if (current->type == Rule::UnparserRuleAlternativeType && current_rule_name) {
-      nodes_by_name_[NodeKey(*current_rule_name,
-                             NodeKey::AlternativeKey,
-                             static_cast<const UnparserRuleAlternative*>(current)->alt_idx)].push_back(current);
-    } else if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
-      nodes_by_name_[NodeKey(*current_rule_name,
-                             NodeKey::QuantifierKey,
-                             static_cast<const UnparserRuleQuantifier*>(current)->idx)].push_back(current);
-    } else if (current->type == Rule::UnparserRuleQuantifiedType && current_rule_name) {
-      nodes_by_name_[NodeKey(*current_rule_name,
-                             NodeKey::QuantifiedKey,
-                             static_cast<const UnparserRuleQuantifier*>(current->parent)->idx)].push_back(current);
+    } else if ((current->type == Rule::UnparserRuleAlternativeType ||
+                current->type == Rule::UnparserRuleQuantifierType ||
+                current->type == Rule::UnparserRuleQuantifiedType) &&
+               current_rule_name) {
+      nodes_by_name_[NodeKey(current, *current_rule_name)].push_back(current);
     }
 
     if (current->type != Rule::UnlexerRuleType) {
@@ -187,9 +205,7 @@ private:
     if (current->type == Rule::UnparserRuleType) {
       current_rule_name = &current->name;
     } else if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
-      quants_by_name_[NodeKey(*current_rule_name,
-                              NodeKey::QuantifierKey,
-                              static_cast<const UnparserRuleQuantifier*>(current)->idx)].push_back(current);
+      quants_by_name_[NodeKey(current, *current_rule_name)].push_back(current);
     }
 
     if (current->type != Rule::UnlexerRuleType) {
@@ -232,10 +248,15 @@ private:
   bool delete_root_;
 
 protected:
-  Rule* root_;
+  UnparserRule* root_;
 
 public:
-  explicit Individual(Rule* root = nullptr, bool delete_root = true) : root_(root), delete_root_(delete_root) { }
+  explicit Individual(Rule* root = nullptr, bool delete_root = true)
+      : root_(new UnparserRule("<ROOT>")), delete_root_(delete_root) {
+    if (root) {
+      root_->add_child(root);
+    }
+  }
   Individual(const Individual& other) = delete;
   Individual& operator=(const Individual& other) = delete;
   Individual(Individual&& other) = delete;
@@ -244,13 +265,14 @@ public:
   virtual ~Individual() {
     delete annot_;
 
-    if (delete_root_) {
-      delete root_;
-    }
+    if (!delete_root_ && root_->children.size() > 0)
+      root_->children[0]->remove();
+    delete root_;
   }
 
   virtual Rule* root() {
-    return root_;
+    assert(root_->children.size() <= 1);
+    return root_->children.size() == 0 ? nullptr : root_->children[0];
   };
 
   Annotations* annotations() {

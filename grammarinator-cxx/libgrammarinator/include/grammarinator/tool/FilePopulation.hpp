@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -128,10 +128,13 @@ private:
 };
 
 inline runtime::Rule* FileIndividual::root() {
-  if (!root_) {
-    root_ = population_->load(name_);
+  auto r = Individual::root();
+  if (r) {
+    return r;
   }
-  return root_;
+  r = population_->load(name_);
+  root_->add_child(r);
+  return r;
 }
 
 } // namespace tool

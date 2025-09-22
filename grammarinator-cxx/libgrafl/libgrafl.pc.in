@@ -1,0 +1,9 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/lib
+
+Name: libgrafl-@GRAMMARINATOR_SUFFIX@
+Description: Grammarinator-AFL integration library for @GRAMMARINATOR_GENERATOR@
+URL: https://github.com/renatahodovan/grammarinator
+Version: @GRAMMARINATOR_VERSION@
+Requires.private: libgrammarinator
+Libs: -L${libdir} -lgrafl-@GRAMMARINATOR_SUFFIX@

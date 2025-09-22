@@ -31,20 +31,24 @@ def generate_build_options(args):
     build_options_append('GRAMMARINATOR_DECODE', 'ON' if args.decode else 'OFF')
     build_options_append('GRAMMARINATOR_FUZZNULL', 'ON' if args.fuzznull else 'OFF')
     build_options_append('GRAMMARINATOR_GRLF', 'ON' if args.grlf else 'OFF')
+    build_options_append('GRAMMARINATOR_GRAFL', 'ON' if args.grafl else 'OFF')
 
-    if args.generate or args.fuzznull or args.grlf:
+    if args.generate or args.fuzznull or args.grlf or args.grafl:
         build_options_append('GRAMMARINATOR_GENERATOR', args.generator)
         build_options_append('GRAMMARINATOR_MODEL', args.model)
         build_options_append('GRAMMARINATOR_LISTENER', args.listener)
         build_options_append('GRAMMARINATOR_TRANSFORMER', args.transformer)
 
-    if args.generate or args.decode or args.fuzznull or args.grlf:
+    if args.generate or args.decode or args.fuzznull or args.grlf or args.grafl:
         build_options_append('GRAMMARINATOR_SERIALIZER', args.serializer)
         build_options_append('GRAMMARINATOR_TREECODEC', args.treecodec)
         build_options_append('GRAMMARINATOR_INCLUDE', args.include)
         build_options_append('GRAMMARINATOR_INCLUDEDIRS', ';'.join(os.path.abspath(includedir) for includedir in args.includedir))
         build_options_append('GRAMMARINATOR_SUFFIX', args.suffix)
         build_options_append('GRAMMARINATOR_LOG_LEVEL', args.log_level)
+
+    if args.grafl:
+        build_options_append('GRAMMARINATOR_AFL_INCLUDEDIR', os.path.abspath(args.afl_includedir))
 
     return build_options
 
@@ -109,6 +113,10 @@ def main():
                       help='build a dummy fuzznull binary to test libFuzzer integration without a real fuzz target (default: %(default)s)')
     sgrp.add_argument('--grlf', default=False, action='store_true',
                       help='build a static libgrlf library for libFuzzer integration (default: %(default)s)')
+    sgrp.add_argument('--grafl', default=False, action='store_true',
+                      help='build a shared libgrafl library for AFL++ integration (default: %(default)s)')
+    sgrp.add_argument('--afl-includedir', metavar='DIR',
+                      help='AFL include directory (mandatory if --grafl is specified)')
     sgrp.add_argument('--generator', metavar='NAME',
                       help='name of the generator class')
     sgrp.add_argument('--model', metavar='NAME',
@@ -134,11 +142,15 @@ def main():
         'json': 'JsonTreeCodec'
     }[args.tree_format] if args.tree_format else None
 
-    if args.generate or args.fuzznull or args.grlf:
+    if args.generate or args.fuzznull or args.grlf or args.grafl:
         if not args.includedir or (not args.generator and not args.include):
             parser.error('To build specialized artefacts, either the `--generator` or the `--include`, and the `--includedir` arguments must be defined.')
         if not args.generator and not args.suffix:
             sys.stderr.write(f'{parser.prog}: Neither `--generator` nor `--suffix` is defined; the created binary will get a default name.\n')
+
+    if args.grafl:
+        if not args.afl_includedir:
+            parser.error('To build AFL integration, the `--afl-includedir` argument must be defined.')
 
     try:
         configure_cmake(args)

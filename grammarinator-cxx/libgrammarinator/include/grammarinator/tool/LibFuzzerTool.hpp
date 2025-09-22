@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -218,17 +218,7 @@ public:
 private:
   runtime::Rule* decode(const uint8_t* data, size_t size) const {
     auto root = codec.decode(data, size);
-    if (root) {
-      if (root->name == "<ROOT>") {
-        return root;
-      }
-      auto new_root = new runtime::UnparserRule("<ROOT>");
-      new_root->add_child(root);
-      return new_root;
-    }
-    auto new_root = new runtime::UnparserRule("<ROOT>");
-    new_root->add_child(new runtime::UnparserRule(this->rule));
-    return new_root;
+    return root ? root : new runtime::UnparserRule(this->rule);
   }
 
   LastMutationCache* getCache() {
