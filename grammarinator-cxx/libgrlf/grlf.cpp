@@ -16,7 +16,9 @@
 #include <string>
 #include <vector>
 
-#include "config.h"
+#define GRAMMARINATOR_STRFY_INTERNAL(MACRO) #MACRO
+#define GRAMMARINATOR_STRFY(MACRO) GRAMMARINATOR_STRFY_INTERNAL(MACRO)
+#include GRAMMARINATOR_STRFY(GRAMMARINATOR_INCLUDE)
 
 namespace {
 

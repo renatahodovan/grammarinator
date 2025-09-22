@@ -102,15 +102,15 @@ def main():
     sgrp.add_argument('--generator', metavar='NAME',
                       help='name of the generator class')
     sgrp.add_argument('--model', metavar='NAME',
-                      help='name of the model class (default: grammarinator::runtime::DefaultModel)')
+                      help='name of the model class (default if --include is not specified: grammarinator::runtime::DefaultModel)')
     sgrp.add_argument('--listener', metavar='NAME',
-                      help='name of the listener class (default: grammarinator::runtime::Listener)')
+                      help='name of the listener class (default if --include is not specified: grammarinator::runtime::Listener)')
     sgrp.add_argument('--transformer', metavar='NAME',
-                      help='name of the transformer function')
+                      help='name of the transformer function (default if --include is not specified: nullptr)')
     sgrp.add_argument('--serializer', metavar='NAME',
-                      help='name of the serializer function (default: grammarinator::runtime::SimpleSpaceSerializer)')
+                      help='name of the serializer function (default if --include is not specified: grammarinator::runtime::SimpleSpaceSerializer)')
     sgrp.add_argument('--tree-format', metavar='NAME', choices=['json', 'flatbuffers'],
-                      help='format of the saved trees (choices: %(choices)s; default: flatbuffers)')
+                      help='format of the saved trees (choices: %(choices)s; default if --include is not specified: flatbuffers)')
     sgrp.add_argument('--include', metavar='FILE',
                       help='file to include when compiling the specialized artefacts (default: derived from the generator class name by appending .hpp)')
     sgrp.add_argument('--includedir', metavar='DIR',
@@ -119,13 +119,21 @@ def main():
                       help='suffix of the specialized artefacts, possibly referring to the input format (default: derived from the generator class name by removing Generator and lowercasing)')
 
     args = parser.parse_args()
-    args.treecodec = {
-        'flatbuffers':'FlatBuffersTreeCodec',
-        'json': 'NlohmannJsonTreeCodec'
-    }[args.tree_format] if args.tree_format else None
 
     if (args.grlf or args.tools) and (not args.includedir or not args.generator):
         parser.error('To build specialized artefacts, the `--generator` and `--includedir` arguments must be defined.')
+
+    if args.generator and not args.include:
+        args.model = args.model or 'grammarinator::runtime::DefaultModel'
+        args.listener = args.listener or 'grammarinator::runtime::Listener'
+        args.transformer = args.transformer or 'nullptr'
+        args.serializer = args.serializer or 'grammarinator::runtime::SimpleSpaceSerializer'
+        args.tree_format = args.tree_format or 'flatbuffers'
+        args.treecodec = {
+            'flatbuffers':'grammarinator::tool::FlatBuffersTreeCodec',
+            'json': 'grammarinator::tool::NlohmannJsonTreeCodec'
+        }[args.tree_format]
+        args.include = args.generator + '.hpp'
 
     try:
         configure_cmake(args)
