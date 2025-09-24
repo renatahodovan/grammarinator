@@ -77,7 +77,7 @@ current = rule.current();
         (this->*alt_rule)(current);
     }
     {% elif simple_lits %}
-    static_cast<UnlexerRule*>(current)->src += std::vector<std::string>{ {% for lit in simple_lits %}"{{ lit | escape_string }}"{% if not loop.last %}, {% endif %}{% endfor %} }[{% if choice is none %}alt{{ node.idx }}(){% else %}{{ choice }}{% endif %}];
+    static_cast<UnlexerRule*>(current)->src += std::vector<std::string>{ {% for lit in simple_lits %}"{{ lit | escape_string }}"{% if not loop.last %}, {% endif %}{% endfor %} }[alt{{ node.idx }}()];
     {% elif simple_rules %}
     std::vector<RuleFn> options{ {% for rule in simple_rules %}&{{ graph.name }}::{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %} };
     RuleFn fn = options[alt{{ node.idx }}()];
