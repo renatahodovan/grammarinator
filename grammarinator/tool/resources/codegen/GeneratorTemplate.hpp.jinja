@@ -12,7 +12,7 @@
 {% endmacro %}
 
 {% macro processVariableNode(node, inedge) %}
-local_ctx.{{ node.name }}{% if node.is_list %}.push_back(current->last_child()){% else %} = current->last_child(){% endif %};
+local_ctx.{{ node.name }}{% if node.is_list %}.push_back(static_cast<ParentRule*>(current)->last_child()){% else %} = static_cast<ParentRule*>(current)->last_child(){% endif %};
 {% endmacro %}
 
 
@@ -63,7 +63,7 @@ current = rule.current();
 
 {% macro processAlternationNode(node, inedge) %}
 {
-    AlternationContext alt{{ node.idx }}(rule, {{ node.idx }}, {{ graph.name }}::_alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}{ {{ resolveVarRefs(node.conditions | join(', ')) }} }{% else %}{{ graph.name }}::_alt_conds[{{ node.conditions }}]{% endif %});
+    AlternationContext alt{{ node.idx }}(rule, {{ node.idx }}, {{ graph.name }}::_alt_sizes[{{ node.min_sizes }}], {{ inedge.reserve }}, {% if node.conditions is sequence %}{ {% for cond in node.conditions %}static_cast<double>({{ resolveVarRefs(cond) }}){% if not loop.last %}, {% endif %}{% endfor %}}{% else %}{{ graph.name }}::_alt_conds[{{ node.conditions }}]{% endif %});
     current = rule.current();
     {% set simple_lits, simple_rules = node.simple_alternatives() %}
     {# In case of alternations with simple literals or rules, the selected option doesn't need to care about reserved tokens, since they have no siblings to spare budget for. #}
@@ -171,15 +171,25 @@ public:
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
         struct {
             {% for t, k, _ in rule.args %}
-            {{ t }} {{ k }} = {{ k }};
+            {{ t }} {{ k }};
             {% endfor %}
             {% for t, k, v in (rule.locals + rule.returns) %}
-            {{ t }} {{ k }}{% if v %} = {{ resolveVarRefs(v) }}{% endif %};
+            {{ t }} {{ k }};
             {% endfor %}
             {% for name, is_list in rule.labels.items() %}
-            {%+ if is_list %}std::vector<{% endif %}Rule*{% if is_list%}>{% endif %} {{ name }}{% if is_list %} = {}{% endif %};
+            {%+ if is_list %}std::vector<{% endif %}Rule*{% if is_list%}>{% endif %} {{ name }};
             {% endfor %}
-        } local_ctx;
+        } local_ctx {
+            {% for t, k, _ in rule.args %}
+            .{{ k }} = {{ k }},
+            {% endfor %}
+            {% for t, k, v in (rule.locals + rule.returns) %}
+            {%+ if v %} .{{ k }} = {{ resolveVarRefs(v) }},{% endif %}
+            {% endfor %}
+            {% for name, is_list in rule.labels.items() %}
+            {%+ if is_list %}.{{ name }} = {},{% endif %}
+            {% endfor %}
+        };
         {% endif %}
         {{ rule.type }}Context rule(this, "{% if rule.trampoline %}{{ rule.id[0] }}{% else %}{{ rule.name }}{% endif %}", parent{% if rule.type == 'UnlexerRule' and (rule.name,) in graph.immutables %}, true{% endif %});
         Rule* current = rule.current();
@@ -205,7 +215,7 @@ public:
 
     inline static const std::unordered_map<std::string, RuleFn> _rule_fns = {
         {% for rule in graph.rules %}
-        { "{{ rule.id | join('_') }}", &{{ graph.name }}::{{ rule.id | join('_') }} },
+        {%+ if rule.args %}// {% endif %}{ "{{ rule.id | join('_') }}", &{{ graph.name }}::{{ rule.id | join('_') }} },
         {% endfor %}
     };
 
