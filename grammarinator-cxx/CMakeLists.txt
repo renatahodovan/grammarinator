@@ -51,7 +51,7 @@ macro(grammarinator_spec_definitions TARGET)
   if (NOT ("${GRAMMARINATOR_INCLUDEDIR}" STREQUAL ""))
     target_include_directories(${TARGET} PRIVATE "${GRAMMARINATOR_INCLUDEDIR}")
   endif()
-  target_include_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/common")
+  target_include_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/config")
 endmacro()
 
 execute_process(COMMAND git describe --tags

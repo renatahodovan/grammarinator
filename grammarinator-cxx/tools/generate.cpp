@@ -18,9 +18,7 @@
 #include <string>
 #include <tuple>
 
-#define GRAMMARINATOR_STRFY_INTERNAL(MACRO) #MACRO
-#define GRAMMARINATOR_STRFY(MACRO) GRAMMARINATOR_STRFY_INTERNAL(MACRO)
-#include GRAMMARINATOR_STRFY(GRAMMARINATOR_INCLUDE)
+#include "grammarinator/config.hpp"
 
 using namespace grammarinator::runtime;
 using namespace grammarinator::tool;
