@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2024-2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -13,7 +13,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 1 --listener {grammar}Generator.CustomListener -o {tmpdir}/{grammar}%d.txt
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 1 --listener {grammar}Generator.{grammar}Listener -o {tmpdir}/{grammar}%d.txt
 
 grammar Fragment;
 
@@ -23,7 +23,7 @@ from collections import Counter
 from grammarinator.runtime import Listener
 
 
-class CustomListener(Listener):
+class FragmentListener(Listener):
 
     def __init__(self):
         self.cnt_enters = Counter()

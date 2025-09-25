@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -21,7 +21,7 @@
  *    - Third, use both mutation and recombination on the population extended
  *      with the previously generated trees.
  * Population-related tasks (parsing, mutation, recombination) are checked using
- * both available tree file formats.
+ * all three available tree file formats.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
@@ -38,6 +38,7 @@
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FB%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FC%d.txt --keep-trees --no-generate --no-mutate
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FD%d.txt --no-generate
+
 grammar LifeCycle;
 
 start : TEST testType ;
