@@ -521,7 +521,7 @@ class ProcessorTool:
         :param actions: Boolean to enable grammar actions. If they are disabled then the inline actions and semantic
                predicates of the input grammar (snippets in ``{...}`` and ``{...}?`` form) are disregarded (i.e., no code is
                generated from them).
-        :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source.
+        :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source (only if the language of the generated code is Python).
         """
         lexer_root, parser_root = ProcessorTool.parse_grammars(grammars, self._work_dir, encoding, errors, lib_dir)
         graph = ProcessorTool.build_graph(actions, lexer_root, parser_root, options, default_rule)
@@ -529,7 +529,7 @@ class ProcessorTool:
 
         src = self._template.render(graph=graph, version=__version__).lstrip()
         with open(join(self._work_dir, graph.name + '.' + self._lang), 'w') as f:
-            if pep8:
+            if pep8 and self._lang == 'py':
                 src = autopep8.fix_code(src)
             f.write(src)
 
