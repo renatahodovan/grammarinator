@@ -7,7 +7,7 @@
 
 find_package(flatbuffers REQUIRED)
 find_package(nlohmann_json REQUIRED)
-find_package(xxhash REQUIRED)
+find_package(xxHash REQUIRED)
 
 add_library(flatbuffers_headers INTERFACE)
 target_include_directories(flatbuffers_headers INTERFACE ${flatbuffers_INCLUDE_DIRS})
