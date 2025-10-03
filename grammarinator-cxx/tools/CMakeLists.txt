@@ -12,6 +12,12 @@ if(GRAMMARINATOR_TOOLS)
     grammarinator_spec_definitions(${GENERATE})
     target_link_libraries(${GENERATE} grammarinator cxxopts::cxxopts)
     install(TARGETS ${GENERATE} DESTINATION bin)
+
+    grammarinator_spec_target_name(DECODE grammarinator-decode)
+    add_executable(${DECODE} decode.cpp)
+    grammarinator_spec_definitions(${DECODE})
+    target_link_libraries(${DECODE} grammarinator cxxopts::cxxopts)
+    install(TARGETS ${DECODE} DESTINATION bin)
 endif()
 
 if(GRAMMARINATOR_FUZZNULL)
