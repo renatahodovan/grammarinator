@@ -26,7 +26,9 @@ def execute():
         creates a fuzzer that can generate randomized content conforming to
         the format described by the grammar.
         """)
-    parser.add_argument('grammar', metavar='FILE', nargs='+',
+    parser.add_argument('grammar_pos', metavar='FILE', nargs='*', default=[],
+                        help='ANTLR grammar files describing the expected format to generate (alias for --grammar).')
+    parser.add_argument('-g', '--grammar', metavar='FILE', nargs='*', default=[],
                         help='ANTLR grammar files describing the expected format to generate.')
     parser.add_argument('-D', metavar='OPT=VAL', dest='options', default=[], action='append',
                         help='set/override grammar-level option')
@@ -48,6 +50,9 @@ def execute():
     add_version_argument(parser, version=__version__)
     args = parser.parse_args()
 
+    args.grammar.extend(args.grammar_pos)
+    if not args.grammar:
+        parser.error('at least one grammar file is required, either via --grammar or as a positional argument')
     for grammar in args.grammar:
         if not exists(grammar):
             parser.error(f'{grammar} does not exist.')

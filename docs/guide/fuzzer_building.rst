@@ -51,11 +51,11 @@ methods corresponding to each rule defined in the grammar.
    :replace: "process.py/grammarinator-process"
 
 The usage of ``grammarinator-process`` is straigthforward: it processes the
-grammars defined as ``FILE`` encoded with the ``--encoding`` option
-(default: ``utf-8``) and generates the output in the directory specified by
-``--out`` (default is the current working directory). The generated code is
-written in the programming language specified by ``--language`` (currently,
-the available options are ``py`` for Python and ``hpp`` for C++).
+specified grammars encoded with the ``--encoding`` option (default: ``utf-8``)
+and generates the output in the directory specified by ``--out`` (default is the
+current working directory). The generated code is written in the programming
+language specified by ``--language`` (currently, the available options are
+``py`` for Python and ``hpp`` for C++).
 
 If the grammar contains parser-specific or unnecessary inline actions, they
 can be ignored by using the ``--no-actions`` option. The grammars can also

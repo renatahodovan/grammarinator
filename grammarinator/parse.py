@@ -40,12 +40,12 @@ def execute():
                             compatible tree representations from them and saves them for further
                             reuse.
                             """)
-    parser.add_argument('grammar', metavar='FILE', nargs='+',
-                        help='ANTLR grammar files describing the expected format of input to parse.')
-    parser.add_argument('-i', '--input', metavar='FILE', nargs='+',
+    parser.add_argument('input', metavar='FILE', nargs='+',
                         help='input files or directories to process.')
     parser.add_argument('--glob', metavar='PATTERN', nargs='+',
                         help='wildcard patterns for input files to process (supported wildcards: ?, *, **, [])')
+    parser.add_argument('-g', '--grammar', metavar='FILE', nargs='+', required=True,
+                        help='ANTLR grammar files describing the expected format of input to parse.')
     parser.add_argument('-r', '--rule', metavar='NAME',
                         help='name of the rule to start parsing with (default: first parser rule).')
     parser.add_argument('-t', '--transformer', metavar='NAME', action='append', default=[],

@@ -153,8 +153,8 @@ different fuzzing strategies.
 
 Basic command line syntax of ``grammarinator-parse``::
 
-  grammarinator-parse <grammar-file(s)> -r <start-rule> \
-    -i <input_file(s)> -o <output-directory>
+  grammarinator-parse -g <grammar-file(s)> -r <start-rule> \
+    -o <output-directory> <input_file(s)>
 
 Having a population of such ``.grt*`` files, ``grammarinator-generate`` or
 ``grammarinator-generate-<name>`` can make use of them with the

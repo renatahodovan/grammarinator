@@ -70,15 +70,15 @@ variations and explore different test cases.
 
 The usage of the ``grammarinator-parse`` utility is generally straightforward.
 It takes a set of inputs and processes them with the specified grammars
-(``FILE``). Inputs can be listed as files or directories (using ``--input``), or
-specified with file patterns (using ``--glob``). The listed directories are
-traversed recursively. The start rule, which determines the root of every tree
-in the population, can be defined using the ``--rule`` argument.
-The ``--tree-format`` option controls the serialization format of the output
-trees. If omitted, the default is ``flatbuffer`` (producing ``.grtf`` files). After
-the parsing is completed and the tree is created, various
-:doc:`transformers <transformers>` (``--transformer``) can be applied to
-modify the tree before saving it to the file system using the ``--out`` option.
+(``-g``). Inputs can be listed as files or directories (``FILE``), or specified
+with file patterns (using ``--glob``). The listed directories are traversed
+recursively. The start rule, which determines the root of every tree in the
+population, can be defined using the ``--rule`` argument. The ``--tree-format``
+option controls the serialization format of the output trees. If omitted, the
+default is ``flatbuffer`` (producing ``.grtf`` files). After the parsing is
+completed and the tree is created, various :doc:`transformers <transformers>`
+(``--transformer``) can be applied to modify the tree before saving it to the
+file system using the ``--out`` option.
 
 There are two settings that may require further explanation:
 
@@ -120,8 +120,8 @@ sources serialized according to the chosen method.
 
 ``grammarinator-decode`` processes a set of tree inputs and creates a
 test representation from them. Inputs can be listed as files or directories
-(using ``--input``), or specified with file patterns (using ``--glob``).
-The listed directories are traversed recursively.
+(``FILE``), or specified with file patterns (using ``--glob``). The listed
+directories are traversed recursively.
 First, the files are converted to trees using the appropriate tree codec
 specified by ``--tree-format``. The resulting trees are then serialized using
 the function defined by ``--serializer`` (or :class:`str` by default). The
