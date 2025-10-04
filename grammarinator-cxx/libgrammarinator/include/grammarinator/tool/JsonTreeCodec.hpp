@@ -5,8 +5,8 @@
 // This file may not be copied, modified, or distributed except
 // according to those terms.
 
-#ifndef GRAMMARINATOR_TOOL_NLOHMANNJSONTREECODEC_HPP
-#define GRAMMARINATOR_TOOL_NLOHMANNJSONTREECODEC_HPP
+#ifndef GRAMMARINATOR_TOOL_JSONTREECODEC_HPP
+#define GRAMMARINATOR_TOOL_JSONTREECODEC_HPP
 
 #include "../util/print.hpp"
 #include "TreeCodec.hpp"
@@ -19,14 +19,14 @@
 namespace grammarinator {
 namespace tool {
 
-class NlohmannJsonTreeCodec : public TreeCodec {
+class JsonTreeCodec : public TreeCodec {
 public:
-  NlohmannJsonTreeCodec() = default;
-  NlohmannJsonTreeCodec(const NlohmannJsonTreeCodec& other) = delete;
-  NlohmannJsonTreeCodec& operator=(const NlohmannJsonTreeCodec& other) = delete;
-  NlohmannJsonTreeCodec(NlohmannJsonTreeCodec&& other) = delete;
-  NlohmannJsonTreeCodec& operator=(NlohmannJsonTreeCodec&& other) = delete;
-  ~NlohmannJsonTreeCodec() override = default;
+  JsonTreeCodec() = default;
+  JsonTreeCodec(const JsonTreeCodec& other) = delete;
+  JsonTreeCodec& operator=(const JsonTreeCodec& other) = delete;
+  JsonTreeCodec(JsonTreeCodec&& other) = delete;
+  JsonTreeCodec& operator=(JsonTreeCodec&& other) = delete;
+  ~JsonTreeCodec() override = default;
 
   std::vector<uint8_t> encode(runtime::Rule* root) const override {
     std::string str = toJson(root).dump(-1, ' ', true, nlohmann::detail::error_handler_t::ignore);
@@ -118,4 +118,4 @@ private:
 } // namespace tool
 } // namespace grammarinator
 
-#endif  // GRAMMARINATOR_TOOL_NLOHMANNJSONTREECODEC_HPP
+#endif  // GRAMMARINATOR_TOOL_JSONTREECODEC_HPP

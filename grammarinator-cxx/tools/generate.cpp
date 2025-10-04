@@ -29,7 +29,7 @@ TreeCodec* treecodec_factory() { return new T(); }
 
 static const std::map<std::string, std::tuple<std::string, TreeCodec*(*)()>> tree_formats = {
   {"flatbuffers", {"grtf", treecodec_factory<FlatBuffersTreeCodec>}},
-  {"json", {"grtj", treecodec_factory<NlohmannJsonTreeCodec>}},
+  {"json", {"grtj", treecodec_factory<JsonTreeCodec>}},
 };
 
 int main(int argc, char **argv) {

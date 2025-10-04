@@ -13,8 +13,8 @@
 #include "tool/FlatBuffersTreeCodec.hpp"
 #include "tool/GeneratorFactory.hpp"
 #include "tool/GeneratorTool.hpp"
+#include "tool/JsonTreeCodec.hpp"
 #include "tool/LibFuzzerTool.hpp"
-#include "tool/NlohmannJsonTreeCodec.hpp"
 #include "tool/Tool.hpp"
 #include "tool/TreeCodec.hpp"
 
