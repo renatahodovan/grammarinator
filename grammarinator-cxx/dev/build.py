@@ -121,7 +121,7 @@ def main():
     args = parser.parse_args()
     args.treecodec = {
         'flatbuffers':'FlatBuffersTreeCodec',
-        'json': 'NlohmannJsonTreeCodec'
+        'json': 'JsonTreeCodec'
     }[args.tree_format] if args.tree_format else None
 
     if (args.grlf or args.tools) and (not args.includedir or not args.generator):
