@@ -27,6 +27,7 @@ struct {
   int max_tokens = 0;
   int max_depth = 0;
   int memo_size = 0;
+  runtime::WeightedModel::WeightMap weights;
 } settings;
 
 void initialize_int_arg(const std::string& arg, const std::string& name, int& dest) {
@@ -74,11 +75,19 @@ void initialize_double_arg(const std::string& arg, const std::string& name, doub
   }
 }
 
+void initialize_weights_arg(const std::string& arg, const std::string& name, runtime::WeightedModel::WeightMap& weights) {
+  std::string prefix = "-" + name + "=";
+  if (arg.rfind(prefix, 0) == 0) {
+    std::string weights_path = arg.substr(prefix.length());
+    JsonWeightLoader().load(weights_path, weights);
+  }
+}
+
 grammarinator::tool::LibFuzzerTool<grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>>*
 libfuzzer_tool() {
   static const GRAMMARINATOR_TREECODEC treeCodec;
   static grammarinator::tool::LibFuzzerTool<grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>>
-  tool(grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(),
+  tool(grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(settings.weights),
        GRAMMARINATOR_GENERATOR::_default_rule,
        grammarinator::runtime::RuleSize(settings.max_depth > 0 ? settings.max_depth : grammarinator::runtime::RuleSize::max().depth,
                                         settings.max_tokens > 0 ? settings.max_tokens : grammarinator::runtime::RuleSize::max().tokens),
@@ -113,6 +122,7 @@ int GrammarinatorInitialize(int* argc, char*** argv) {
       initialize_int_arg((*argv)[i], "max_tokens", settings.max_tokens);
       initialize_int_arg((*argv)[i], "max_depth", settings.max_depth);
       initialize_int_arg((*argv)[i], "memo_size", settings.memo_size);
+      initialize_weights_arg((*argv)[i], "weights", settings.weights);
     }
   }
   return 0;
