@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace grammarinator {
@@ -59,10 +60,10 @@ public:
       : directory_(directory), extension_(extension), codec_(codec) {
     if (!directory.empty()) {
       std::filesystem::path dirpath(directory);
-      try {
-        std::filesystem::create_directories(dirpath);
-      } catch (const std::filesystem::filesystem_error& e) {
-        util::perrf("Failed to create population directory '{}': {}", directory, e.what());
+      std::error_code ec;
+      std::filesystem::create_directories(dirpath, ec);
+      if (ec) {
+        util::perrf("Failed to create population directory '{}': {}", directory, ec.message());
       }
 
       for (auto const& entry : std::filesystem::directory_iterator(dirpath)) {
