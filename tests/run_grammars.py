@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -14,6 +14,7 @@ import subprocess
 import sys
 
 import antlerinator
+import pytest
 
 
 tool_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +44,7 @@ def collect_grammar_commands(grammars_dir):
                     commands.append((command, commandline))
             if commands:
                 params.append((grammar, commands))
-    return params
+    return sorted(params)
 
 
 def run_subprocess(grammar, commandline, tmpdir):
@@ -106,8 +107,8 @@ def run_parse(grammar, commandline, tmpdir):
 def run_generate(grammar, commandline, tmpdir):
     """
     'GENERATE' test command runner. It will call ``grammarinator-generate`` with
-    the specified command line. Tests whether a created fuzzer (a pair of
-    unparser and unlexer) is generating output properly.
+    the specified command line. Tests whether a created fuzzer is generating
+    output properly.
 
     :param grammar: file name of the grammar that contained the test command.
     :param commandline: command line as specified in the test command.
@@ -143,12 +144,25 @@ def run_reparse(grammar, commandline, tmpdir):
     run_subprocess(grammar, f'{sys.executable} {os.path.join(tool_dir, "reparse.py")} {commandline}', tmpdir)
 
 
+def run_skip(grammar, commandline, tmpdir):  # pylint: disable=unused-argument
+    """
+    'SKIP' test command runner. It will terminate the execution of the test
+    commands of the grammar and report it to the test harness as skipped.
+
+    :param grammar: unused.
+    :param commandline: the reason for the skip.
+    :param tmpdir: unused.
+    """
+    pytest.skip(commandline)
+
+
 command_runner = {
     "PROCESS": run_process,
     "PARSE": run_parse,
     "GENERATE": run_generate,
     "ANTLR": run_antlr,
     "REPARSE": run_reparse,
+    "SKIP": run_skip,
 }
 
 
@@ -159,7 +173,8 @@ def run_grammar(grammar, commands, tmpdir):
 
     :param grammar: file name of the grammar that contained the test commands.
     :param commands: an array of tuples of commands and command lines. Valid
-        test commands are 'PROCESS', 'GENERATE', 'ANTLR', and 'PARSE'.
+        test commands are 'PROCESS', 'PARSE', 'GENERATE', 'ANTLR', 'REPARSE',
+        and 'SKIP'.
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
     for command, commandline in commands:
