@@ -13,6 +13,8 @@ from collections.abc import Callable
 from functools import partial
 from multiprocessing import Pool
 
+import enlighten
+
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from inators.imp import import_object
 
@@ -74,14 +76,19 @@ def execute() -> None:
     if isinstance(args.serializer, str):
         args.serializer = import_object(args.serializer)
 
-    if args.jobs > 1:
-        parallel_decode = partial(decode, codec=args.tree_codec, serializer=args.serializer, out=args.out, ext=args.ext, encoding=args.encoding, errors=args.encoding_errors)
-        with Pool(args.jobs) as pool:
-            for _ in pool.imap_unordered(parallel_decode, iter_files(args)):
-                pass
-    else:
-        for fn in iter_files(args):
-            decode(fn, args.tree_codec, args.serializer, args.out, args.ext, args.encoding, args.encoding_errors)
+    files = list(iter_files(args))
+    with enlighten.get_manager() as progress_manager:
+        progress_bar = progress_manager.counter(total=len(files), desc='Decoding', unit='file')
+
+        if args.jobs > 1:
+            parallel_decode = partial(decode, codec=args.tree_codec, serializer=args.serializer, out=args.out, ext=args.ext, encoding=args.encoding, errors=args.encoding_errors)
+            with Pool(args.jobs) as pool:
+                for _ in pool.imap_unordered(parallel_decode, files):
+                    progress_bar.update()
+        else:
+            for fn in files:
+                decode(fn, args.tree_codec, args.serializer, args.out, args.ext, args.encoding, args.encoding_errors)
+                progress_bar.update()
 
 
 if __name__ == '__main__':

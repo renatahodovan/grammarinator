@@ -11,6 +11,8 @@ from argparse import ArgumentParser
 from multiprocessing import Pool
 from os.path import exists, join
 
+import enlighten
+
 from antlerinator import add_antlr_argument, process_antlr_argument
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 
@@ -83,16 +85,21 @@ def execute():
     except ValueError as e:
         parser.error(e)
 
-    with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                    population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, strict=args.strict,
-                    lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
-        if args.jobs > 1:
-            with Pool(args.jobs) as pool:
-                for _ in pool.imap_unordered(parser_tool.parse, iter_files(args)):
-                    pass
-        else:
-            for fn in iter_files(args):
-                parser_tool.parse(fn)
+    files = list(iter_files(args))
+    with enlighten.get_manager() as progress_manager:
+        progress_bar = progress_manager.counter(total=len(files), desc='Parsing', unit='file')
+
+        with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
+                        population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, strict=args.strict,
+                        lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
+            if args.jobs > 1:
+                with Pool(args.jobs) as pool:
+                    for _ in pool.imap_unordered(parser_tool.parse, files):
+                        progress_bar.update()
+            else:
+                for fn in files:
+                    parser_tool.parse(fn)
+                    progress_bar.update()
 
 
 if __name__ == '__main__':

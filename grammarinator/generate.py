@@ -16,6 +16,8 @@ from math import inf
 from multiprocessing import Manager, Pool
 from os.path import abspath, exists, join
 
+import enlighten
+
 from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_recursion_limit_argument, add_version_argument, process_log_level_argument, process_sys_path_argument, process_sys_recursion_limit_argument
 from inators.imp import import_object
 
@@ -147,17 +149,21 @@ def execute():
     except ValueError as e:
         parser.error(e)
 
-    if args.jobs > 1:
-        with Manager() as manager:
-            with generator_tool_helper(args, lock=manager.Lock()) as generator_tool:
-                parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
-                with Pool(args.jobs) as pool:
-                    for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):
-                        pass
-    else:
-        with generator_tool_helper(args) as generator_tool:
-            for i in count(0) if args.n == inf else range(args.n):
-                create_test(generator_tool, i, seed=args.random_seed)
+    with enlighten.get_manager(enabled=bool(args.out) and args.n != inf) as progress_manager:
+        progress_bar = progress_manager.counter(total=args.n, desc='Generating', unit='file')
+
+        if args.jobs > 1:
+            with Manager() as manager:
+                with generator_tool_helper(args, lock=manager.Lock()) as generator_tool:
+                    parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
+                    with Pool(args.jobs) as pool:
+                        for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):
+                            progress_bar.update()
+        else:
+            with generator_tool_helper(args) as generator_tool:
+                for i in count(0) if args.n == inf else range(args.n):
+                    create_test(generator_tool, i, seed=args.random_seed)
+                    progress_bar.update()
 
 
 if __name__ == '__main__':
