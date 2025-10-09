@@ -26,15 +26,15 @@
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 -s grammarinator.runtime.simple_space_serializer -o {tmpdir}/{grammar}A%d.txt
-// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/p/ --tree-format pickle
+// TEST-PARSE: -g {grammar}.g4 -j 1 -r start --hidden WS -o {tmpdir}/population/p/ --tree-format pickle {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/p/ --tree-format pickle -o {tmpdir}/{grammar}PB%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/p/ --tree-format pickle -o {tmpdir}/{grammar}PC%d.txt --keep-trees --no-generate --no-mutate
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/p/ --tree-format pickle -o {tmpdir}/{grammar}PD%d.txt --no-generate
-// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/j/ --tree-format json
+// TEST-PARSE: -g {grammar}.g4 -j 1 -r start --hidden WS -o {tmpdir}/population/j/ --tree-format json {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JB%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JC%d.txt --keep-trees --no-generate --no-mutate
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JD%d.txt --no-generate
-// TEST-PARSE: {grammar}.g4 -j 1 -i {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt -r start --hidden WS -o {tmpdir}/population/f/ --tree-format flatbuffers
+// TEST-PARSE: -g {grammar}.g4 -j 1 -r start --hidden WS -o {tmpdir}/population/f/ --tree-format flatbuffers {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FB%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 1 -r start -n 3 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FC%d.txt --keep-trees --no-generate --no-mutate
 // TEST-GENERATE: {grammar}Generator.{grammar}Generator -j 2 -r start -n 6 --population {tmpdir}/population/f/ --tree-format flatbuffers -o {tmpdir}/{grammar}FD%d.txt --no-generate

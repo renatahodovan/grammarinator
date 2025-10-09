@@ -45,10 +45,10 @@ def execute() -> None:
                             epilog="""
                             The tool decodes tree files and serializes them to test cases.
                             """)
-    parser.add_argument('-i', '--input', metavar='FILE', nargs='+',
-                        help='input files to process')
+    parser.add_argument('input', metavar='FILE', nargs='+',
+                        help='input files or directories to process')
     parser.add_argument('--glob', metavar='PATTERN', nargs='+',
-                        help='wildcard pattern for input files to process (supported wildcards: ?, *, **, [])')
+                        help='wildcard patterns for input files to process (supported wildcards: ?, *, **, [])')
     parser.add_argument('--ext', default='.txt',
                         help='extension to use when saving decoded trees (default: %(default)s).')
     parser.add_argument('-s', '--serializer', metavar='NAME', default=str,
