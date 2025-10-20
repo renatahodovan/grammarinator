@@ -9,8 +9,15 @@
 
 /*
  * This test checks whether the grammar import mechanism (using rules of a
- * different grammar) works, even from a different directory (via the `--lib`
- * CLI option).
+ * different grammar) works, i.e.,
+ * - a grammar can import multiple other grammars,
+ * - even an imported grammar can import further grammar(s),
+ * - if more than one imported grammar defines a rule, the first version found
+ *   is used,
+ * - both lexical and parser imported rules can be overridden.
+ *
+ * This test also checks that imports work even from a different directory (via
+ * the `--lib` CLI option).
  */
 
 // TEST-PROCESS-CXX: {grammar}.g4 -o {tmpdir} --lib import
@@ -21,8 +28,12 @@
 
 grammar Importer;
 
-import Importee;
+import Importee1, Importee2;
+// inherits Importee1.Token1 which hides Importee2.Token1
+// inherits Importee3.Token2 which hides Importee2.Token2
+// inherits Importee1.Token3 which hides Importee2.Token3
+// inherits Importee2.Token4
 
-start
-  : importee
-  ;
+start: Token1 Token2 Token3 Token4 Token5;  // overrides Importee1.start
+
+Token5: '\n';  // adds Token5

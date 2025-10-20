@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2025 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -9,8 +9,12 @@
 
 /* This grammar is used by ../Importer.g4 */
 
-grammar Importee;
+grammar Importee1;
 
-importee
-  : 'pass'
-  ;
+import Importee3;
+
+start: Token1 Token2 Token3;
+
+Token1: 'a';  // overrides Importee3.Token1
+// inherits Importee3.Token2
+Token3: 'x';  // adds Token3

@@ -552,40 +552,77 @@ class ProcessorTool:
 
     @staticmethod
     def _parse_grammar(grammar: str, encoding: str, errors: str, lib_dir: Optional[str] = None) -> ParserRuleContext:
-        work_list = {grammar}
+        work_list = [grammar]
         root = None
+        root_grammar_rules = set()
+        root_grammar_tokens = set()
 
         while work_list:
-            grammar = work_list.pop()
+            current_grammar = work_list.pop(0)
 
-            antlr_parser = ANTLRv4Parser(CommonTokenStream(ANTLRv4Lexer(FileStream(grammar, encoding=encoding, errors=errors))))
+            antlr_parser = ANTLRv4Parser(CommonTokenStream(ANTLRv4Lexer(FileStream(current_grammar, encoding=encoding, errors=errors))))
             current_root = antlr_parser.grammarSpec()
             # assert antlr_parser._syntaxErrors > 0, 'Parse error in ANTLR grammar.'
 
+            # Hoist all lexer rules from modes (if any) to the global mode.
+            for mode in current_root.modeSpec():
+                for lexer_rule in mode.lexerRuleSpec():
+                    rule = ANTLRv4Parser.RuleSpecContext(None)
+                    rule.addChild(lexer_rule)
+                    current_root.rules().addChild(rule)
+
             # Save the 'outermost' grammar.
             if not root:
+                assert current_grammar == grammar
                 root = current_root
-            else:
-                # Unite the rules of the imported grammar with the host grammar's rules.
-                for rule in current_root.rules().ruleSpec():
-                    root.rules().addChild(rule)
 
-            work_list |= ProcessorTool._collect_imports(current_root, dirname(grammar), lib_dir)
+            # Merge the rules of the imported grammar with the host grammar's rules.
+            for rule in current_root.rules().ruleSpec():
+                rule_spec = rule.children[0]
+                rule_name = str(rule_spec.RULE_REF() if isinstance(rule_spec, ANTLRv4Parser.ParserRuleSpecContext) else rule_spec.TOKEN_REF())
+                if current_grammar != grammar and rule_name not in root_grammar_rules:
+                    root.rules().addChild(rule)
+                root_grammar_rules.add(rule_name)
+
+            # Merge the named actions and tokens specifications of the imported grammar with those of the host grammar's.
+            for prequelConstruct in current_root.prequelConstruct():
+                if prequelConstruct.action_() and current_grammar != grammar:
+                    root.addChild(prequelConstruct)
+
+                if prequelConstruct.tokensSpec() and prequelConstruct.tokensSpec().idList():
+                    idList = prequelConstruct.tokensSpec().idList()
+                    unique_ids = []
+
+                    for identifier in idList.identifier():
+                        assert identifier.TOKEN_REF() is not None, 'Token names must start with uppercase letter.'
+                        token_name = str(identifier.TOKEN_REF())
+                        if current_grammar != grammar and token_name not in root_grammar_tokens:
+                            unique_ids.append(identifier)
+                        root_grammar_tokens.add(token_name)
+
+                    if unique_ids:
+                        while idList.getChildCount():
+                            idList.removeLastChild()
+                        for identifier in unique_ids:
+                            idList.addChild(identifier)
+                        root.addChild(prequelConstruct)
+
+            work_list[:0] = ProcessorTool._collect_imports(current_root, dirname(grammar), lib_dir)
 
         return root
 
     @staticmethod
-    def _collect_imports(root: ParserRuleContext, base_dir: str, lib_dir: Optional[str] = None) -> set[str]:
-        imports = set()
+    def _collect_imports(root: ParserRuleContext, base_dir: str, lib_dir: Optional[str] = None) -> list[str]:
+        imports = []
         for prequel in root.prequelConstruct():
             if prequel.delegateGrammars():
                 for delegate_grammar in prequel.delegateGrammars().delegateGrammar():
                     ident = delegate_grammar.identifier(0)
                     grammar_fn = str(ident.RULE_REF() or ident.TOKEN_REF()) + '.g4'
                     if lib_dir is not None and exists(join(lib_dir, grammar_fn)):
-                        imports.add(join(lib_dir, grammar_fn))
+                        imports.append(join(lib_dir, grammar_fn))
                     else:
-                        imports.add(join(base_dir, grammar_fn))
+                        imports.append(join(base_dir, grammar_fn))
         return imports
 
     @staticmethod
@@ -1171,15 +1208,6 @@ class ProcessorTool:
                     generator_rules.append((rule_node, antlr_node))
                 else:
                     duplicate_rules.append(rule_node.id)
-
-            for mode_spec in node.modeSpec():
-                for rule_spec in mode_spec.lexerRuleSpec():
-                    rule_node = UnlexerRuleNode(name=str(rule_spec.TOKEN_REF()))
-                    if rule_node.id not in graph.vertices:
-                        graph.add_node(rule_node)
-                        generator_rules.append((rule_node, rule_spec.lexerRuleBlock()))
-                    else:
-                        duplicate_rules.append(rule_node.id)
 
             if duplicate_rules:
                 raise ValueError(f'Rule redefinition(s): {", ".join(["_".join(id) for id in duplicate_rules])}')  # type: ignore[arg-type]
