@@ -26,21 +26,6 @@ extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
 namespace grammarinator {
 namespace tool {
 
-class LibFuzzerIndividual : public runtime::Individual {
-private:
-  runtime::Rule* root_;
-
-public:
-  explicit LibFuzzerIndividual(runtime::Rule* root) : runtime::Individual(""), root_(root) { }
-  LibFuzzerIndividual(const LibFuzzerIndividual& other) = delete;
-  LibFuzzerIndividual& operator=(const LibFuzzerIndividual& other) = delete;
-  LibFuzzerIndividual(LibFuzzerIndividual&& other) = delete;
-  LibFuzzerIndividual& operator=(LibFuzzerIndividual&& other) = delete;
-  ~LibFuzzerIndividual() override = default;  // NOTE: do NOT delete root!
-
-  runtime::Rule* root() override { return root_; }
-};
-
 class LastMutationCache {
 private:
   std::vector<uint8_t> data_;
@@ -125,7 +110,7 @@ public:
 
     // util::poutf("MUTATE({})\n---------------\n{}", size, this->serializer(root));
 
-    LibFuzzerIndividual individual(root);
+    runtime::Individual individual(root, false);
     auto mutated_root = this->mutate(&individual);
     size_t outsize = this->codec.encode(mutated_root, data, maxsize);
     if (outsize == 0) {
@@ -159,7 +144,7 @@ public:
       recipient_root = decode(data1, size1);
     auto donor_root = decode(data2, size2);
 
-    LibFuzzerIndividual recipient_individual(recipient_root), donor_individual(donor_root);
+    runtime::Individual recipient_individual(recipient_root, false), donor_individual(donor_root, false);
     auto cross_over_root = this->recombine(&recipient_individual, &donor_individual);
     size_t outsize = this->codec.encode(cross_over_root, out, maxoutsize);
     if (outsize == 0) {

@@ -27,20 +27,17 @@ class FilePopulation;
 class FileIndividual : public runtime::Individual {
 private:
   FilePopulation* population_;
-  runtime::Rule* root_{};
+  std::string name_;
 
 public:
   FileIndividual(FilePopulation* population, const std::string& name)
-      : Individual(name), population_(population) { }
+      : Individual(), population_(population), name_(name) { }
 
   FileIndividual(const FileIndividual& other) = delete;
   FileIndividual& operator=(const FileIndividual& other) = delete;
   FileIndividual(FileIndividual&& other) = delete;
   FileIndividual& operator=(FileIndividual&& other) = delete;
-
-  ~FileIndividual() override {
-    delete root_;
-  }
+  ~FileIndividual() override = default;
 
   runtime::Rule* root() override;
 };
@@ -131,7 +128,7 @@ private:
 
 inline runtime::Rule* FileIndividual::root() {
   if (!root_) {
-    root_ = population_->load(name);
+    root_ = population_->load(name_);
   }
   return root_;
 }
