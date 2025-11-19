@@ -19,7 +19,7 @@ from inators.arg import add_log_level_argument, add_sys_path_argument, add_sys_r
 from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encoding_errors_argument, add_tree_format_argument, add_jobs_argument, import_list, init_logging, iter_files, logger, process_tree_format_argument
 from .pkgdata import __version__
 from .runtime import RuleSize
-from .tool import DefaultPopulation, ParserTool
+from .tool import FilePopulation, ParserTool
 
 
 def process_args(args):
@@ -90,7 +90,7 @@ def execute():
         progress_bar = progress_manager.counter(total=len(files), desc='Parsing', unit='file')
 
         with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                        population=DefaultPopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, strict=args.strict,
+                        population=FilePopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, strict=args.strict,
                         lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
             if args.jobs > 1:
                 with Pool(args.jobs) as pool:

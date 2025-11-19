@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
       JsonWeightLoader().load(args["weights"].as<std::string>(), weights);
     }
 
-    DefaultPopulation *population = args.count("population") ? new DefaultPopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr;
+    FilePopulation *population = args.count("population") ? new FilePopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr;
     int seed = args.count("random-seed") ? args["random-seed"].as<int>() : std::random_device()();
     GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights),  // generator_factory
                             args.count("stdout") ? "" : args["out"].as<std::string>(),  // out_format

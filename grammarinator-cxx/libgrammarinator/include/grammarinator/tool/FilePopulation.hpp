@@ -5,8 +5,8 @@
 // This file may not be copied, modified, or distributed except
 // according to those terms.
 
-#ifndef GRAMMARINATOR_TOOL_DEFAULTPOPULATION_HPP
-#define GRAMMARINATOR_TOOL_DEFAULTPOPULATION_HPP
+#ifndef GRAMMARINATOR_TOOL_FILEPOPULATION_HPP
+#define GRAMMARINATOR_TOOL_FILEPOPULATION_HPP
 
 #include "../runtime/Population.hpp"
 #include "../util/print.hpp"
@@ -22,23 +22,23 @@
 namespace grammarinator {
 namespace tool {
 
-class DefaultPopulation;
+class FilePopulation;
 
-class DefaultIndividual : public runtime::Individual {
+class FileIndividual : public runtime::Individual {
 private:
-  DefaultPopulation* population_;
+  FilePopulation* population_;
   runtime::Rule* root_{};
 
 public:
-  DefaultIndividual(DefaultPopulation* population, const std::string& name)
+  FileIndividual(FilePopulation* population, const std::string& name)
       : Individual(name), population_(population) { }
 
-  DefaultIndividual(const DefaultIndividual& other) = delete;
-  DefaultIndividual& operator=(const DefaultIndividual& other) = delete;
-  DefaultIndividual(DefaultIndividual&& other) = delete;
-  DefaultIndividual& operator=(DefaultIndividual&& other) = delete;
+  FileIndividual(const FileIndividual& other) = delete;
+  FileIndividual& operator=(const FileIndividual& other) = delete;
+  FileIndividual(FileIndividual&& other) = delete;
+  FileIndividual& operator=(FileIndividual&& other) = delete;
 
-  ~DefaultIndividual() override {
+  ~FileIndividual() override {
     if (root_) {
       delete root_;
     }
@@ -47,7 +47,7 @@ public:
   runtime::Rule* root() override;
 };
 
-class DefaultPopulation : public runtime::Population {
+class FilePopulation : public runtime::Population {
 private:
   std::string directory_;
   std::string extension_;
@@ -55,8 +55,8 @@ private:
   std::vector<std::string> files_{};
 
 public:
-  DefaultPopulation(const std::string& directory, const std::string& extension,
-                    const TreeCodec& codec = FlatBuffersTreeCodec())
+  FilePopulation(const std::string& directory, const std::string& extension,
+                 const TreeCodec& codec = FlatBuffersTreeCodec())
       : directory_(directory), extension_(extension), codec_(codec) {
     if (!directory.empty()) {
       std::filesystem::path dirpath(directory);
@@ -75,11 +75,11 @@ public:
     }
   }
 
-  DefaultPopulation(const DefaultPopulation& other) = delete;
-  DefaultPopulation& operator=(const DefaultPopulation& other) = delete;
-  DefaultPopulation(DefaultPopulation&& other) = delete;
-  DefaultPopulation& operator=(DefaultPopulation&& other) = delete;
-  ~DefaultPopulation() override = default;
+  FilePopulation(const FilePopulation& other) = delete;
+  FilePopulation& operator=(const FilePopulation& other) = delete;
+  FilePopulation(FilePopulation&& other) = delete;
+  FilePopulation& operator=(FilePopulation&& other) = delete;
+  ~FilePopulation() override = default;
 
   bool empty() const override { return files_.size() == 0; }
 
@@ -87,7 +87,7 @@ public:
     std::string fn = std::filesystem::path(path).filename().string();
 
     if (fn.empty()) {
-      fn = "DefaultPopulation";
+      fn = "FilePopulation";
     }
     fn = (std::filesystem::path(directory_) / (fn + "." + extension_)).string();
 
@@ -95,8 +95,8 @@ public:
     files_.push_back(fn);
   }
 
-  DefaultIndividual* select_individual(runtime::Individual* recipient = nullptr) override {
-    return new DefaultIndividual(this, files_[util::random_int<size_t>(0, files_.size() - 1)]);
+  FileIndividual* select_individual(runtime::Individual* recipient = nullptr) override {
+    return new FileIndividual(this, files_[util::random_int<size_t>(0, files_.size() - 1)]);
   }
 
 private:
@@ -128,10 +128,10 @@ private:
     return codec_.decode(buffer);
   }
 
-  friend class DefaultIndividual;
+  friend class FileIndividual;
 };
 
-inline runtime::Rule* DefaultIndividual::root() {
+inline runtime::Rule* FileIndividual::root() {
   if (!root_) {
     root_ = population_->load(name);
   }
@@ -141,4 +141,4 @@ inline runtime::Rule* DefaultIndividual::root() {
 } // namespace tool
 } // namespace grammarinator
 
-#endif // GRAMMARINATOR_TOOL_DEFAULTPOPULATION_HPP
+#endif // GRAMMARINATOR_TOOL_FILEPOPULATION_HPP
