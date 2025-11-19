@@ -31,9 +31,6 @@ public:
 
 private:
   std::string out_format;
-  bool enable_generation;
-  bool enable_mutation;
-  bool enable_recombination;
   bool keep_trees;
   int unique_attempts;
   // bool cleanup;
@@ -44,17 +41,21 @@ private:
 public:
   explicit GeneratorTool(const GeneratorFactoryClass& generator_factory, const std::string& out_format,
                          const std::string& rule = "", const runtime::RuleSize& limit = runtime::RuleSize::max(),
-                         runtime::Population* population = nullptr, bool generate = true, bool mutate = true,
-                         bool recombine = true, bool unrestricted = true, bool keep_trees = false,
+                         runtime::Population* population = nullptr, bool keep_trees = false,
+                         bool generate = true, bool mutate = true, bool recombine = true, bool unrestricted = true,
+                         const std::unordered_set<std::string> allowlist = {}, const std::unordered_set<std::string> blocklist = {},
                          const std::vector<TransformerFn>& transformers = {}, SerializerFn serializer = nullptr,
                          int memo_size = 0, int unique_attempts = 2,
                          // bool cleanup = true,
                          // const std::string& encoding = "utf-8",
                          // const std::string& errors = "strict",
                          bool dry_run = false, bool print_mutators = false)
-      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, population, unrestricted, transformers, serializer, memo_size, print_mutators),
-        out_format(out_format), enable_generation(generate), enable_mutation(mutate),
-        enable_recombination(recombine), keep_trees(keep_trees), unique_attempts(std::max(unique_attempts, 1)),
+      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, population,
+                                    generate, mutate, recombine, unrestricted,
+                                    allowlist, blocklist,
+                                    transformers, serializer,
+                                    memo_size, print_mutators),
+        out_format(out_format), keep_trees(keep_trees), unique_attempts(std::max(unique_attempts, 1)),
         // cleanup(cleanup), encoding(encoding), errors(errors),
         dry_run(dry_run) {
     if (!out_format.empty() && !dry_run) {
@@ -119,16 +120,10 @@ public:
     }
 
     std::map<std::string, CreatorFn> creators;
-    if (enable_generation) {
-      creators.insert(this->generators.begin(), this->generators.end());
-    }
+    creators.insert(this->generators.begin(), this->generators.end());
     if (this->population && !this->population->empty()) {
-      if (enable_mutation) {
-        creators.insert(this->mutators.begin(), this->mutators.end());
-      }
-      if (enable_recombination) {
-        creators.insert(this->recombiners.begin(), this->recombiners.end());
-      }
+      creators.insert(this->mutators.begin(), this->mutators.end());
+      creators.insert(this->recombiners.begin(), this->recombiners.end());
     }
     auto root = this->create_tree(creators, individual1, individual2);
     if (individual1 && individual1->root() == root) {

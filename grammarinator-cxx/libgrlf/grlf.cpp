@@ -14,6 +14,7 @@
 
 #include <cstring>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "grammarinator/config.hpp"
@@ -24,6 +25,8 @@ struct {
   bool print_test = false;
   bool print_mutators = false;
   bool random_mutators = true;
+  std::unordered_set<std::string> allowlist = {};
+  std::unordered_set<std::string> blocklist = {};
   int max_tokens = 0;
   int max_depth = 0;
   int memo_size = 0;
@@ -83,6 +86,29 @@ void initialize_weights_arg(const std::string& arg, const std::string& name, run
   }
 }
 
+// Trim from both ends (in place)
+inline void trim(std::string& s) {
+    auto not_space = std::not_fn(static_cast<int(*)(int)>(std::isspace));
+
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
+    s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
+}
+
+void initialize_str_set_arg(const std::string& arg, const std::string& name, std::unordered_set<std::string>& set) {
+  std::string prefix = "-" + name + "=";
+  if (arg.rfind(prefix, 0) == 0) {
+    std::string suffix = arg.substr(prefix.length());
+    std::stringstream ss(suffix);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+      trim(item);
+      if (!item.empty()) {
+        set.emplace(item);
+      }
+    }
+  }
+}
+
 grammarinator::tool::LibFuzzerTool<grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>>*
 libfuzzer_tool() {
   static const GRAMMARINATOR_TREECODEC treeCodec;
@@ -91,7 +117,7 @@ libfuzzer_tool() {
        GRAMMARINATOR_GENERATOR::_default_rule,
        grammarinator::runtime::RuleSize(settings.max_depth > 0 ? settings.max_depth : grammarinator::runtime::RuleSize::max().depth,
                                         settings.max_tokens > 0 ? settings.max_tokens : grammarinator::runtime::RuleSize::max().tokens),
-       settings.random_mutators,
+       settings.random_mutators, settings.allowlist, settings.blocklist,
        GRAMMARINATOR_TRANSFORMER ? std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{},
        GRAMMARINATOR_SERIALIZER,
        settings.memo_size,
@@ -119,6 +145,8 @@ int GrammarinatorInitialize(int* argc, char*** argv) {
       initialize_bool_arg((*argv)[i], "print_test", settings.print_test);
       initialize_bool_arg((*argv)[i], "print_mutators", settings.print_mutators);
       initialize_bool_arg((*argv)[i], "random_mutators", settings.random_mutators);
+      initialize_str_set_arg((*argv)[i], "allowlist", settings.allowlist);
+      initialize_str_set_arg((*argv)[i], "blocklist", settings.blocklist);
       initialize_int_arg((*argv)[i], "max_tokens", settings.max_tokens);
       initialize_int_arg((*argv)[i], "max_depth", settings.max_depth);
       initialize_int_arg((*argv)[i], "memo_size", settings.memo_size);
