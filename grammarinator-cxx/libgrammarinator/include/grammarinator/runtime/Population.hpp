@@ -244,9 +244,7 @@ public:
   Individual& operator=(Individual&& other) = delete;
 
   virtual ~Individual() {
-    if (annot_) {
-      delete annot_;
-    }
+    delete annot_;
   }
 
   virtual Rule* root() = 0;

@@ -39,9 +39,7 @@ public:
   FileIndividual& operator=(FileIndividual&& other) = delete;
 
   ~FileIndividual() override {
-    if (root_) {
-      delete root_;
-    }
+    delete root_;
   }
 
   runtime::Rule* root() override;

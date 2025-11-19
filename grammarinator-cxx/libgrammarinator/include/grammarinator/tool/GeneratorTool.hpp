@@ -134,8 +134,8 @@ public:
     if (individual1 && individual1->root() == root) {
       root = root->clone();  // FIXME: this is expensive
     }
-    if (individual1) delete individual1;
-    if (individual2) delete individual2;
+    delete individual1;
+    delete individual2;
     return root;
   }
 };
