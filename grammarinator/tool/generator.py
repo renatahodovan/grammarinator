@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import codecs
 import logging
 import os
 import random
@@ -253,7 +252,7 @@ class GeneratorTool:
             self._population.add_individual(root, path=test_fn)
 
         if test_fn:
-            with codecs.open(test_fn, 'w', self._encoding, self._errors) as f:
+            with open(test_fn, 'w', encoding=self._encoding, errors=self._errors, newline='') as f:
                 f.write(test)
         else:
             with self._lock:

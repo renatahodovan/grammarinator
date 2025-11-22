@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import codecs
 import os
 
 from argparse import ArgumentParser
@@ -36,7 +35,7 @@ def decode(fn: str, codec: TreeCodec, serializer: Callable[[Rule], str], out: st
     base, _ = os.path.splitext(fn)
     out = os.path.join(out, f'{os.path.basename(base)}{ext}')
 
-    with codecs.open(out, 'w', encoding=encoding, errors=errors) as f:
+    with open(out, 'w', encoding=encoding, errors=errors, newline='') as f:
         f.write(serializer(root))
 
 
