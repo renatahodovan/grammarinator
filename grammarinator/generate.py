@@ -24,7 +24,7 @@ from inators.imp import import_object
 from .cli import add_encoding_argument, add_encoding_errors_argument, add_tree_format_argument, add_jobs_argument, import_list, init_logging, logger, process_tree_format_argument
 from .pkgdata import __version__
 from .runtime import RuleSize
-from .tool import DefaultGeneratorFactory, DefaultPopulation, GeneratorTool
+from .tool import DefaultGeneratorFactory, FilePopulation, GeneratorTool
 
 
 def int_or_inf(value):
@@ -61,7 +61,7 @@ def generator_tool_helper(args, lock=None):
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out, lock=lock,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
-                         population=DefaultPopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
+                         population=FilePopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
                          generate=args.generate, mutate=args.mutate, recombine=args.recombine, unrestricted=args.unrestricted, keep_trees=args.keep_trees,
                          transformers=args.transformer, serializer=args.serializer,
                          memo_size=args.memo_size, unique_attempts=args.unique_attempts,

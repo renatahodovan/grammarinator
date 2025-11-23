@@ -9,7 +9,7 @@
 #define GRAMMARINATOR_TOOL_HPP
 
 #include "tool/DefaultGeneratorFactory.hpp"
-#include "tool/DefaultPopulation.hpp"
+#include "tool/FilePopulation.hpp"
 #include "tool/FlatBuffersTreeCodec.hpp"
 #include "tool/GeneratorFactory.hpp"
 #include "tool/GeneratorTool.hpp"

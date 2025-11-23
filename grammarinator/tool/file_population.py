@@ -21,7 +21,7 @@ from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec, TreeCodec
 logger = logging.getLogger(__name__)
 
 
-class DefaultPopulation(Population):
+class FilePopulation(Population):
     """
     File system-based population that saves trees into files in a directory. The
     selection strategy used for mutation and recombination is purely random.
@@ -68,7 +68,7 @@ class DefaultPopulation(Population):
         :return: DefaultIndividual instance created from a randomly selected
             population item.
         """
-        return DefaultIndividual(self, random.sample(self._files, k=1)[0])
+        return FileIndividual(self, random.sample(self._files, k=1)[0])
 
     def _save(self, fn: str, root: Rule) -> None:
         with open(fn, 'wb') as f:
@@ -87,7 +87,7 @@ class DefaultPopulation(Population):
         return root, annot
 
 
-class DefaultIndividual(Individual):
+class FileIndividual(Individual):
     """
     Individual subclass presenting a file-based population individual, which
     maintains both the tree and the associated annotations. It is responsible
@@ -95,13 +95,13 @@ class DefaultIndividual(Individual):
     tree codec in a lazy manner.
     """
 
-    def __init__(self, population: DefaultPopulation, name: str) -> None:
+    def __init__(self, population: FilePopulation, name: str) -> None:
         """
         :param population: The population this individual belongs to.
         :param name: Path to the encoded tree file.
         """
         super().__init__(name)
-        self._population: DefaultPopulation = population
+        self._population: FilePopulation = population
         self._root: Optional[Rule] = None
 
     @property
