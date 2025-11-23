@@ -145,12 +145,13 @@ int main(int argc, char **argv) {
       JsonWeightLoader().load(args["weights"].as<std::string>(), weights);
     }
 
+    DefaultPopulation *population = args.count("population") ? new DefaultPopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr;
     int seed = args.count("random-seed") ? args["random-seed"].as<int>() : std::random_device()();
     GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights),  // generator_factory
                             args.count("stdout") ? "" : args["out"].as<std::string>(),  // out_format
                             args.count("rule") ? args["rule"].as<std::string>() : "",  // rule
                             RuleSize(args["max-depth"].as<int>(), args["max-tokens"].as<int>()),  // limit
-                            args.count("population") ? new DefaultPopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr,  // population
+                            population,  // population
                             !args["no-generate"].as<bool>(),  // generate
                             !args["no-mutate"].as<bool>(),  // mutate
                             !args["no-recombine"].as<bool>(),  // recombine
@@ -170,6 +171,7 @@ int main(int argc, char **argv) {
     }
 
     delete tree_codec;
+    delete population;
   } catch (const cxxopts::exceptions::parsing &e) {
     perrf("error parsing options: {}", e.what());
     exit(1);
