@@ -17,6 +17,7 @@
 #include "TreeCodec.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -62,6 +63,10 @@ public:
 
 private:
   const TreeCodec& codec;
+  // Single per-instance temporary buffer reused by custom mutator and
+  // crossover. Resize before use to the requested max size to avoid repeated
+  // allocations across frequent calls.
+  std::vector<uint8_t> tmp_buf_;
 
 public:
   explicit LibFuzzerTool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
@@ -112,16 +117,23 @@ public:
 
     runtime::Individual individual(root, false);
     auto mutated_root = this->mutate(&individual);
-    size_t outsize = this->codec.encode(mutated_root, data, maxsize);
+    // Encode into a temporary buffer first instead of writing directly into
+    // `data`. This avoids a transient mismatch between `data` contents and the
+    // reported size when the mutator is invoked repeatedly; the encoded bytes
+    // are commited into `data` only after memoization accepts the candidate.
+    tmp_buf_.resize(std::max<size_t>(1, maxsize));
+    size_t outsize = this->codec.encode(mutated_root, tmp_buf_.data(), maxsize);
     if (outsize == 0) {
       // util::pout("!!! mutation failed, result could not be encoded");
       return 0;
     }
-    if (!this->memoize_test(data, outsize)) {
+    if (!this->memoize_test(tmp_buf_.data(), outsize)) {
       util::poutf("mutation attempt: already generated among the last {} unique test cases", this->memo.size());
       // util::pout(this->serializer(mutated_root));
       return 0;
     }
+
+    std::memcpy(data, tmp_buf_.data(), outsize);
 
     if (cache_hit && root != mutated_root) {
       // if mutated_root != root, then this->mutate(root) has completely replaced
@@ -146,17 +158,21 @@ public:
 
     runtime::Individual recipient_individual(recipient_root, false), donor_individual(donor_root, false);
     auto cross_over_root = this->recombine(&recipient_individual, &donor_individual);
-    size_t outsize = this->codec.encode(cross_over_root, out, maxoutsize);
+    // Use temporal buffer similar to custom_mutator.
+    tmp_buf_.resize(std::max<size_t>(1, maxoutsize));
+    size_t outsize = this->codec.encode(cross_over_root, tmp_buf_.data(), maxoutsize);
     if (outsize == 0) {
       // util::pout("!!! crossover failed, result could not be encoded");
       return 0;
     }
 
-    if (!this->memoize_test(out, outsize)) {
+    if (!this->memoize_test(tmp_buf_.data(), outsize)) {
       util::poutf("crossover attempt: already generated among the last {} unique test cases", this->memo.size());
       // util::pout(this->serializer(cross_over_root));
       return 0;
     }
+
+    std::memcpy(out, tmp_buf_.data(), outsize);
 
     // util::poutf("++++++++++++++\n{}", this->serializer(cross_over_root));
     if (cache_hit && recipient_root != cross_over_root) {
