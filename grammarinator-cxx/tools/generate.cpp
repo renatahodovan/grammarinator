@@ -191,8 +191,7 @@ int main(int argc, char **argv) {
                             GRAMMARINATOR_SERIALIZER,  // serializer
                             args["memo-size"].as<int>(),  // memo-size
                             args["unique-attempts"].as<int>(),  // unique-attempts
-                            args["dry-run"].as<bool>(),  // dry-run
-                            false  // print_mutators
+                            args["dry-run"].as<bool>()  // dry-run
                             );
 
     for (int i = 0, n = args["n"].as<int>(); i < n; ++i) {

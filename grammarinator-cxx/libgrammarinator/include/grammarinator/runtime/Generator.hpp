@@ -8,6 +8,7 @@
 #ifndef GRAMMARINATOR_RUNTIME_GENERATOR_HPP
 #define GRAMMARINATOR_RUNTIME_GENERATOR_HPP
 
+#include "../util/log.hpp"
 #include "../util/print.hpp"
 #include "DefaultModel.hpp"
 #include "Listener.hpp"
@@ -258,11 +259,11 @@ public:
 
         RuleSize new_limit = gen->_size + min_size;
         if (new_limit.depth > gen->_limit.depth) {
-          grammarinator::util::perrf("max_depth must be temporarily updated from {} to {}", gen->_limit.depth, new_limit.depth);
+          GRAMMARINATOR_LOG_WARN("Max_depth must be temporarily updated from {} to {}", gen->_limit.depth, new_limit.depth);
           gen->_limit.depth = new_limit.depth;
         }
         if (new_limit.tokens > gen->_limit.tokens) {
-          grammarinator::util::perrf("max_tokens must be updated from {} to {}", gen->_limit.tokens, new_limit.tokens);
+          GRAMMARINATOR_LOG_WARN("Max_tokens must be updated from {} to {}", gen->_limit.tokens, new_limit.tokens);
           gen->_limit.tokens = new_limit.tokens;
         }
 

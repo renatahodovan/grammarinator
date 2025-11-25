@@ -10,7 +10,7 @@
 
 #include "../runtime/Population.hpp"
 #include "../runtime/Rule.hpp"
-#include "../util/print.hpp"
+#include "../util/log.hpp"
 #include "../util/random.hpp"
 #include "FlatBuffersTreeCodec.hpp"
 #include "Tool.hpp"
@@ -78,7 +78,7 @@ public:
                          bool print_mutators = false)
       : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr,
         true, true, true, unrestricted, allowlist, blocklist,
-        transformers, serializer, memo_size, print_mutators), codec(codec) {
+        transformers, serializer, memo_size), codec(codec) {
     if (unrestricted) {
       this->allow_creator(this->mutators, "libfuzzer_mutate", [this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
     }
@@ -99,7 +99,7 @@ public:
       //   getCache()->store(data, size, root);
       // }
       if (!root) {
-        util::perr("decode failed");
+        GRAMMARINATOR_LOG_WARN("Decode of {} sized input failed.", size);
         return "";
       }
     }
@@ -118,8 +118,6 @@ public:
     if (!cache_hit)
       root = decode(data, size);
 
-    // util::poutf("MUTATE({})\n---------------\n{}", size, this->serializer(root));
-
     runtime::Individual individual(root, false);
     auto mutated_root = this->mutate(&individual);
     // Encode into a temporary buffer first instead of writing directly into
@@ -129,12 +127,12 @@ public:
     tmp_buf_.resize(std::max<size_t>(1, maxsize));
     size_t outsize = this->codec.encode(mutated_root, tmp_buf_.data(), maxsize);
     if (outsize == 0) {
-      // util::pout("!!! mutation failed, result could not be encoded");
+      GRAMMARINATOR_LOG_WARN("Mutation failed, result could not be encoded");
       return 0;
     }
     if (!this->memoize_test(tmp_buf_.data(), outsize)) {
-      util::poutf("mutation attempt: already generated among the last {} unique test cases", this->memo.size());
-      // util::pout(this->serializer(mutated_root));
+      GRAMMARINATOR_LOG_DEBUG("Mutation attempt: already generated among the last {} unique test cases", this->memo.size());
+      GRAMMARINATOR_LOG_TRACE("Duplicate test case: {}", this->serializer(mutated_root));
       return 0;
     }
 
@@ -167,19 +165,18 @@ public:
     tmp_buf_.resize(std::max<size_t>(1, maxoutsize));
     size_t outsize = this->codec.encode(cross_over_root, tmp_buf_.data(), maxoutsize);
     if (outsize == 0) {
-      // util::pout("!!! crossover failed, result could not be encoded");
+      GRAMMARINATOR_LOG_WARN("Crossover failed, result could not be encoded");
       return 0;
     }
 
     if (!this->memoize_test(tmp_buf_.data(), outsize)) {
-      util::poutf("crossover attempt: already generated among the last {} unique test cases", this->memo.size());
-      // util::pout(this->serializer(cross_over_root));
+      GRAMMARINATOR_LOG_DEBUG("Crossover attempt: already generated among the last {} unique test cases", this->memo.size());
+      GRAMMARINATOR_LOG_TRACE("Duplicate test case: '{}'", this->serializer(cross_over_root));
       return 0;
     }
 
     std::memcpy(out, tmp_buf_.data(), outsize);
 
-    // util::poutf("++++++++++++++\n{}", this->serializer(cross_over_root));
     if (cache_hit && recipient_root != cross_over_root) {
       getCache()->store_without_delete(out, outsize, cross_over_root);
     } else {
@@ -192,7 +189,6 @@ public:
   }
 
   runtime::Rule* libfuzzer_mutate(runtime::Individual* individual) {
-    // util::pout(__func__);
     auto root = individual->root();
     auto annot = individual->annotations();
 
@@ -211,11 +207,11 @@ public:
       int new_size = value.size() + 50;
       result.resize(std::max(1, new_size));
       result.resize(LLVMFuzzerMutate(reinterpret_cast<uint8_t*>(&result[0]), value.size(), result.size()));
-      this->print_mutator("[{}]", __func__);
+      this->print_mutator("{}: {}", __func__, node_to_mutate->name);
       node_to_mutate->src = result;
       return root;
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 

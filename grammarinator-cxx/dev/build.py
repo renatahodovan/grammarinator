@@ -41,6 +41,7 @@ def generate_build_options(args):
         build_options_append('GRAMMARINATOR_INCLUDE', args.include)
         build_options_append('GRAMMARINATOR_INCLUDEDIRS', ';'.join(os.path.abspath(includedir) for includedir in args.includedir))
         build_options_append('GRAMMARINATOR_SUFFIX', args.suffix)
+        build_options_append('GRAMMARINATOR_LOG_LEVEL', args.log_level)
     return build_options
 
 
@@ -92,6 +93,8 @@ def main():
                       help='build target in verbose mode (default: %(default)s)')
     ggrp.add_argument('--install', metavar='DIR', nargs='?', default=None, const=False,
                       help='install after build (default: don\'t install; default directory if install: OS-specific)')
+    ggrp.add_argument('--log-level', metavar='LEVEL', choices=['off', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'], default='error',
+                      help='set logging verbosity (default: %(default)s)')
 
     sgrp = parser.add_argument_group('specialization options')
     sgrp.add_argument('--generate', default=False, action='store_true',

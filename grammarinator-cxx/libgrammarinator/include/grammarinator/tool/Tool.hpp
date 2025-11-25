@@ -10,15 +10,16 @@
 
 #include "../runtime/Population.hpp"
 #include "../runtime/Rule.hpp"
+#include "../util/log.hpp"
 #include "../util/print.hpp"
 #include "../util/random.hpp"
 
 #include <xxhash.h>
 
 #include <algorithm>
+#include <cassert>
 #include <format>
 #include <functional>
-#include <iostream>
 #include <list>
 #include <map>
 #include <set>
@@ -42,7 +43,6 @@ public:
   runtime::RuleSize limit;
   std::vector<TransformerFn> transformers;
   SerializerFn serializer;
-  bool print_mutators;
 
 protected:
   std::map<std::string, CreatorFn> generators;
@@ -68,9 +68,9 @@ public:
                 bool generate = true, bool mutate = true, bool recombine = true, bool unrestricted = true,
                 const std::unordered_set<std::string> allowlist = {}, const std::unordered_set<std::string> blocklist = {},
                 const std::vector<TransformerFn>& transformers = {}, SerializerFn serializer = nullptr,
-                int memo_size = 0, bool print_mutators = false)
+                int memo_size = 0)
       : generator_factory(generator_factory), rule(rule), limit(limit), population(population),
-        transformers(transformers), serializer(serializer), memo_size(memo_size), print_mutators(print_mutators),
+        transformers(transformers), serializer(serializer), memo_size(memo_size),
         allowlist(allowlist), blocklist(blocklist) {
     if (generate) {
       allow_creator(generators, "generate", [this](auto i1, auto i2) { return this->generate(); });
@@ -132,6 +132,7 @@ protected:
 
     while (!creators.empty()) {
       auto creatorit = select_creator(creators, individual1, individual2);
+      GRAMMARINATOR_LOG_TRACE("Original test: '{}'", serializer(individual1->root()));
       root = creatorit->second(individual1, individual2);
       if (root) {
         break;
@@ -184,7 +185,7 @@ public:
     } else {
       auto real_root = static_cast<runtime::ParentRule*>(root->children[0]);
       if (real_root->children.empty()) {
-        // util::poutf("Regenerate root: {} {}", real_root->name, real_root->type);
+        GRAMMARINATOR_LOG_DEBUG("Mutate empty tree. Regenerate {}", real_root->name);
         real_root->replace(generate(real_root->name));
         delete real_root;
         return root;
@@ -203,9 +204,7 @@ public:
 
   template<typename... Args>
   void print_mutator(std::string_view fmt, Args&&... args) {
-    if (print_mutators) {
-      std::cout << "GrammarinatorMutator " << std::vformat(fmt, std::make_format_args(args...)) << std::endl;
-    }
+    GRAMMARINATOR_LOG_DEBUG("GrammarinatorMutator [{}]", std::vformat(fmt, std::make_format_args(args...)));
   }
 
   runtime::Rule* generate(const std::string& rule_name = "", const runtime::RuleSize& reserve = runtime::RuleSize()) {
@@ -213,10 +212,10 @@ public:
     std::string rn = !rule_name.empty() ? rule_name : !rule.empty() ? rule : generator_factory._default_rule;
     auto rule_it = generator._rule_fns.find(rn);
     if (rule_it == generator._rule_fns.end()) {
-      util::perrf("Rule {} not found.", rn);
+      GRAMMARINATOR_LOG_ERROR("Rule {} not found.", rn);
       return nullptr;
     }
-    print_mutator("[{}] {}", __func__, rn);
+    print_mutator("{}: {}", __func__, rn);
     return (generator.*rule_it->second)(nullptr);
   }
 
@@ -231,7 +230,7 @@ public:
     for (const auto& [node_id, nodes] : annot->rules_by_name()) {
       // TODO: this should be removed or transformed to an assert.
       if (generator_factory._rule_sizes.find(node_id.name) == generator_factory._rule_sizes.end()) {
-        util::perrf("!!! {} not found.", node_id.name);
+        GRAMMARINATOR_LOG_ERROR("Unknown rule name in generation: {}.", node_id.name);
         continue;
       }
       auto rule_size = generator_factory._rule_sizes.at(node_id.name);
@@ -246,7 +245,7 @@ public:
 
     if (!options.empty()) {
       auto mutated_node = options[util::random_int<size_t>(0, options.size() - 1)];
-      print_mutator("[{}] {}", __func__, mutated_node->name);
+      print_mutator("{}: {}", __func__, mutated_node->name);
       runtime::RuleSize reserve(node_info.at(mutated_node).level,
                                 root_tokens - node_info.at(mutated_node).tokens);
       auto new_node = mutated_node->replace(generate(mutated_node->name, reserve));
@@ -254,7 +253,7 @@ public:
       return new_node->root();
     }
 
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -307,7 +306,7 @@ public:
         if (recipient_node_level + donor_node_info.at(donor_node).depth <= limit.depth
             && recipient_root_tokens - recipient_node_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
           // Cloning is needed since donor_root will be deleted by the caller.
-          print_mutator("[{}] {} {}", __func__, rule_name, recipient_node->name);
+          print_mutator("{}: {}", __func__, recipient_node->rule_name());
           recipient_node->replace(donor_node->clone());
           // TODO: this was originally deleted, but caused SEGV.
           delete recipient_node;
@@ -316,7 +315,7 @@ public:
       }
     }
 
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -364,12 +363,12 @@ public:
             && recipient_root_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
           recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size() - 1) : 0,
                                        donor_node->clone());
-          print_mutator("[{}]", __func__);
+          print_mutator("{}: {}, {}", __func__, recipient_node->rule_name(), recipient_node->idx);
           return recipient_root;
         }
       }
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -392,12 +391,12 @@ public:
 
     if (!options.empty()) {
       auto removed_node = options[util::random_int<size_t>(0, options.size() - 1)];
-      print_mutator("[{}]", __func__);
+      print_mutator("{}: {}, {}", __func__, removed_node->rule_name(), static_cast<runtime::UnparserRuleQuantifier*>(removed_node->parent)->idx);
       removed_node->remove();
       delete removed_node;
       return root;
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -410,12 +409,12 @@ public:
 
     if (!options.empty()) {
       auto removed_node = options[util::random_int<size_t>(0, options.size() - 1)];
-      print_mutator("[{}] {}", __func__, removed_node->name);
+      print_mutator("{}: {}", __func__, removed_node->name);
       removed_node->remove();
       delete removed_node;
       return root;
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -448,11 +447,11 @@ public:
         node_to_repeat->parent->insert_child(util::random_int<size_t>(0, node_to_repeat->parent->children.size() - 1),
                                              node_to_repeat->clone());
       }
-      print_mutator("[{}]", __func__);
+      print_mutator("{}: {}, {}", __func__, node_to_repeat->rule_name(), static_cast<runtime::UnparserRuleQuantifier*>(node_to_repeat->parent)->idx);
       return root;
     }
 
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -473,10 +472,10 @@ public:
     if (!options.empty()) {
       auto node_to_shuffle = options[util::random_int<size_t>(0, options.size() - 1)];
       std::shuffle(node_to_shuffle->children.begin(), node_to_shuffle->children.end(), util::random_engine);
-      print_mutator("[{}]", __func__);
+      print_mutator("{}: {}, {}", __func__, node_to_shuffle->rule_name(), node_to_shuffle->idx);
       return root;
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -493,7 +492,7 @@ public:
         auto parent = rule_node->parent;
         while (parent) {
           if (parent->name == rule_node->name && parent != root) {
-            print_mutator("[{}] {}", __func__, parent->name);
+            print_mutator("{}: {}", __func__, parent->name);
             parent->replace(rule_node);
             delete parent;
             return root;
@@ -502,7 +501,7 @@ public:
         }
       }
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -527,15 +526,15 @@ public:
           parent = parent->parent;
         }
         if (!options.empty()) {
-            print_mutator("[{}] {}", __func__, parent->name);
             auto hoist_parent = options[util::random_int<size_t>(0, options.size() - 1)];
+            print_mutator("{}: {}, {}", __func__, hoist_parent->name, rule_node->name);
             hoist_parent->replace(rule_node);
             delete hoist_parent;
             return root;
         }
       }
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -558,6 +557,7 @@ public:
         options.push_back(&nodes);
     }
     if (options.size() == 0) {
+      GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
       return nullptr;
     }
 
@@ -605,12 +605,12 @@ public:
           *std::find(second_parent->children.begin(), second_parent->children.end(), second_node) = first_node;
           first_node->parent = second_parent;
           second_node->parent = first_parent;
-          print_mutator("[{}]", __func__);
+          print_mutator("{}: {}", __func__, first_node->rule_name());
           return root;
         }
       }
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -625,6 +625,7 @@ public:
         options.push_back(&quantifiers);
     }
     if (options.size() == 0) {
+      GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
       return nullptr;
     }
 
@@ -649,14 +650,14 @@ public:
                 && root_tokens + node_info.at(donor_quantified_node).tokens <= limit.tokens) {
               recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size() - 1) : 0,
                                            donor_quantified_node->clone());
-              print_mutator("[{}]", __func__);
+              print_mutator("{}: {}, {}", __func__, recipient_node->rule_name(), recipient_node->idx);
               return root;
             }
           }
         }
       }
     }
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 
@@ -704,7 +705,7 @@ public:
             && recipient_root_tokens - recipient_node_tokens + donor_node_info.at(donor_node).tokens <= limit.tokens) {
           // Cloning is needed since donor_root will be deleted by the caller.
 
-          print_mutator("[{}] {} -> {}", __func__, recipient_node->name, donor_node->name);
+          print_mutator("{}: {}, {}", __func__, recipient_node->name, donor_node->name);
           recipient_node->replace(donor_node->clone());
           // if (recipient_node != recipient_root)
           delete recipient_node;
@@ -713,7 +714,7 @@ public:
       }
     }
 
-    // util::perrf("{} failed.", __func__);
+    GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
     return nullptr;
   }
 */

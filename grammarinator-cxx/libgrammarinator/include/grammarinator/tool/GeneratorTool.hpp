@@ -49,12 +49,12 @@ public:
                          // bool cleanup = true,
                          // const std::string& encoding = "utf-8",
                          // const std::string& errors = "strict",
-                         bool dry_run = false, bool print_mutators = false)
+                         bool dry_run = false)
       : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, population,
                                     generate, mutate, recombine, unrestricted,
                                     allowlist, blocklist,
                                     transformers, serializer,
-                                    memo_size, print_mutators),
+                                    memo_size),
         out_format(out_format), keep_trees(keep_trees), unique_attempts(std::max(unique_attempts, 1)),
         // cleanup(cleanup), encoding(encoding), errors(errors),
         dry_run(dry_run) {
@@ -82,8 +82,8 @@ public:
       if (this->memoize_test(test.data(), test.size())) {
         break;
       }
-      util::poutf("test case #{}, attempt {}/{}: already generated among the last {} unique test cases", index, attempt, unique_attempts, this->memo.size());
-      // util::pout(test);
+      GRAMMARINATOR_LOG_DEBUG("Test case #{}, attempt {}/{}: already generated among the last {} unique test cases", index, attempt, unique_attempts, this->memo.size());
+      GRAMMARINATOR_LOG_TRACE("Duplicate test case: '{}'", test);
     }
 
     std::string test_fn;

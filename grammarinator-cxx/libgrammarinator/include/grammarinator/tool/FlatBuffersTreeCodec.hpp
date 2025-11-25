@@ -8,6 +8,7 @@
 #ifndef GRAMMARINATOR_TOOL_FLATBUFFERSTREECODEC_HPP
 #define GRAMMARINATOR_TOOL_FLATBUFFERSTREECODEC_HPP
 
+#include "../util/log.hpp"
 #include "../util/print.hpp"
 #include "TreeCodec.hpp"
 
@@ -48,18 +49,21 @@ public:
       std::memcpy(buffer, buf, size);
       return size;
     }
-    util::perrf("Output size is out of range ({} > {})", size, maxsize);
+    GRAMMARINATOR_LOG_WARN("Output size is out of range ({} > {})", size, maxsize);
     return 0;
   }
 
   runtime::Rule* decode(const uint8_t* buffer, size_t size) const override {
-    if (size < FLATBUFFERS_MIN_BUFFER_SIZE)
+    if (size < FLATBUFFERS_MIN_BUFFER_SIZE) {
+      GRAMMARINATOR_LOG_WARN("Buffer too small: {} < {}", size, FLATBUFFERS_MIN_BUFFER_SIZE);
       return nullptr;
+    }
+
     flatbuffers::Verifier verifier(buffer, size, {512, 1000000, false, false, FLATBUFFERS_MAX_BUFFER_SIZE, true});
     if (fbs::VerifyFBRuleBuffer(verifier)) {
       return readFBRule(fbs::GetFBRule(buffer));
     }
-    util::perrf("Flatbuffer verification failed (maxsize: {}).", size);
+    GRAMMARINATOR_LOG_WARN("Flatbuffer verification failed (maxsize: {}).", size);
     return nullptr;
   }
 
