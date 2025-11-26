@@ -158,6 +158,7 @@ public:
 private:
   void collect_rules(Rule* current) {
     if ((current->type == Rule::UnlexerRuleType || current->type == Rule::UnparserRuleType) &&
+        current != root_ &&
         !current->name.empty() && current->name != "<INVALID>" && current->name != "<ROOT>" &&
         (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
         rules_by_name_[NodeKey(current->name)].push_back(current);
