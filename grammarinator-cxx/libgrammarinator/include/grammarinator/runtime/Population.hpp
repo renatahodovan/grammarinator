@@ -230,14 +230,15 @@ private:
 };
 
 class Individual {
-public:
-  std::string name;
-
 private:
   Annotations* annot_{};
+  bool delete_root_;
+
+protected:
+  Rule* root_;
 
 public:
-  explicit Individual(const std::string& name) : name(name) { }
+  explicit Individual(Rule* root = nullptr, bool delete_root = true) : root_(root), delete_root_(delete_root) { }
   Individual(const Individual& other) = delete;
   Individual& operator=(const Individual& other) = delete;
   Individual(Individual&& other) = delete;
@@ -245,9 +246,15 @@ public:
 
   virtual ~Individual() {
     delete annot_;
+
+    if (delete_root_) {
+      delete root_;
+    }
   }
 
-  virtual Rule* root() = 0;
+  virtual Rule* root() {
+    return root_;
+  };
 
   Annotations* annotations() {
     if (!annot_) {

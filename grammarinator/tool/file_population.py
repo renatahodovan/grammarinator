@@ -100,9 +100,9 @@ class FileIndividual(Individual):
         :param population: The population this individual belongs to.
         :param name: Path to the encoded tree file.
         """
-        super().__init__(name)
+        super().__init__()
         self._population: FilePopulation = population
-        self._root: Optional[Rule] = None
+        self._name: str = name
 
     @property
     def root(self) -> Rule:
@@ -113,5 +113,5 @@ class FileIndividual(Individual):
         :return: The root of the tree.
         """
         if not self._root:
-            self._root, self._annot = self._population._load(self.name)
+            self._root, self._annot = self._population._load(self._name)
         return self._root

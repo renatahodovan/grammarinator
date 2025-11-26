@@ -68,11 +68,11 @@ class Individual:
     Abstract base class of population individuals.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, root: Optional[Rule] = None) -> None:
         """
-        :param name: Name or identifier of the individual.
+        :param root: Root of the tree of the individual.
         """
-        self.name: str = name  #: Identifier of the individual.
+        self._root = root
         self._annot: Optional[Annotations] = None
 
     @property
@@ -82,7 +82,8 @@ class Individual:
 
         :return: Root of the tree.
         """
-        raise NotImplementedError()
+        assert self._root is not None
+        return self._root
 
     @property
     def annotations(self) -> Annotations:
