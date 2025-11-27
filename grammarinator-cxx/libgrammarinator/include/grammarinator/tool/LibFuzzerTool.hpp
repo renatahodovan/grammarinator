@@ -70,12 +70,17 @@ private:
 
 public:
   explicit LibFuzzerTool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
-                         const runtime::RuleSize& limit = runtime::RuleSize::max(), bool unrestricted = true, const std::vector<TransformerFn>& transformers = {},
-                         SerializerFn serializer = nullptr, int memo_size = 0, const TreeCodec& codec = FlatBuffersTreeCodec(),
+                         const runtime::RuleSize& limit = runtime::RuleSize::max(),
+                         bool unrestricted = true,
+                         const std::unordered_set<std::string> allowlist = {}, const std::unordered_set<std::string> blocklist = {},
+                         const std::vector<TransformerFn>& transformers = {}, SerializerFn serializer = nullptr,
+                         int memo_size = 0, const TreeCodec& codec = FlatBuffersTreeCodec(),
                          bool print_mutators = false)
-      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr, unrestricted, transformers, serializer, memo_size, print_mutators), codec(codec) {
+      : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr,
+        true, true, true, unrestricted, allowlist, blocklist,
+        transformers, serializer, memo_size, print_mutators), codec(codec) {
     if (unrestricted) {
-      this->mutators.emplace("libfuzzer_mutate", [this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
+      this->allow_creator(this->mutators, "libfuzzer_mutate", [this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
     }
   }
 

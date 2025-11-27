@@ -61,8 +61,9 @@ def generator_tool_helper(args, lock=None):
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out, lock=lock,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
-                         population=FilePopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None,
-                         generate=args.generate, mutate=args.mutate, recombine=args.recombine, unrestricted=args.unrestricted, keep_trees=args.keep_trees,
+                         population=FilePopulation(args.population, args.tree_extension, args.tree_codec) if args.population else None, keep_trees=args.keep_trees,
+                         generate=args.generate, mutate=args.mutate, recombine=args.recombine, unrestricted=args.unrestricted,
+                         allowlist=args.allowlist, blocklist=args.blocklist,
                          transformers=args.transformer, serializer=args.serializer,
                          memo_size=args.memo_size, unique_attempts=args.unique_attempts,
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
@@ -111,6 +112,10 @@ def execute():
                         help='disable test generation by recombination (disabled by default if no population is given).')
     parser.add_argument('--no-grammar-violations', dest='unrestricted', default=True, action='store_false',
                         help='disable applying grammar-violating mutators (enabled by default)')
+    parser.add_argument('--allowlist', metavar='LIST', type=lambda s: [x.strip() for x in s.split(',') if x.strip()],
+                        help='comma-separated list of mutators to allow (by default, all mutators are allowed).')
+    parser.add_argument('--blocklist', metavar='LIST', type=lambda s: [x.strip() for x in s.split(',') if x.strip()],
+                        help='comma-separated list of mutators to block (by default, no mutators are blocked).')
     parser.add_argument('--keep-trees', default=False, action='store_true',
                         help='keep generated tests to participate in further mutations or recombinations (only if population is given).')
     add_tree_format_argument(parser)

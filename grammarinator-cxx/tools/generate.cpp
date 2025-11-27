@@ -32,6 +32,14 @@ static const std::map<std::string, std::tuple<std::string, TreeCodec*(*)()>> tre
   {"json", {"grtj", treecodec_factory<JsonTreeCodec>}},
 };
 
+// Trim from both ends (in place)
+inline void trim(std::string& s) {
+    auto not_space = std::not_fn(static_cast<int(*)(int)>(std::isspace));
+
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
+    s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
+}
+
 int main(int argc, char **argv) {
   std::string tree_format_choices;
   bool first_format = true;
@@ -78,6 +86,12 @@ int main(int argc, char **argv) {
       ("no-grammar-violations",
        "disable applying grammar-violating mutators (enabled by default)",
        cxxopts::value<bool>()->default_value("false"))
+      ("allowlist",
+       "list of enabled test creators",
+       cxxopts::value<std::vector<std::string>>())
+      ("blocklist",
+       "list of disabled test creators",
+       cxxopts::value<std::vector<std::string>>())
       ("keep-trees",
        "keep generated tests to participate in further mutations or recombinations (only if population is given)",
        cxxopts::value<bool>()->default_value("false"))
@@ -145,6 +159,20 @@ int main(int argc, char **argv) {
       JsonWeightLoader().load(args["weights"].as<std::string>(), weights);
     }
 
+    auto allowlist = args.count("allowlist")
+        ? args["allowlist"].as<std::vector<std::string>>()
+        : std::vector<std::string>{};
+    for (auto& s : allowlist) {
+      trim(s);
+    }
+
+    auto blocklist = args.count("blocklist")
+        ? args["blocklist"].as<std::vector<std::string>>()
+        : std::vector<std::string>{};
+    for (auto& s : blocklist) {
+      trim(s);
+    }
+
     FilePopulation *population = args.count("population") ? new FilePopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr;
     int seed = args.count("random-seed") ? args["random-seed"].as<int>() : std::random_device()();
     GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights),  // generator_factory
@@ -152,11 +180,13 @@ int main(int argc, char **argv) {
                             args.count("rule") ? args["rule"].as<std::string>() : "",  // rule
                             RuleSize(args["max-depth"].as<int>(), args["max-tokens"].as<int>()),  // limit
                             population,  // population
+                            args["keep-trees"].as<bool>(),  // keep_trees
                             !args["no-generate"].as<bool>(),  // generate
                             !args["no-mutate"].as<bool>(),  // mutate
                             !args["no-recombine"].as<bool>(),  // recombine
                             !args["no-grammar-violations"].as<bool>(), // unrestricted
-                            args["keep-trees"].as<bool>(),  // keep_trees
+                            std::unordered_set<std::string>(allowlist.begin(), allowlist.end()), // allowlist
+                            std::unordered_set<std::string>(blocklist.begin(), blocklist.end()), // blocklist
                             GRAMMARINATOR_TRANSFORMER ? std::vector<Rule*(*)(Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<Rule*(*)(Rule*)>{},  // transformers
                             GRAMMARINATOR_SERIALIZER,  // serializer
                             args["memo-size"].as<int>(),  // memo-size

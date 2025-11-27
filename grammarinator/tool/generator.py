@@ -120,7 +120,9 @@ class GeneratorTool:
     """
 
     def __init__(self, generator_factory: Union[type[Generator], GeneratorFactory], out_format: str, lock=None, rule: Optional[str] = None, limit: Optional[RuleSize] = None,
-                 population: Optional[Population] = None, generate: bool = True, mutate: bool = True, recombine: bool = True, unrestricted: bool = True, keep_trees: bool = False,
+                 population: Optional[Population] = None, keep_trees: bool = False,
+                 generate: bool = True, mutate: bool = True, recombine: bool = True, unrestricted: bool = True,
+                 allowlist: Optional[list[str]] = None, blocklist: Optional[list[str]] = None,
                  transformers: Optional[list[Callable[[Rule], Rule]]] = None, serializer: Optional[Callable[[Rule], str]] = None, memo_size: int = 0, unique_attempts: int = 2,
                  cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict', dry_run: bool = False):
         """
@@ -148,13 +150,15 @@ class GeneratorTool:
             limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
         :param population: Tree pool for mutation and recombination, e.g., an
             instance of :class:`DefaultPopulation`.
+        :param keep_trees: Keep generated trees to participate in further mutations or recombinations
+            (otherwise, only the initial population will be mutated or recombined). It has effect only if
+            population is defined.
         :param generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
         :param mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
         :param recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
         :param unrestricted: Enable applying possibly grammar-violating creators.
-        :param keep_trees: Keep generated trees to participate in further mutations or recombinations
-            (otherwise, only the initial population will be mutated or recombined). It has effect only if
-            population is defined.
+        :param allowlist: List of mutators to allow (by default, all mutators are allowed).
+        :param blocklist: List of mutators to block (by default, no mutators are blocked).
         :param transformers: List of transformers to be applied to postprocess
             the generated tree before serializing it.
         :param serializer: A serializer that takes a tree and produces a string from it (default: :class:`str`).
@@ -194,25 +198,31 @@ class GeneratorTool:
         self._errors = errors
         self._dry_run = dry_run
 
-        self._generators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = [self.generate]
-        self._mutators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = [
-            self.regenerate_rule,
-            self.delete_quantified,
-            self.replicate_quantified,
-            self.shuffle_quantifieds,
-            self.hoist_rule,
-            self.swap_local_nodes,
-            self.insert_local_node,
-        ]
-        self._recombiners: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = [
-            self.replace_node,
-            self.insert_quantified,
-        ]
-        if unrestricted:
-            self._mutators += [
-                self.unrestricted_delete,
-                self.unrestricted_hoist_rule,
-            ]
+        self.allowlist = allowlist or []
+        self.blocklist = blocklist or []
+
+        self._generators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = []
+        self._mutators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = []
+        self._recombiners: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = []
+
+        if generate:
+            self._allow_creator(self._generators, "generate", self.generate)
+
+        if mutate:
+            self._allow_creator(self._mutators, "regenerate_rule", self.regenerate_rule)
+            self._allow_creator(self._mutators, "delete_quantified", self.delete_quantified)
+            self._allow_creator(self._mutators, "replicate_quantified", self.replicate_quantified)
+            self._allow_creator(self._mutators, "shuffle_quantifieds", self.shuffle_quantifieds)
+            self._allow_creator(self._mutators, "hoist_rule", self.hoist_rule)
+            self._allow_creator(self._mutators, "swap_local_nodes", self.swap_local_nodes)
+            self._allow_creator(self._mutators, "insert_local_node", self.insert_local_node)
+            if unrestricted:
+                self._allow_creator(self._mutators, "unrestricted_delete", self.unrestricted_delete)
+                self._allow_creator(self._mutators, "unrestricted_hoist_rule", self.unrestricted_hoist_rule)
+
+        if recombine:
+            self._allow_creator(self._recombiners, "replace_node", self.replace_node)
+            self._allow_creator(self._recombiners, "insert_quantified", self.insert_quantified)
 
     def __enter__(self):
         return self
@@ -223,6 +233,10 @@ class GeneratorTool:
         """
         if self._cleanup and self._out_format and not self._dry_run:
             rmtree(dirname(self._out_format))
+
+    def _allow_creator(self, creator_map: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]], creator_name: str, creator: Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]):
+        if creator_name not in self.blocklist and (not self.allowlist or creator_name in self.allowlist):
+            creator_map.append(creator)
 
     def create_test(self, index: int) -> Optional[str]:
         """
@@ -308,13 +322,10 @@ class GeneratorTool:
         """
         individual1, individual2 = (self._ensure_individuals(None, None)) if self._population else (None, None)
         creators = []
-        if self._enable_generation:
-            creators.extend(self._generators)
+        creators.extend(self._generators)
         if self._population:
-            if self._enable_mutation:
-                creators.extend(self._mutators)
-            if self._enable_recombination:
-                creators.extend(self._recombiners)
+            creators.extend(self._mutators)
+            creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
 
     def mutate(self, individual: Optional[Individual] = None) -> Rule:
