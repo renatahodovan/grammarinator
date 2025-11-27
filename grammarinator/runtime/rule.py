@@ -11,7 +11,7 @@ from copy import deepcopy
 from itertools import zip_longest
 from math import inf
 from textwrap import indent
-from typing import Any, ClassVar, Iterator, Optional, Union
+from typing import Any, ClassVar, Iterator
 
 
 class RuleSize:
@@ -43,13 +43,13 @@ class RuleSize:
     max: ClassVar[RuleSize]  # pylint: disable=declare-non-slot
     """Maxium possible size (``(inf, inf)``)."""
 
-    def __init__(self, depth: Union[int, float] = 0, tokens: Union[int, float] = 0) -> None:
+    def __init__(self, depth: int | float = 0, tokens: int | float = 0) -> None:
         """
         :param depth: Derivation length (default: 0).
         :param tokens: Token count (default: 0).
         """
-        self.depth: Union[int, float] = depth  #: Derivation length.
-        self.tokens: Union[int, float] = tokens  #: Token count.
+        self.depth: int | float = depth  #: Derivation length.
+        self.tokens: int | float = tokens  #: Token count.
 
     def __add__(self, other: RuleSize) -> RuleSize:
         return RuleSize(depth=self.depth + other.depth, tokens=self.tokens + other.tokens)
@@ -140,10 +140,10 @@ class Rule:
             or lexer rule in the grammar.
         """
         self.name: str = name  #: Name of the node, i.e., name of the corresponding parser or lexer rule in the grammar.
-        self.parent: Optional[ParentRule] = None  #: Parent node object.
+        self.parent: ParentRule | None = None  #: Parent node object.
 
     @property
-    def left_sibling(self) -> Optional[Rule]:
+    def left_sibling(self) -> Rule | None:
         """
         Get the left sibling of the node if any. Return ``None`` if the node has
         no parent or is the leftmost child of its parent.
@@ -158,7 +158,7 @@ class Rule:
         return self.parent.children[self_idx - 1]
 
     @property
-    def right_sibling(self) -> Optional[Rule]:
+    def right_sibling(self) -> Rule | None:
         """
         Get the right sibling of the node if any. Return ``None`` if the node
         has no parent or is the rightmost child of its parent.
@@ -264,7 +264,7 @@ class ParentRule(Rule):
 
     __slots__ = ('children',)
 
-    def __init__(self, *, name: str, children: Optional[list[Rule]] = None) -> None:
+    def __init__(self, *, name: str, children: list[Rule] | None = None) -> None:
         """
         :param name: Name of the corresponding parser rule in the grammar.
         :param children: Children of the rule (default: no children).
@@ -275,7 +275,7 @@ class ParentRule(Rule):
             self.add_children(children)
 
     @property
-    def last_child(self) -> Optional[Rule]:
+    def last_child(self) -> Rule | None:
         """
         Get the last child of the current node if any. Return ``None`` if the
         node has no children.
@@ -316,7 +316,7 @@ class ParentRule(Rule):
         for node in nodes:
             self.add_child(node)
 
-    def __iadd__(self, item: Union[Rule, list[Rule]]) -> ParentRule:
+    def __iadd__(self, item: Rule | list[Rule]) -> ParentRule:
         """
         Support for ``+=`` operation to add one or more children to the current node. An alias to
         :meth:`add_child` or :meth:`add_children` depending on the type of ``child``.
@@ -354,7 +354,7 @@ class UnparserRule(ParentRule):
     or :class:`UnparserRuleAlternative` children.
     """
 
-    def __getattr__(self, item: str) -> Union[Rule, list[Rule]]:
+    def __getattr__(self, item: str) -> Rule | list[Rule]:
         # This check is needed to avoid infinite recursions when loading a tree
         # with pickle. In such cases, the loaded instance is prepared by
         # creating an empty object with the expected ``__class__`` and by
@@ -405,7 +405,7 @@ class UnlexerRule(Rule):
 
     __slots__ = ('src', 'size', 'immutable')
 
-    def __init__(self, *, name: str, src: str = '', size: Optional[RuleSize] = None, immutable: bool = False) -> None:
+    def __init__(self, *, name: str, src: str = '', size: RuleSize | None = None, immutable: bool = False) -> None:
         """
         :param name: Name of the corresponding lexer rule in the grammar.
         :param src: String content of the lexer rule (default: "").
@@ -455,7 +455,7 @@ class UnparserRuleQuantifier(ParentRule):
 
     __slots__ = ('idx', 'start', 'stop')
 
-    def __init__(self, *, idx: int, start: int, stop: Union[int, float], children: Optional[list[Rule]] = None) -> None:
+    def __init__(self, *, idx: int, start: int, stop: int | float, children: list[Rule] | None = None) -> None:
         """
         :param idx: Index of the quantifier in the parent rule.
         :param start: Minimum number of expected items in the sub-tree.
@@ -465,7 +465,7 @@ class UnparserRuleQuantifier(ParentRule):
         super().__init__(name='', children=children)
         self.idx: int = idx  #: Index of the quantifier in the parent rule.
         self.start: int = start  #: Minimum number of expected items in the sub-tree.
-        self.stop: Union[int, float] = stop  #: Maximum number of expected items in the sub-tree.
+        self.stop: int | float = stop  #: Maximum number of expected items in the sub-tree.
 
     def equals(self, other: Any) -> bool:
         return super().equals(other) and self.idx == other.idx and self.start == other.start and self.stop == other.stop
@@ -495,7 +495,7 @@ class UnparserRuleQuantified(ParentRule):
     children.
     """
 
-    def __init__(self, *, children: Optional[list[Rule]] = None) -> None:
+    def __init__(self, *, children: list[Rule] | None = None) -> None:
         """
         :param children: Children of the quantified rule (default: no children).
         """
@@ -521,7 +521,7 @@ class UnparserRuleAlternative(ParentRule):
 
     __slots__ = ('alt_idx', 'idx')
 
-    def __init__(self, *, alt_idx: int, idx: int, children: Optional[list[Rule]] = None) -> None:
+    def __init__(self, *, alt_idx: int, idx: int, children: list[Rule] | None = None) -> None:
         """
         :param alt_idx: Index of the alternation in the parent rule.
         :param idx: Index of the alternative in the parent alternation.

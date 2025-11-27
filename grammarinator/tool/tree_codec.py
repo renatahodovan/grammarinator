@@ -10,7 +10,7 @@ import pickle
 import struct
 
 from math import inf
-from typing import Any, Optional
+from typing import Any
 
 import flatbuffers
 
@@ -34,7 +34,7 @@ class TreeCodec:
         """
         raise NotImplementedError()
 
-    def decode(self, data: bytes) -> Optional[Rule]:
+    def decode(self, data: bytes) -> Rule | None:
         """
         Decode a tree from an array of bytes.
 
@@ -73,7 +73,7 @@ class AnnotatedTreeCodec(TreeCodec):
         """
         raise NotImplementedError()
 
-    def decode(self, data: bytes) -> Optional[Rule]:
+    def decode(self, data: bytes) -> Rule | None:
         """
         Decode only the tree from an array of bytes without the associated
         annotations. Equivalent to calling :meth:`decode_annotated` and keeping
@@ -82,7 +82,7 @@ class AnnotatedTreeCodec(TreeCodec):
         root, _ = self.decode_annotated(data)
         return root
 
-    def decode_annotated(self, data: bytes) -> tuple[Optional[Rule], Any]:
+    def decode_annotated(self, data: bytes) -> tuple[Rule | None, Any]:
         """
         Decode a tree and associated annotations from an array of bytes.
 
@@ -105,7 +105,7 @@ class PickleTreeCodec(AnnotatedTreeCodec):
         """
         return pickle.dumps((root, annotations))
 
-    def decode_annotated(self, data: bytes) -> tuple[Optional[Rule], Any]:
+    def decode_annotated(self, data: bytes) -> tuple[Rule | None, Any]:
         """
         Unpickle a tree and associated annotations from an array of bytes.
         """
@@ -148,7 +148,7 @@ class JsonTreeCodec(TreeCodec):
             raise AssertionError
         return json.dumps(root, default=_rule_to_dict).encode(encoding=self._encoding, errors=self._encoding_errors)
 
-    def decode(self, data: bytes) -> Optional[Rule]:
+    def decode(self, data: bytes) -> Rule | None:
         """
         Reconstruct a tree from a JSON representation stored in an array of
         bytes using the specified encoding.
@@ -229,7 +229,7 @@ class FlatBuffersTreeCodec(TreeCodec):
         builder.Finish(buildFBRule(root))
         return bytes(builder.Output())
 
-    def decode(self, data: bytes) -> Optional[Rule]:
+    def decode(self, data: bytes) -> Rule | None:
         """
         Reconstruct a tree from a FlatBuffers representation.
         """

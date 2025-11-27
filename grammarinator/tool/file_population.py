@@ -13,7 +13,6 @@ import os
 import random
 
 from os.path import basename, join
-from typing import Optional
 
 from ..runtime import Annotations, Individual, Population, Rule
 from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec, TreeCodec
@@ -27,7 +26,7 @@ class FilePopulation(Population):
     selection strategy used for mutation and recombination is purely random.
     """
 
-    def __init__(self, directory: str, extension: str, codec: Optional[TreeCodec] = None) -> None:
+    def __init__(self, directory: str, extension: str, codec: TreeCodec | None = None) -> None:
         """
         :param directory: Path to the directory containing the trees.
         :param extension: Extension of the files containing the trees.
@@ -47,7 +46,7 @@ class FilePopulation(Population):
         """
         return len(self._files) == 0
 
-    def add_individual(self, root: Rule, path: Optional[str] = None) -> None:
+    def add_individual(self, root: Rule, path: str | None = None) -> None:
         """
         Save the tree to a new file. The name of the tree file is determined
         from the basename of the given path, or from the population class name
@@ -59,7 +58,7 @@ class FilePopulation(Population):
         self._save(fn, root)
         self._files.append(fn)
 
-    def select_individual(self, recipient: Optional[Individual] = None) -> Individual:
+    def select_individual(self, recipient: Individual | None = None) -> Individual:
         """
         Randomly select an individual of the population and create a
         DefaultIndividual instance from it.
@@ -77,7 +76,7 @@ class FilePopulation(Population):
             else:
                 f.write(self._codec.encode(root))
 
-    def _load(self, fn: str) -> tuple[Rule, Optional[Annotations]]:
+    def _load(self, fn: str) -> tuple[Rule, Annotations | None]:
         with open(fn, 'rb') as f:
             if isinstance(self._codec, AnnotatedTreeCodec):
                 root, annot = self._codec.decode_annotated(f.read())

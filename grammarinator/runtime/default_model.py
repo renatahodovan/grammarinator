@@ -7,8 +7,6 @@
 
 import random
 
-from typing import Union
-
 from .model import Model
 from .rule import Rule
 
@@ -27,7 +25,7 @@ class DefaultModel(Model):
         # assert sum(weights) > 0, 'Sum of weights is zero.'
         return random.choices(range(len(weights)), weights=weights)[0]
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: Union[int, float]) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
         """
         After generating the minimum expected items (``start``) and before
         reaching the maximum expected items (``stop``), quantify decides about

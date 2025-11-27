@@ -18,7 +18,7 @@ from os.path import dirname, exists, join
 from pkgutil import get_data
 from shutil import copy
 from sys import maxunicode
-from typing import ClassVar, DefaultDict, Generator, Optional, Union
+from typing import ClassVar, DefaultDict, Generator
 
 import autopep8
 import regex as re
@@ -32,15 +32,15 @@ from .g4 import ANTLRv4Lexer, ANTLRv4Parser
 logger = logging.getLogger(__name__)
 
 
-EdgeArgType = list[tuple[Optional[str], Optional[str], Optional[str]]]
-RuleIdType = Union[str, tuple[str], tuple[str, str], tuple[str, str, int]]
-NodeIdKeyType = Union[RuleIdType, tuple[int], tuple[int, str, int]]
-NodeIdType = Union[NodeIdKeyType, tuple[NodeIdKeyType, str, int], tuple[NodeIdKeyType, str, int, int]]
+EdgeArgType = list[tuple[str | None, str | None, str | None]]
+RuleIdType = str | tuple[str] | tuple[str, str] | tuple[str, str, int]
+NodeIdKeyType = RuleIdType | tuple[int] | tuple[int, str, int]
+NodeIdType = NodeIdKeyType | tuple[NodeIdKeyType, str, int] | tuple[NodeIdKeyType, str, int, int]
 
 
 class Edge:
 
-    def __init__(self, dst: Node, args: Optional[EdgeArgType] = None) -> None:
+    def __init__(self, dst: Node, args: EdgeArgType | None = None) -> None:
         self.dst = dst
         self.args = args
         self.reserve: int = 0
@@ -50,7 +50,7 @@ class Node:
 
     _cnt: ClassVar[int] = 0
 
-    def __init__(self, id: Optional[NodeIdType] = None) -> None:
+    def __init__(self, id: NodeIdType | None = None) -> None:
         if id is None:
             id = (Node._cnt, )
             Node._cnt += 1
@@ -84,7 +84,7 @@ class Node:
 
 class NodeSize:
 
-    def __init__(self, depth: Union[int, float], tokens: Union[int, float]) -> None:
+    def __init__(self, depth: int | float, tokens: int | float) -> None:
         self.depth = depth
         self.tokens = tokens
 
@@ -121,12 +121,12 @@ class UnlexerRuleNode(RuleNode):
 
     _lit_cnt: ClassVar[int] = 0
 
-    def __init__(self, name: Optional[str] = None) -> None:
+    def __init__(self, name: str | None = None) -> None:
         if not name:
             name = f'T__{UnlexerRuleNode._lit_cnt}'
             UnlexerRuleNode._lit_cnt += 1
         super().__init__(name, 'UnlexerRule')
-        self.start_ranges: Optional[list[tuple[int, int]]] = None
+        self.start_ranges: list[tuple[int, int]] | None = None
 
 
 class UnparserRuleNode(RuleNode):
@@ -178,7 +178,7 @@ class AlternationNode(Node):
         self.conditions = conditions  # Index of the condition in the GrammarGraph's `alt_conds` list.
         self.min_sizes: int = -1  # Index of the alternation in the GrammarGraph's `alt_sizes` list.
 
-    def simple_alternatives(self) -> tuple[Optional[list[Optional[str]]], Optional[list[Optional[NodeIdType]]]]:
+    def simple_alternatives(self) -> tuple[list[str | None] | None, list[NodeIdType | None] | None]:
         # Check if an alternation contains simple alternatives only (simple
         # literals or rule references without arguments), and return a 2-tuple. If the alternation
         # contains any non-simple alternatives, return None, None. If the
@@ -196,17 +196,17 @@ class AlternationNode(Node):
                    for alt in self.out_neighbours)):
             return None, None
 
-        lits_list: list[Optional[str]] = [
+        lits_list: list[str | None] = [
             alt.out_neighbours[0].src if isinstance(alt.out_neighbours[0], LiteralNode) else None
             for alt in self.out_neighbours
         ]
-        rules_list: list[Optional[NodeIdType]] = [
+        rules_list: list[NodeIdType | None] = [
             alt.out_neighbours[0].id if isinstance(alt.out_neighbours[0], RuleNode) else None
             for alt in self.out_neighbours
         ]
 
-        simple_lits: Optional[list[Optional[str]]] = None if all(x is None for x in lits_list) else lits_list
-        simple_rules: Optional[list[Optional[NodeIdType]]] = None if all(x is None for x in rules_list) else rules_list
+        simple_lits: list[str | None] | None = None if all(x is None for x in lits_list) else lits_list
+        simple_rules: list[NodeIdType | None] | None = None if all(x is None for x in rules_list) else rules_list
 
         return simple_lits, simple_rules
 
@@ -232,7 +232,7 @@ class AlternativeNode(Node):
 
 class QuantifierNode(Node):
 
-    def __init__(self, rule_id: RuleIdType, idx: int, start: int, stop: Union[int, float]) -> None:
+    def __init__(self, rule_id: RuleIdType, idx: int, start: int, stop: int | float) -> None:
         super().__init__((rule_id, 'quant', idx))
         self.rule_id = rule_id  # Identifier of the container rule.
         self.idx = idx  # Index of the quantifier in the container rule.
@@ -324,7 +324,7 @@ class GrammarGraph:
         self.alt_conds: list[AlternationNode] = []
         self.alt_sizes: list[list[NodeSize]] = []
         self.quant_sizes: list[NodeSize] = []
-        self.immutables: Optional[list[NodeIdType]] = None
+        self.immutables: list[NodeIdType] | None = None
         self.header: str = ''
         self.members: str = ''
         self.default_rule: str = ''
@@ -345,7 +345,7 @@ class GrammarGraph:
     def imag_rules(self) -> Generator[ImagRuleNode, None, None]:
         return (vertex for vertex in self.vertices.values() if isinstance(vertex, ImagRuleNode))
 
-    def print_tree(self, root: Optional[Node] = None) -> None:
+    def print_tree(self, root: Node | None = None) -> None:
         if not root and not self.default_rule:
             raise ValueError('Either `root` must be defined or `print_tree` should be called after `default_rule` is set.')
         (root or self.vertices[(self.default_rule,)]).print_tree()
@@ -354,7 +354,7 @@ class GrammarGraph:
         self.vertices[node.id] = node
         return node.id
 
-    def add_edge(self, frm: NodeIdType, to: NodeIdType, args: Optional[EdgeArgType] = None) -> None:
+    def add_edge(self, frm: NodeIdType, to: NodeIdType, args: EdgeArgType | None = None) -> None:
         frm = frm if isinstance(frm, tuple) else (frm,)
         to = to if isinstance(to, tuple) else (to,)
         assert frm in self.vertices, f'{frm} not in vertices.'
@@ -417,7 +417,7 @@ class GrammarGraph:
         for node in self.vertices.values():
             if isinstance(node, AlternationNode):
                 continue
-            reserve: Union[int, float] = 0
+            reserve: int | float = 0
             for edge in reversed(node.out_edges):
                 edge.reserve = reserve
                 reserve += min_sizes[edge.dst.id].tokens
@@ -475,7 +475,7 @@ class ProcessorTool:
     from them and create a generator class that is able to produce textual data
     according to the grammar files.
     """
-    def __init__(self, lang: str, work_dir: Optional[str] = None) -> None:
+    def __init__(self, lang: str, work_dir: str | None = None) -> None:
         """
         :param lang: Language of the generated code (currently, ``'py'`` and ``'hpp'`` are accepted).
         :param work_dir: Directory to generate fuzzers into (default: the current working directory).
@@ -492,7 +492,7 @@ class ProcessorTool:
         self._template: Environment = env.from_string(template_data.decode('utf-8'))  # Jinja2 template to generate the source code of the generator class.
         self._work_dir = work_dir or getcwd()
 
-    def process(self, grammars: list[str], *, options: Optional[dict] = None, default_rule: Optional[str] = None, encoding: str = 'utf-8', errors: str = 'strict', lib_dir: Optional[str] = None, actions: bool = True, pep8: bool = False) -> None:
+    def process(self, grammars: list[str], *, options: dict | None = None, default_rule: str | None = None, encoding: str = 'utf-8', errors: str = 'strict', lib_dir: str | None = None, actions: bool = True, pep8: bool = False) -> None:
         """
         Perform the four main steps:
 
@@ -534,7 +534,7 @@ class ProcessorTool:
             f.write(src)
 
     @staticmethod
-    def parse_grammars(grammars: list[str], work_dir: str, encoding: str = 'utf-8', errors: str = 'strict', lib_dir: Optional[str] = None) -> tuple[Optional[ParserRuleContext], Optional[ParserRuleContext]]:
+    def parse_grammars(grammars: list[str], work_dir: str, encoding: str = 'utf-8', errors: str = 'strict', lib_dir: str | None = None) -> tuple[ParserRuleContext | None, ParserRuleContext | None]:
         lexer_root, parser_root = None, None
 
         for grammar in grammars:
@@ -551,7 +551,7 @@ class ProcessorTool:
         return lexer_root, parser_root
 
     @staticmethod
-    def _parse_grammar(grammar: str, encoding: str, errors: str, lib_dir: Optional[str] = None) -> ParserRuleContext:
+    def _parse_grammar(grammar: str, encoding: str, errors: str, lib_dir: str | None = None) -> ParserRuleContext:
         work_list = [grammar]
         root = None
         root_grammar_rules = set()
@@ -612,7 +612,7 @@ class ProcessorTool:
         return root
 
     @staticmethod
-    def _collect_imports(root: ParserRuleContext, base_dir: str, lib_dir: Optional[str] = None) -> list[str]:
+    def _collect_imports(root: ParserRuleContext, base_dir: str, lib_dir: str | None = None) -> list[str]:
         imports = []
         for prequel in root.prequelConstruct():
             if prequel.delegateGrammars():
@@ -626,9 +626,9 @@ class ProcessorTool:
         return imports
 
     @staticmethod
-    def build_graph(actions: bool, lexer_root: Optional[RuleContext], parser_root: Optional[RuleContext], options: Optional[dict[str, str]], default_rule: Optional[str] = None) -> GrammarGraph:
+    def build_graph(actions: bool, lexer_root: RuleContext | None, parser_root: RuleContext | None, options: dict[str, str] | None, default_rule: str | None = None) -> GrammarGraph:
 
-        def find_conditions(node: Union[str, RuleContext]) -> str:
+        def find_conditions(node: str | RuleContext) -> str:
             if not actions:
                 return '1'
 
@@ -668,7 +668,7 @@ class ProcessorTool:
 
             return start_cp, end_cp + 1
 
-        def process_lexer_char(s: str, offset: int, use_case: str) -> tuple[Union[int, list[tuple[int, int]]], int]:
+        def process_lexer_char(s: str, offset: int, use_case: str) -> tuple[int | list[tuple[int, int]], int]:
             # To be kept in sync with org.antlr.v4.misc.EscapeSequenceParsing.parseEscape
 
             # Original Java code has to handle unicode codepoints which consist of more than one character,
@@ -1249,9 +1249,9 @@ class ProcessorTool:
     # about the farthest node/rule to help to determine a max_depth that has the chance to
     # reach every rule. Also checks for infinite derivations.
     @staticmethod
-    def _analyze_graph(graph: GrammarGraph, root: Optional[str] = None) -> None:
+    def _analyze_graph(graph: GrammarGraph, root: str | None = None) -> None:
         root_id: str = root or graph.default_rule
-        min_distances: dict[NodeIdType, Union[int, float]] = defaultdict(lambda: inf)
+        min_distances: dict[NodeIdType, int | float] = defaultdict(lambda: inf)
         min_distances[(root_id,)] = 0
 
         work_list = [(root_id,)]

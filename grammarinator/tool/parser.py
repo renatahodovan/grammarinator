@@ -16,7 +16,7 @@ from math import inf
 from os import listdir
 from os.path import basename, commonprefix, split, splitext
 from subprocess import CalledProcessError, PIPE, run
-from typing import Callable, Iterable, Optional, Union
+from typing import Callable, Iterable
 
 from antlr4 import CommonTokenStream, error, FileStream, InputStream, Lexer, ParseTreeListener, Parser, ParserRuleContext, TerminalNode, Token
 
@@ -55,9 +55,9 @@ class ParserTool:
     trees can be reused later by generation.
     """
 
-    def __init__(self, grammars: list[str], parser_dir: str, antlr: str, population: Optional[Population],
-                 rule: Optional[str] = None, hidden: Optional[list[str]] = None, transformers: Optional[list[Callable[[Rule], Rule]]] = None, max_depth: Union[int, float] = RuleSize.max.depth, strict: bool = False,
-                 lib_dir: Optional[str] = None, cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict'):
+    def __init__(self, grammars: list[str], parser_dir: str, antlr: str, population: Population | None,
+                 rule: str | None = None, hidden: list[str] | None = None, transformers: list[Callable[[Rule], Rule]] | None = None, max_depth: int | float = RuleSize.max.depth, strict: bool = False,
+                 lib_dir: str | None = None, cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict'):
         """
         :param grammars: List of resources (grammars and additional sources) needed to parse the input.
         :param parser_dir: Directory where grammars and the generated parser will be placed.
@@ -107,7 +107,7 @@ class ParserTool:
             shutil.rmtree(self._parser_dir, ignore_errors=True)
 
     @staticmethod
-    def _build_grammars(in_files: list[str], out: str, antlr: str, lib_dir: Optional[str] = None) -> tuple[type[Lexer], type[Parser], type[ParseTreeListener]]:
+    def _build_grammars(in_files: list[str], out: str, antlr: str, lib_dir: str | None = None) -> tuple[type[Lexer], type[Parser], type[ParseTreeListener]]:
         """
         Build lexer and grammar from ANTLRv4 grammar files in Python3 target.
 
@@ -247,7 +247,7 @@ class ParserTool:
     # to every tree node a grammar rule that produced it, it is sufficient to perform the
     # matching - and hence the reconstruction - on a single rule level. In other words, there is
     # no need to recursively match the entire tree.
-    def _adjust_tree_to_generator(self, rules: Iterable[Union[UnlexerRule, UnparserRule]]) -> None:
+    def _adjust_tree_to_generator(self, rules: Iterable[UnlexerRule | UnparserRule]) -> None:
 
         def _adjust_rule(rule):
             def _match_seq(grammar_vertices, tree_node_pos):
@@ -408,7 +408,7 @@ class ParserTool:
             rule.name = '_'.join(rule.name)
 
     # Create an ANTLR tree from the input stream and convert it to Grammarinator tree.
-    def _create_tree(self, input_stream: InputStream, fn: Optional[str]) -> Optional[Rule]:
+    def _create_tree(self, input_stream: InputStream, fn: str | None) -> Rule | None:
         try:
             lexer = self._lexer_cls(input_stream)
             lexer.addErrorListener(ExtendedErrorListener())

@@ -5,8 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from typing import Optional, Union
-
 from .model import Model
 from .rule import Rule
 
@@ -17,7 +15,7 @@ class WeightedModel(Model):
     alternatives before calling the underlying model.
     """
 
-    def __init__(self, model: Model, *, weights: Optional[dict[tuple[str, int, int], float]] = None) -> None:
+    def __init__(self, model: Model, *, weights: dict[tuple[str, int, int], float] | None = None) -> None:
         """
         :param model: The underlying model.
         :param weights: Multipliers of alternatives. The keys of the dictionary
@@ -41,7 +39,7 @@ class WeightedModel(Model):
         """
         return self._model.choice(node, idx, [w * self._weights.get((node.name, idx, i), 1) for i, w in enumerate(weights)])
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: Union[int, float]) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
         """
         Trampoline to the ``quantify`` method of the underlying model.
         """

@@ -13,7 +13,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 from os.path import abspath, dirname
 from shutil import rmtree
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Sequence
 
 import xxhash
 
@@ -48,7 +48,7 @@ class GeneratorFactory:
         self._alt_sizes: tuple[tuple[RuleSize, ...], ...] = generator_class._alt_sizes  # Sizes of the alternatives of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
         self._quant_sizes: tuple[RuleSize, ...] = generator_class._quant_sizes  # Sizes of the quantifiers of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
 
-    def __call__(self, limit: Optional[RuleSize] = None) -> Generator:
+    def __call__(self, limit: RuleSize | None = None) -> Generator:
         """
         Create a new generator instance.
 
@@ -71,8 +71,8 @@ class DefaultGeneratorFactory(GeneratorFactory):
     """
 
     def __init__(self, generator_class: type[Generator], *,
-                 model_class: Optional[type[Model]] = None, weights: Optional[dict[tuple[str, int, int], float]] = None,
-                 listener_classes: Optional[list[type[Listener]]] = None) -> None:
+                 model_class: type[Model] | None = None, weights: dict[tuple[str, int, int], float] | None = None,
+                 listener_classes: list[type[Listener]] | None = None) -> None:
         """
         :param generator_class: The class of the generator to instantiate.
         :param model_class: The class of the model to instantiate. The model
@@ -85,10 +85,10 @@ class DefaultGeneratorFactory(GeneratorFactory):
         """
         super().__init__(generator_class)
         self._model_class: type[Model] = model_class or DefaultModel
-        self._weights: Optional[dict[tuple[str, int, int], float]] = weights
+        self._weights: dict[tuple[str, int, int], float] | None = weights
         self._listener_classes: list[type[Listener]] = listener_classes or []
 
-    def __call__(self, limit: Optional[RuleSize] = None) -> Generator:
+    def __call__(self, limit: RuleSize | None = None) -> Generator:
         """
         Create a new generator instance according to the settings specified for
         the factory instance and for this method.
@@ -119,11 +119,11 @@ class GeneratorTool:
     Tool to create new test cases using the generator produced by ``grammarinator-process``.
     """
 
-    def __init__(self, generator_factory: Union[type[Generator], GeneratorFactory], out_format: str, lock=None, rule: Optional[str] = None, limit: Optional[RuleSize] = None,
-                 population: Optional[Population] = None, keep_trees: bool = False,
+    def __init__(self, generator_factory: type[Generator] | GeneratorFactory, out_format: str, lock=None, rule: str | None = None, limit: RuleSize | None = None,
+                 population: Population | None = None, keep_trees: bool = False,
                  generate: bool = True, mutate: bool = True, recombine: bool = True, unrestricted: bool = True,
-                 allowlist: Optional[list[str]] = None, blocklist: Optional[list[str]] = None,
-                 transformers: Optional[list[Callable[[Rule], Rule]]] = None, serializer: Optional[Callable[[Rule], str]] = None, memo_size: int = 0, unique_attempts: int = 2,
+                 allowlist: list[str] | None = None, blocklist: list[str] | None = None,
+                 transformers: list[Callable[[Rule], Rule]] | None = None, serializer: Callable[[Rule], str] | None = None, memo_size: int = 0, unique_attempts: int = 2,
                  cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict', dry_run: bool = False):
         """
         :param generator_factory: A callable that can produce instances of a
@@ -201,9 +201,9 @@ class GeneratorTool:
         self.allowlist = allowlist or []
         self.blocklist = blocklist or []
 
-        self._generators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = []
-        self._mutators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = []
-        self._recombiners: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]] = []
+        self._generators: list[Callable[[Individual | None, Individual | None], Rule | None]] = []
+        self._mutators: list[Callable[[Individual | None, Individual | None], Rule | None]] = []
+        self._recombiners: list[Callable[[Individual | None, Individual | None], Rule | None]] = []
 
         if generate:
             self._allow_creator(self._generators, "generate", self.generate)
@@ -234,11 +234,11 @@ class GeneratorTool:
         if self._cleanup and self._out_format and not self._dry_run:
             rmtree(dirname(self._out_format))
 
-    def _allow_creator(self, creator_map: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]], creator_name: str, creator: Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]):
+    def _allow_creator(self, creator_map: list[Callable[[Individual | None, Individual | None], Rule | None]], creator_name: str, creator: Callable[[Individual | None, Individual | None], Rule | None]):
         if creator_name not in self.blocklist and (not self.allowlist or creator_name in self.allowlist):
             creator_map.append(creator)
 
-    def create_test(self, index: int) -> Optional[str]:
+    def create_test(self, index: int) -> str | None:
         """
         Create a new test case with a randomly selected generator method from the
         available options (see :meth:`generate`, :meth:`mutate`, and
@@ -291,11 +291,11 @@ class GeneratorTool:
             del self._memo[next(iter(self._memo))]
         return True
 
-    def _select_creator(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]:  # pylint: disable=unused-argument
+    def _select_creator(self, creators: list[Callable[[Individual | None, Individual | None], Rule | None]], individual1: Individual | None, individual2: Individual | None) -> Callable[[Individual | None, Individual | None], Rule | None]:  # pylint: disable=unused-argument
         # NOTE: May be overridden.
         return random.choice(creators)
 
-    def _create_tree(self, creators: list[Callable[[Optional[Individual], Optional[Individual]], Optional[Rule]]], individual1: Optional[Individual], individual2: Optional[Individual]) -> Rule:
+    def _create_tree(self, creators: list[Callable[[Individual | None, Individual | None], Rule | None]], individual1: Individual | None, individual2: Individual | None) -> Rule:
         # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
         while creators:
             creator = self._select_creator(creators, individual1, individual2)
@@ -328,7 +328,7 @@ class GeneratorTool:
             creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
 
-    def mutate(self, individual: Optional[Individual] = None) -> Rule:
+    def mutate(self, individual: Individual | None = None) -> Rule:
         """
         Dispatcher method for mutation operators: it picks one operator randomly and
         creates a new tree by applying the operator to an individual. The generated
@@ -350,7 +350,7 @@ class GeneratorTool:
         individual = self._ensure_individual(individual)
         return self._create_tree(self._mutators[:], individual, None)
 
-    def recombine(self, individual1: Optional[Individual] = None, individual2: Optional[Individual] = None) -> Rule:
+    def recombine(self, individual1: Individual | None = None, individual2: Individual | None = None) -> Rule:
         """
         Dispatcher method for recombination operators: it picks one operator
         randomly and creates a new tree by applying the operator to an individual.
@@ -372,7 +372,7 @@ class GeneratorTool:
         individual1, individual2 = self._ensure_individuals(individual1, individual2)
         return self._create_tree(self._recombiners[:], individual1, individual2)
 
-    def generate(self, _individual1: Optional[Individual] = None, _individual2: Optional[Individual] = None, *, rule: Optional[str] = None, reserve: Optional[RuleSize] = None) -> Union[UnlexerRule, UnparserRule]:
+    def generate(self, _individual1: Individual | None = None, _individual2: Individual | None = None, *, rule: str | None = None, reserve: RuleSize | None = None) -> UnlexerRule | UnparserRule:
         """
         Instantiate a new generator and generate a new tree from scratch.
 
@@ -389,20 +389,20 @@ class GeneratorTool:
         rule = rule or self._rule or generator._default_rule.__name__
         return getattr(generator, rule)()
 
-    def _ensure_individual(self, individual: Optional[Individual]) -> Individual:
+    def _ensure_individual(self, individual: Individual | None) -> Individual:
         if individual is None:
             assert self._population is not None
             individual = self._population.select_individual()
         return individual
 
-    def _ensure_individuals(self, individual1: Optional[Individual], individual2: Optional[Individual]) -> tuple[Individual, Individual]:
+    def _ensure_individuals(self, individual1: Individual | None, individual2: Individual | None) -> tuple[Individual, Individual]:
         individual1 = self._ensure_individual(individual1)
         if individual2 is None:
             assert self._population is not None
             individual2 = self._population.select_individual(individual1)
         return individual1, individual2
 
-    def regenerate_rule(self, individual: Optional[Individual] = None, _=None) -> Rule:
+    def regenerate_rule(self, individual: Individual | None = None, _=None) -> Rule:
         """
         Mutate a tree at a random position, i.e., discard and re-generate its
         sub-tree at a randomly selected node.
@@ -431,7 +431,7 @@ class GeneratorTool:
         # and generate a brand new one instead.
         return self.generate(rule=root.name)
 
-    def replace_node(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Optional[Rule]:
+    def replace_node(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
         """
         Recombine two trees at random positions where the nodes are compatible
         with each other (i.e., they share the same node name). One of the trees
@@ -474,7 +474,7 @@ class GeneratorTool:
 
         return None
 
-    def insert_quantified(self, recipient_individual: Optional[Individual] = None, donor_individual: Optional[Individual] = None) -> Optional[Rule]:
+    def insert_quantified(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
         """
         Selects two compatible quantifier nodes from two trees randomly and if
         the quantifier node of the recipient tree is not full (the number of
@@ -505,7 +505,7 @@ class GeneratorTool:
                     return recipient_root
         return None
 
-    def delete_quantified(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def delete_quantified(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Removes an optional subtree randomly from a quantifier node.
 
@@ -521,7 +521,7 @@ class GeneratorTool:
             return root
         return None
 
-    def unrestricted_delete(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def unrestricted_delete(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Remove a subtree rooted in any kind of rule node randomly without any
         further restriction.
@@ -538,7 +538,7 @@ class GeneratorTool:
             return root
         return None
 
-    def replicate_quantified(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def replicate_quantified(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select a quantified sub-tree randomly, replicate it and insert it again if
         the maximum quantification count is not reached yet.
@@ -561,7 +561,7 @@ class GeneratorTool:
             return root
         return None
 
-    def shuffle_quantifieds(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def shuffle_quantifieds(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select a quantifier node and shuffle its quantified sub-trees.
 
@@ -577,7 +577,7 @@ class GeneratorTool:
             return root
         return None
 
-    def hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def hoist_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select an individual of the population to be mutated and select two
         rule nodes from it which share the same rule name and are in
@@ -598,7 +598,7 @@ class GeneratorTool:
                 parent = parent.parent
         return None
 
-    def unrestricted_hoist_rule(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def unrestricted_hoist_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select two rule nodes from the input individual which are in
         ancestor-descendant relationship (without type compatibility check) and
@@ -622,7 +622,7 @@ class GeneratorTool:
                 return root
         return None
 
-    def swap_local_nodes(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def swap_local_nodes(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Swap two non-overlapping subtrees at random positions in a single test
         where the nodes are compatible with each other (i.e., they share the same node name).
@@ -678,7 +678,7 @@ class GeneratorTool:
                     return root
         return None
 
-    def insert_local_node(self, individual: Optional[Individual] = None, _=None) -> Optional[Rule]:
+    def insert_local_node(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select two compatible quantifier nodes from a single test and
         insert a random quantified subtree of the second one into the

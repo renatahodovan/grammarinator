@@ -5,8 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from typing import Union
-
 from .default_model import DefaultModel
 from .rule import Rule
 
@@ -29,7 +27,7 @@ class DispatchingModel(DefaultModel):
         name = 'choice_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, weights)
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: Union[int, float]) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
         """
         Trampoline to the ``quantify_{node.name}`` method of the subclassed model, if it exists.
         Otherwise, it calls the default implementation (:meth:`DefaultModel.quantify`).
