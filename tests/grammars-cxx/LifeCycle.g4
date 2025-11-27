@@ -27,7 +27,6 @@
 // TEST-PROCESS-CXX: {grammar}.g4 -o {tmpdir}
 // TEST-BUILD-CXX: --generator={grammar}Generator --serializer=grammarinator::runtime::SimpleSpaceSerializer --includedir={tmpdir} --builddir={tmpdir}/build
 // TEST-GENERATE-CXX: {tmpdir}/build/bin/grammarinator-generate-{grammar_lower} -r start -n 3 -o {tmpdir}/{grammar}A%d.txt
-// TEST-SKIP: SIGSEGV when working with population
 // TEST-PARSE: -g {grammar}.g4 -j 1 -r start --hidden WS -o {tmpdir}/population/j/ --tree-format json {tmpdir}/LifeCycleA0.txt {tmpdir}/LifeCycleA1.txt {tmpdir}/LifeCycleA2.txt
 // TEST-GENERATE-CXX: {tmpdir}/build/bin/grammarinator-generate-{grammar_lower} -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JB%d.txt --keep-trees --no-generate --no-recombine
 // TEST-GENERATE-CXX: {tmpdir}/build/bin/grammarinator-generate-{grammar_lower} -r start -n 3 --population {tmpdir}/population/j/ --tree-format json -o {tmpdir}/{grammar}JC%d.txt --keep-trees --no-generate --no-mutate

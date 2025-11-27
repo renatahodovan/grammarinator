@@ -115,7 +115,7 @@ class Annotations:
             if isinstance(current, (UnlexerRule, UnparserRule)):
                 if current.name and current.name != '<INVALID>':
                     current_rule_name = (current.name,)
-                    if not isinstance(current, UnlexerRule) or not current.immutable:
+                    if current != root and (not isinstance(current, UnlexerRule) or not current.immutable):
                         if current_rule_name not in self.rules_by_name:
                             self.rules_by_name[current_rule_name] = []
                         self.rules_by_name[current_rule_name].append(current)
