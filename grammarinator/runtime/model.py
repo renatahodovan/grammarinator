@@ -5,8 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-from typing import Union
-
 from .rule import Rule
 
 
@@ -32,7 +30,7 @@ class Model:
         """
         raise NotImplementedError()
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: Union[int, float]) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
         """
         Guide the loop of subtree quantification. This has to make a binary
         decision to tell whether to enable the next iteration or stop the loop.

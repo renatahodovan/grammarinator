@@ -11,7 +11,7 @@ import itertools
 import logging
 
 from collections.abc import Callable
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .default_model import DefaultModel
 from .listener import Listener
@@ -72,16 +72,16 @@ class UnlexerRuleContext(RuleContext):
 
     __slots__ = ('_start_depth', '_parent_name', '_name')
 
-    def __init__(self, gen: Generator, name: str, parent: Optional[Union[UnlexerRule, ParentRule]] = None, immutable: bool = False) -> None:
+    def __init__(self, gen: Generator, name: str, parent: UnlexerRule | ParentRule | None = None, immutable: bool = False) -> None:
         if isinstance(parent, UnlexerRule):
             # If parent node is also an UnlexerRule then this is a sub-rule and
             # actually no child node is created, but the parent is kept as the
             # current node
             super().__init__(gen, parent)
-            self._start_depth: Optional[float] = None
+            self._start_depth: float | None = None
             # So, save the name of the parent node and also that of the sub-rule
-            self._parent_name: Optional[str] = parent.name
-            self._name: Optional[str] = name
+            self._parent_name: str | None = parent.name
+            self._name: str | None = name
         else:
             node = UnlexerRule(name=name, immutable=immutable)
             if parent:
@@ -118,7 +118,7 @@ class UnlexerRuleContext(RuleContext):
 class UnparserRuleContext(RuleContext):
     # Subclass of :class:`RuleContext` handling unparser rules.
 
-    def __init__(self, gen: Generator, name: str, parent: Optional[ParentRule] = None) -> None:
+    def __init__(self, gen: Generator, name: str, parent: ParentRule | None = None) -> None:
         node = UnparserRule(name=name)
         if parent:
             parent += node
@@ -129,7 +129,7 @@ class SubRuleContext(Context):
 
     __slots__ = ('_rule', '_prev_ctx')
 
-    def __init__(self, rule: RuleContext, node: Optional[Rule] = None) -> None:
+    def __init__(self, rule: RuleContext, node: Rule | None = None) -> None:
         super().__init__(node or rule.current)
         self._rule: RuleContext = rule
         self._prev_ctx: Context = rule.ctx
@@ -162,8 +162,8 @@ class AlternationContext(SubRuleContext):
         self._reserve: int = reserve  # Minimum number of remaining tokens needed by the right siblings.
         self._conditions: tuple[float, ...] = conditions  # Boolean values enabling or disabling the certain alternatives.
         self._orig_depth_limit: float = rule.gen._limit.depth
-        self._weights: Optional[list[float]] = None
-        self._choice: Optional[int] = None
+        self._weights: list[float] | None = None
+        self._choice: int | None = None
 
     def __enter__(self):
         super().__enter__()
@@ -209,11 +209,11 @@ class QuantifierContext(SubRuleContext):
 
     __slots__ = ('idx', '_start', '_stop', '_min_size', '_reserve', '_cnt')
 
-    def __init__(self, rule: RuleContext, idx: int, start: int, stop: Union[int, float], min_size: RuleSize, reserve: int) -> None:
+    def __init__(self, rule: RuleContext, idx: int, start: int, stop: int | float, min_size: RuleSize, reserve: int) -> None:
         super().__init__(rule, UnparserRuleQuantifier(idx=idx, start=start, stop=stop) if not isinstance(rule.node, UnlexerRule) else None)
         self.idx: int = idx
         self._start: int = start
-        self._stop: Union[int, float] = stop
+        self._stop: int | float = stop
         self._min_size: RuleSize = min_size
         self._reserve: int = reserve
         self._cnt: int = 0
@@ -262,7 +262,7 @@ class Generator:
     _quant_sizes: ClassVar[tuple[RuleSize, ...]]  #: Sizes of the quantifiers of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
     _default_rule: ClassVar[Callable]  #: Reference to the default rule to start the generation with.
 
-    def __init__(self, *, model: Optional[Model] = None, listeners: Optional[list[Listener]] = None, limit: Optional[RuleSize] = None) -> None:
+    def __init__(self, *, model: Model | None = None, listeners: list[Listener] | None = None, limit: RuleSize | None = None) -> None:
         """
         :param model: Model object responsible for every decision during the
             generation. (default: :class:`DefaultModel`).
@@ -279,7 +279,7 @@ class Generator:
         self._limit: RuleSize = limit or RuleSize.max
         self._listeners: list[Listener] = listeners or []
 
-    def _reserve(self, reserve: int, fn: Callable[[Optional[ParentRule]], Rule], *args, **kwargs) -> None:
+    def _reserve(self, reserve: int, fn: Callable[[ParentRule | None], Rule], *args, **kwargs) -> None:
         self._size.tokens += reserve
         fn(*args, **kwargs)
         self._size.tokens -= reserve

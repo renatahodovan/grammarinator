@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantifier
 
 
@@ -36,7 +34,7 @@ class Population:
         """
         return not self.empty()
 
-    def add_individual(self, root: Rule, path: Optional[str] = None) -> None:
+    def add_individual(self, root: Rule, path: str | None = None) -> None:
         """
         Add a tree to the population.
 
@@ -48,7 +46,7 @@ class Population:
         """
         raise NotImplementedError()
 
-    def select_individual(self, recipient: Optional[Individual] = None) -> Individual:
+    def select_individual(self, recipient: Individual | None = None) -> Individual:
         """
         Select an individual of the population.
 
@@ -68,12 +66,12 @@ class Individual:
     Abstract base class of population individuals.
     """
 
-    def __init__(self, root: Optional[Rule] = None) -> None:
+    def __init__(self, root: Rule | None = None) -> None:
         """
         :param root: Root of the tree of the individual.
         """
         self._root = root
-        self._annot: Optional[Annotations] = None
+        self._annot: Annotations | None = None
 
     @property
     def root(self) -> Rule:
@@ -142,7 +140,7 @@ class Annotations:
                     self.node_tokens[current] += self.node_tokens[child] if isinstance(child, ParentRule) else child.size.tokens + 1
 
         current_rule_name = None
-        self.rules_by_name: dict[str, list[Union[UnlexerRule, UnparserRule]]] = {}
+        self.rules_by_name: dict[str, list[UnlexerRule | UnparserRule]] = {}
         self.alts_by_name: dict[str, list[UnparserRuleAlternative]] = {}
         self.quants_by_name: dict[str, list[UnparserRuleQuantifier]] = {}
         self.node_levels: dict[Rule, int] = {}
@@ -151,7 +149,7 @@ class Annotations:
         _annotate(root, 0)
 
     @property
-    def rules(self) -> list[Union[UnlexerRule, UnparserRule]]:
+    def rules(self) -> list[UnlexerRule | UnparserRule]:
         """
         Get nodes created from rule nodes.
 
