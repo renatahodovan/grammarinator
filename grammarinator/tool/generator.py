@@ -149,7 +149,7 @@ class GeneratorTool:
             overall depth and token count of the tree does not exceed these
             limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
         :param population: Tree pool for mutation and recombination, e.g., an
-            instance of :class:`DefaultPopulation`.
+            instance of :class:`FilePopulation`.
         :param keep_trees: Keep generated trees to participate in further mutations or recombinations
             (otherwise, only the initial population will be mutated or recombined). It has effect only if
             population is defined.
