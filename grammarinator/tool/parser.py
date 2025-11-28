@@ -63,7 +63,7 @@ class ParserTool:
         :param parser_dir: Directory where grammars and the generated parser will be placed.
         :param antlr: Path to the ANTLR4 tool (Java jar binary).
         :param population: Tree pool where the trees will be saved, e.g., an instance of
-            :class:`DefaultPopulation`.
+            :class:`FilePopulation`.
         :param rule: Name of the rule to start parsing with (default: first
             parser rule in the grammar).
         :param hidden: List of hidden rule names that are expected to be added to the grammar tree (hidden rules are skipped by default).
