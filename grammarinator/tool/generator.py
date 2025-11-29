@@ -116,7 +116,8 @@ class DefaultGeneratorFactory(GeneratorFactory):
 
 class GeneratorTool:
     """
-    Tool to create new test cases using the generator produced by ``grammarinator-process``.
+    Tool to create new test cases using the generator produced by
+    ``grammarinator-process``.
     """
 
     def __init__(self, generator_factory: type[Generator] | GeneratorFactory, out_format: str, lock=None, rule: str | None = None, limit: RuleSize | None = None,
@@ -138,40 +139,53 @@ class GeneratorTool:
             like :class:`DefaultGeneratorFactory`.
         :param rule: Name of the rule to start generation from (default: the
             default rule of the generator).
-        :param out_format: Test output description. It can be a file path pattern possibly including the ``%d``
-            placeholder which will be replaced by the index of the test case. Otherwise, it can be an empty string,
-            which will result in printing the test case to the stdout (i.e., not saving to file system).
-        :param lock: Lock object necessary when printing test cases in parallel (optional).
+        :param out_format: Test output description. It can be a file path
+            pattern possibly including the ``%d`` placeholder which will be
+            replaced by the index of the test case. Otherwise, it can be an
+            empty string, which will result in printing the test case to the
+            stdout (i.e., not saving to file system).
+        :param lock: Lock object necessary when printing test cases in parallel
+            (optional).
         :type lock: :class:`multiprocessing.Lock` | None
-        :param limit: The limit on the depth of the trees and on the
-            number of tokens (number of unlexer rule calls), i.e., it must be
-            possible to finish generation from the selected node so that the
-            overall depth and token count of the tree does not exceed these
-            limits (default: :class:`~grammarinator.runtime.RuleSize`. ``max``).
+        :param limit: The limit on the depth of the trees and on the number of
+            tokens (number of unlexer rule calls), i.e., it must be possible to
+            finish generation from the selected node so that the overall depth
+            and token count of the tree does not exceed these limits (default:
+            :class:`~grammarinator.runtime.RuleSize`. ``max``).
         :param population: Tree pool for mutation and recombination, e.g., an
             instance of :class:`FilePopulation`.
-        :param keep_trees: Keep generated trees to participate in further mutations or recombinations
-            (otherwise, only the initial population will be mutated or recombined). It has effect only if
-            population is defined.
-        :param generate: Enable generating new test cases from scratch, i.e., purely based on grammar.
-        :param mutate: Enable mutating existing test cases, i.e., re-generate part of an existing test case based on grammar.
-        :param recombine: Enable recombining existing test cases, i.e., replace part of a test case with a compatible part from another test case.
-        :param unrestricted: Enable applying possibly grammar-violating creators.
-        :param allowlist: List of mutators to allow (by default, all mutators are allowed).
-        :param blocklist: List of mutators to block (by default, no mutators are blocked).
+        :param keep_trees: Keep generated trees to participate in further
+            mutations or recombinations (otherwise, only the initial population
+            will be mutated or recombined). It has effect only if population is
+            defined.
+        :param generate: Enable generating new test cases from scratch, i.e.,
+            purely based on grammar.
+        :param mutate: Enable mutating existing test cases, i.e., re-generate
+            part of an existing test case based on grammar.
+        :param recombine: Enable recombining existing test cases, i.e., replace
+            part of a test case with a compatible part from another test case.
+        :param unrestricted: Enable applying possibly grammar-violating
+            creators.
+        :param allowlist: List of mutators to allow (by default, all mutators
+            are allowed).
+        :param blocklist: List of mutators to block (by default, no mutators are
+            blocked).
         :param transformers: List of transformers to be applied to postprocess
             the generated tree before serializing it.
-        :param serializer: A serializer that takes a tree and produces a string from it (default: :class:`str`).
-            See :func:`grammarinator.runtime.simple_space_serializer` for a simple solution that concatenates tokens with spaces.
+        :param serializer: A serializer that takes a tree and produces a string
+            from it (default: :class:`str`). See
+            :func:`grammarinator.runtime.simple_space_serializer` for a simple
+            solution that concatenates tokens with spaces.
         :param memo_size: The number of most recently created unique tests
             memoized (default: 0).
-        :param unique_attempts: The limit on how many times to try to
-            generate a unique (i.e., non-memoized) test case. It has no effect
-            if ``memo_size`` is 0 (default: 2).
+        :param unique_attempts: The limit on how many times to try to generate a
+            unique (i.e., non-memoized) test case. It has no effect if
+            ``memo_size`` is 0 (default: 2).
         :param cleanup: Enable deleting the generated tests at :meth:`__exit__`.
         :param encoding: Output file encoding.
         :param errors: Encoding error handling scheme.
-        :param dry_run: Enable or disable the saving or printing of the result of generation.
+        :param dry_run: Enable or disable the saving or printing of the result
+            of generation.
         """
 
         self._generator_factory = generator_factory
@@ -229,7 +243,8 @@ class GeneratorTool:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Delete the output directory if the tests were saved to files and if ``cleanup`` was enabled.
+        Delete the output directory if the tests were saved to files and if
+        ``cleanup`` was enabled.
         """
         if self._cleanup and self._out_format and not self._dry_run:
             rmtree(dirname(self._out_format))
@@ -240,10 +255,11 @@ class GeneratorTool:
 
     def create_test(self, index: int) -> str | None:
         """
-        Create a new test case with a randomly selected generator method from the
-        available options (see :meth:`generate`, :meth:`mutate`, and
-        :meth:`recombine`). The generated tree is transformed, serialized and saved
-        according to the parameters used to initialize the current tool object.
+        Create a new test case with a randomly selected generator method from
+        the available options (see :meth:`generate`, :meth:`mutate`, and
+        :meth:`recombine`). The generated tree is transformed, serialized and
+        saved according to the parameters used to initialize the current tool
+        object.
 
         :param index: Index of the test case to be generated.
         :return: Path to the generated serialized test file. It may be empty if
@@ -315,8 +331,8 @@ class GeneratorTool:
         """
         Create a new tree with a randomly selected generator method from the
         available options (see :meth:`generate`, :meth:`mutate`, and
-        :meth:`recombine`). The generated tree is also transformed according to the
-        parameters used to initialize the current tool object.
+        :meth:`recombine`). The generated tree is also transformed according to
+        the parameters used to initialize the current tool object.
 
         :return: The root of the created tree.
         """
@@ -330,10 +346,10 @@ class GeneratorTool:
 
     def mutate(self, individual: Individual | None = None) -> Rule:
         """
-        Dispatcher method for mutation operators: it picks one operator randomly and
-        creates a new tree by applying the operator to an individual. The generated
-        tree is also transformed according to the parameters used to initialize the
-        current tool object.
+        Dispatcher method for mutation operators: it picks one operator randomly
+        and creates a new tree by applying the operator to an individual. The
+        generated tree is also transformed according to the parameters used to
+        initialize the current tool object.
 
         Supported mutation operators: :meth:`regenerate_rule`,
         :meth:`delete_quantified`, :meth:`replicate_quantified`,
@@ -353,9 +369,9 @@ class GeneratorTool:
     def recombine(self, individual1: Individual | None = None, individual2: Individual | None = None) -> Rule:
         """
         Dispatcher method for recombination operators: it picks one operator
-        randomly and creates a new tree by applying the operator to an individual.
-        The generated tree is also transformed according to the parameters used to
-        initialize the current tool object.
+        randomly and creates a new tree by applying the operator to an
+        individual. The generated tree is also transformed according to the
+        parameters used to initialize the current tool object.
 
         Supported recombination operators: :meth:`replace_node`,
         :meth:`insert_quantified`
@@ -436,8 +452,8 @@ class GeneratorTool:
         Recombine two trees at random positions where the nodes are compatible
         with each other (i.e., they share the same node name). One of the trees
         is called the recipient while the other is the donor. The sub-tree
-        rooted at a random node of the recipient is discarded and replaced
-        by the sub-tree rooted at a random node of the donor.
+        rooted at a random node of the recipient is discarded and replaced by
+        the sub-tree rooted at a random node of the donor.
 
         :param recipient_individual: The population item to be used as a
             recipient during crossover.
@@ -477,9 +493,9 @@ class GeneratorTool:
     def insert_quantified(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
         """
         Selects two compatible quantifier nodes from two trees randomly and if
-        the quantifier node of the recipient tree is not full (the number of
-        its children is less than the maximum count), then add one new child
-        to it at a random position from the children of donors quantifier node.
+        the quantifier node of the recipient tree is not full (the number of its
+        children is less than the maximum count), then add one new child to it
+        at a random position from the children of donors quantifier node.
 
         :param recipient_individual: The population item to be used as a
             recipient during crossover.
@@ -540,8 +556,8 @@ class GeneratorTool:
 
     def replicate_quantified(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
-        Select a quantified sub-tree randomly, replicate it and insert it again if
-        the maximum quantification count is not reached yet.
+        Select a quantified sub-tree randomly, replicate it and insert it again
+        if the maximum quantification count is not reached yet.
 
         :param individual: The population item to be mutated.
         :return: The root of the modified tree.
@@ -579,10 +595,10 @@ class GeneratorTool:
 
     def hoist_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
-        Select an individual of the population to be mutated and select two
-        rule nodes from it which share the same rule name and are in
-        ancestor-descendant relationship making possible for the descendant
-        to replace its ancestor.
+        Select an individual of the population to be mutated and select two rule
+        nodes from it which share the same rule name and are in
+        ancestor-descendant relationship making possible for the descendant to
+        replace its ancestor.
 
         :param individual: The population item to be mutated.
         :return: The root of the hoisted tree.
@@ -625,7 +641,8 @@ class GeneratorTool:
     def swap_local_nodes(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Swap two non-overlapping subtrees at random positions in a single test
-        where the nodes are compatible with each other (i.e., they share the same node name).
+        where the nodes are compatible with each other (i.e., they share the
+        same node name).
 
         :param individual: The population item to be mutated
         :return: The root of the mutated tree.
@@ -680,10 +697,9 @@ class GeneratorTool:
 
     def insert_local_node(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
-        Select two compatible quantifier nodes from a single test and
-        insert a random quantified subtree of the second one into the
-        first one at a random position, while the quantifier restrictions
-        are ensured.
+        Select two compatible quantifier nodes from a single test and insert a
+        random quantified subtree of the second one into the first one at a
+        random position, while the quantifier restrictions are ensured.
 
         :param individual: The population item to be mutated
         :return: The root of the mutated tree.

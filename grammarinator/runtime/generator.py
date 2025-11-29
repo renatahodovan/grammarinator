@@ -254,8 +254,8 @@ class QuantifiedContext(SubRuleContext):
 
 class Generator:
     """
-    Base class of the generated Generators. Stores the decision model, the listeners,
-    and additional internal state used during generation.
+    Base class of the generated Generators. Stores the decision model, the
+    listeners, and additional internal state used during generation.
     """
     _rule_sizes: ClassVar[dict[str, RuleSize]]  #: Sizes of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.
     _alt_sizes: ClassVar[tuple[tuple[RuleSize, ...], ...]]  #: Sizes of the alternatives of the rules, used to determine the minimum size of the generated trees. Generated into the generator subclasses by processor.

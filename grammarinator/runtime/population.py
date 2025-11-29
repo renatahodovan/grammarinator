@@ -13,7 +13,8 @@ from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlter
 class Population:
     """
     Abstract base class of populations that store test cases in tree form (i.e.,
-    individuals) and can select trees for mutation or recombination based on some strategy.
+    individuals) and can select trees for mutation or recombination based on
+    some strategy.
     """
 
     def empty(self) -> bool:
@@ -30,7 +31,8 @@ class Population:
         """
         Truth value testing of Populations.
 
-        :return: ``True`` if the population is not empty and ``False`` otherwise.
+        :return: ``True`` if the population is not empty and ``False``
+            otherwise.
         """
         return not self.empty()
 
@@ -52,9 +54,9 @@ class Population:
 
         Raises :exc:`NotImplementedError` by default.
 
-        :param recipient: If None, the caller looks for an individual that
-            could be mutated or recombined (i.e., a recipient). If not None,
-            the caller looks for an individual (i.e., a donor) that could be
+        :param recipient: If None, the caller looks for an individual that could
+            be mutated or recombined (i.e., a recipient). If not None, the
+            caller looks for an individual (i.e., a donor) that could be
             recombined with the given individual (i.e., with the recipient).
         :return: A single individual of the population.
         """
@@ -86,7 +88,8 @@ class Individual:
     @property
     def annotations(self) -> Annotations:
         """
-        Return the associated annotations if available, otherwise compute them immediately.
+        Return the associated annotations if available, otherwise compute them
+        immediately.
 
         :return: The annotations associated with the tree.
         """

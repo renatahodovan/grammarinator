@@ -19,7 +19,8 @@ class DispatchingListener(Listener):
 
     def enter_rule(self, node: Rule) -> None:
         """
-        Trampoline to the ``enter_{node.name}`` method of the subclassed listener, if it is defined.
+        Trampoline to the ``enter_{node.name}`` method of the subclassed
+        listener, if it is defined.
         """
         fn = 'enter_' + node.name
         if hasattr(self, fn):
@@ -27,7 +28,8 @@ class DispatchingListener(Listener):
 
     def exit_rule(self, node: Rule) -> None:
         """
-        Trampoline to the ``exit_{node.name}`` method of the subclassed listener, if it is defined.
+        Trampoline to the ``exit_{node.name}`` method of the subclassed
+        listener, if it is defined.
         """
         fn = 'exit_' + node.name
         if hasattr(self, fn):

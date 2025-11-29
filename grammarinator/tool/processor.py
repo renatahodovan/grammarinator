@@ -477,8 +477,10 @@ class ProcessorTool:
     """
     def __init__(self, lang: str, work_dir: str | None = None) -> None:
         """
-        :param lang: Language of the generated code (currently, ``'py'`` and ``'hpp'`` are accepted).
-        :param work_dir: Directory to generate fuzzers into (default: the current working directory).
+        :param lang: Language of the generated code (currently, ``'py'`` and
+            ``'hpp'`` are accepted).
+        :param work_dir: Directory to generate fuzzers into (default: the
+            current working directory).
         """
         self._lang = lang
         env = Environment(trim_blocks=True,
@@ -496,32 +498,40 @@ class ProcessorTool:
         """
         Perform the four main steps:
 
-          1. Parse the grammar files.
-          2. Build an internal representation of the grammar.
-          3. Translate the internal representation into a generator source code in the target language.
-          4. Save the source code into file.
+        1. Parse the grammar files.
+        2. Build an internal representation of the grammar.
+        3. Translate the internal representation into a generator source code in
+           the target language.
+        4. Save the source code into file.
 
         :param grammars: List of grammar files to produce generator from.
-        :param options: Options dictionary to override/extend the options set in the grammar.
-               Currenly, the following options are supported:
+        :param options: Options dictionary to override/extend the options set in
+            the grammar. Currenly, the following options are supported:
 
-                 1. ``superClass``: Define the ancestor for the current grammar. The generator of this grammar will be inherited from ``superClass``. (default: :class:`grammarinator.runtime.Generator`)
-                 2. ``dot``: Define how to handle the ``.`` wildcard in the grammar. Three keywords are accepted:
+            - ``superClass``: Define the ancestor for the current grammar. The
+              generator of this grammar will be inherited from ``superClass``.
+              (default: :class:`grammarinator.runtime.Generator`)
+            - ``dot``: Define how to handle the ``.`` wildcard in the grammar.
+              Three keywords are accepted:
 
-                     1. ``any_ascii_letter``: generate any ASCII letters
-                     2. ``any_ascii_char``: generate any ASCII characters
-                     3. ``any_unicode_char``: generate any Unicode characters
+              1. ``any_ascii_letter``: generate any ASCII letters
+              2. ``any_ascii_char``: generate any ASCII characters
+              3. ``any_unicode_char``: generate any Unicode characters
 
-                    (default: ``any_ascii_char``)
+              (default: ``any_ascii_char``)
 
-        :param default_rule: Name of the default rule to start generation from (default: first parser rule in the grammar).
+        :param default_rule: Name of the default rule to start generation from
+            (default: first parser rule in the grammar).
         :param encoding: Grammar file encoding.
         :param errors: Encoding error handling scheme.
-        :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
-        :param actions: Boolean to enable grammar actions. If they are disabled then the inline actions and semantic
-               predicates of the input grammar (snippets in ``{...}`` and ``{...}?`` form) are disregarded (i.e., no code is
-               generated from them).
-        :param pep8: Boolean to enable pep8 to beautify the generated fuzzer source (only if the language of the generated code is Python).
+        :param lib_dir: Alternative directory to look for grammar imports beside
+            the current working directory.
+        :param actions: Boolean to enable grammar actions. If they are disabled
+            then the inline actions and semantic predicates of the input grammar
+            (snippets in ``{...}`` and ``{...}?`` form) are disregarded (i.e.,
+            no code is generated from them).
+        :param pep8: Boolean to enable pep8 to beautify the generated fuzzer
+            source (only if the language of the generated code is Python).
         """
         lexer_root, parser_root = ProcessorTool.parse_grammars(grammars, self._work_dir, encoding, errors, lib_dir)
         graph = ProcessorTool.build_graph(actions, lexer_root, parser_root, options, default_rule)
