@@ -24,7 +24,7 @@ namespace runtime {
 class Annotations {
 public:
   struct NodeKey {
-    enum NodeKeyType { RuleKey, QuantifierKey, AlternativeKey };
+    enum NodeKeyType { RuleKey, QuantifiedKey, QuantifierKey, AlternativeKey };
 
     std::string name;
     NodeKeyType type;
@@ -43,6 +43,8 @@ public:
     std::string format() const {
       if (type == QuantifierKey) {
         return std::format("\"{}\", q, {}", name, idx);
+      } else if (type == QuantifiedKey) {
+        return std::format("\"{}\", qd, {}", name, idx);
       } else if (type == AlternativeKey) {
         return std::format("\"{}\", a, {}", name, idx);
       } else {
@@ -59,8 +61,8 @@ public:
 
 private:
   Rule* root_;
+  std::map<NodeKey, std::vector<Rule*>> nodes_by_name_{};
   std::map<NodeKey, std::vector<Rule*>> rules_by_name_{};
-  std::map<NodeKey, std::vector<Rule*>> alts_by_name_{};
   std::map<NodeKey, std::vector<Rule*>> quants_by_name_{};
   std::unordered_map<Rule*, NodeInfo> node_info_{};
 
@@ -72,18 +74,18 @@ public:
   Annotations& operator=(Annotations&& other) = delete;
   ~Annotations() = default;
 
+  auto& nodes_by_name() {
+    if (nodes_by_name_.empty()) {
+      collect_nodes(root_, nullptr);
+    }
+    return nodes_by_name_;
+  }
+
   auto& rules_by_name() {
     if (rules_by_name_.empty()) {
       collect_rules(root_);
     }
     return rules_by_name_;
-  }
-
-  auto& alts_by_name() {
-    if (alts_by_name_.empty()) {
-      collect_alts(root_, nullptr);
-    }
-    return alts_by_name_;
   }
 
   auto& quants_by_name() {
@@ -100,18 +102,18 @@ public:
     return node_info_;
   }
 
-  std::vector<Rule*> rules() {
+  std::vector<Rule*> nodes() {
     std::vector<Rule*> result;
-    for (auto& [rule_name, nodes] : rules_by_name()) {
+    for (auto& [rule_name, nodes] : nodes_by_name()) {
       for (auto node : nodes)
         result.push_back(node);
     }
     return result;
   }
 
-  std::vector<Rule*> alts() {
+  std::vector<Rule*> rules() {
     std::vector<Rule*> result;
-    for (auto& [rule_name, nodes] : alts_by_name()) {
+    for (auto& [rule_name, nodes] : rules_by_name()) {
       for (auto node : nodes)
         result.push_back(node);
     }
@@ -127,41 +129,51 @@ public:
     return result;
   }
 
-/*
-  // TODO: nodes() doesn't save its result, but returns it where it was requested.
-  std::vector<Rule*> nodes(Rule* current) {
-    std::vector<Rule*> result;
-    std::vector<Rule*> worklist = {current};
-
-    while (!worklist.empty()) {
-      Rule* r = worklist.back();
-      worklist.pop_back();
-      if (r->name != "<ROOT>" && r->parent->name != "<ROOT>")
-        result.push_back(r);
-      if (r->type != Rule::UnlexerRuleType) {
-        for (Rule* child : static_cast<ParentRule*>(r)->children) {
-          worklist.push_back(child);
-        }
-      }
-    }
-    return result;
-  }
-*/
 
   void reset() {
+    nodes_by_name_.clear();
     rules_by_name_.clear();
-    alts_by_name_.clear();
     quants_by_name_.clear();
     node_info_.clear();
   }
 
 private:
+  void collect_nodes(Rule* current, std::string* current_rule_name) {
+    if (current->type == Rule::UnparserRuleType) {
+      current_rule_name = &current->name;
+    }
+    if ((current->type == Rule::UnlexerRuleType || current->type == Rule::UnparserRuleType) &&
+        current != root_ &&
+        current->name != "<INVALID>" && current->name != "<ROOT>" &&
+        (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
+      nodes_by_name_[NodeKey(current->name)].push_back(current);
+    } else if (current->type == Rule::UnparserRuleAlternativeType && current_rule_name) {
+      nodes_by_name_[NodeKey(*current_rule_name,
+                             NodeKey::AlternativeKey,
+                             static_cast<const UnparserRuleAlternative*>(current)->alt_idx)].push_back(current);
+    } else if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
+      nodes_by_name_[NodeKey(*current_rule_name,
+                             NodeKey::QuantifierKey,
+                             static_cast<const UnparserRuleQuantifier*>(current)->idx)].push_back(current);
+    } else if (current->type == Rule::UnparserRuleQuantifiedType && current_rule_name) {
+      nodes_by_name_[NodeKey(*current_rule_name,
+                             NodeKey::QuantifiedKey,
+                             static_cast<const UnparserRuleQuantifier*>(current->parent)->idx)].push_back(current);
+    }
+
+    if (current->type != Rule::UnlexerRuleType) {
+      for (auto child : static_cast<ParentRule*>(current)->children) {
+        collect_nodes(child, current_rule_name);
+      }
+    }
+  }
+
   void collect_rules(Rule* current) {
     if ((current->type == Rule::UnlexerRuleType || current->type == Rule::UnparserRuleType) &&
         current != root_ &&
-        !current->name.empty() && current->name != "<INVALID>" && current->name != "<ROOT>" &&
+        current->name != "<INVALID>" && current->name != "<ROOT>" &&
         (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
-        rules_by_name_[NodeKey(current->name)].push_back(current);
+      rules_by_name_[NodeKey(current->name)].push_back(current);
     }
 
     if (current->type != Rule::UnlexerRuleType) {
@@ -171,26 +183,10 @@ private:
     }
   }
 
-  void collect_alts(Rule* current, std::string* current_rule_name) {
-    if (current->type == Rule::UnparserRuleType) {
-      current_rule_name = !current->name.empty() && current->name != "<INVALID>" ? &current->name : nullptr;
-    } else if (current->type == Rule::UnparserRuleAlternativeType && current_rule_name) {
-      alts_by_name_[NodeKey(*current_rule_name,
-                            NodeKey::AlternativeKey,
-                            static_cast<const UnparserRuleAlternative*>(current)->alt_idx)].push_back(current);
-    }
-
-    if (current->type != Rule::UnlexerRuleType) {
-      for (auto child : static_cast<ParentRule*>(current)->children) {
-        collect_alts(child, current_rule_name);
-      }
-    }
-  }
-
   void collect_quants(Rule* current, std::string* current_rule_name) {
     if (current->type == Rule::UnparserRuleType) {
-      current_rule_name = !current->name.empty() && current->name != "<INVALID>" ? &current->name : nullptr;
-    } if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
+      current_rule_name = &current->name;
+    } else if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
       quants_by_name_[NodeKey(*current_rule_name,
                               NodeKey::QuantifierKey,
                               static_cast<const UnparserRuleQuantifier*>(current)->idx)].push_back(current);
