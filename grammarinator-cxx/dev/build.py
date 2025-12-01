@@ -27,10 +27,11 @@ def generate_build_options(args):
     build_options_append('CMAKE_BUILD_TYPE', args.build_type)
     build_options_append('CMAKE_VERBOSE_MAKEFILE', 'ON' if args.verbose else 'OFF')
     build_options_append('CMAKE_INSTALL_PREFIX', os.path.abspath(args.install) if args.install else None)
-    build_options_append('GRAMMARINATOR_TOOLS', 'ON' if args.tools else 'OFF')
-    build_options_append('GRAMMARINATOR_GRLF', 'ON' if args.grlf else 'OFF')
+    build_options_append('GRAMMARINATOR_GENERATE', 'ON' if args.generate else 'OFF')
+    build_options_append('GRAMMARINATOR_DECODE', 'ON' if args.decode else 'OFF')
     build_options_append('GRAMMARINATOR_FUZZNULL', 'ON' if args.fuzznull else 'OFF')
-    if args.tools or args.grlf or args.fuzznull:
+    build_options_append('GRAMMARINATOR_GRLF', 'ON' if args.grlf else 'OFF')
+    if args.generate or args.decode or args.fuzznull or args.grlf:
         build_options_append('GRAMMARINATOR_GENERATOR', args.generator)
         build_options_append('GRAMMARINATOR_MODEL', args.model)
         build_options_append('GRAMMARINATOR_LISTENER', args.listener)
@@ -93,12 +94,14 @@ def main():
                       help='install after build (default: don\'t install; default directory if install: OS-specific)')
 
     sgrp = parser.add_argument_group('specialization options')
-    sgrp.add_argument('--tools', default=False, action='store_true',
+    sgrp.add_argument('--generate', default=False, action='store_true',
                       help='build a standalone blackbox generator tool for the given grammar (default: %(default)s)')
-    sgrp.add_argument('--grlf', default=False, action='store_true',
-                      help='build a static libgrlf library for libFuzzer integration (default: %(default)s)')
+    sgrp.add_argument('--decode', default=False, action='store_true',
+                      help='build a standalone decoder tool for the given grammar (default: %(default)s)')
     sgrp.add_argument('--fuzznull', default=False, action='store_true',
                       help='build a dummy fuzznull binary to test libFuzzer integration without a real fuzz target (default: %(default)s)')
+    sgrp.add_argument('--grlf', default=False, action='store_true',
+                      help='build a static libgrlf library for libFuzzer integration (default: %(default)s)')
     sgrp.add_argument('--generator', metavar='NAME',
                       help='name of the generator class')
     sgrp.add_argument('--model', metavar='NAME',
@@ -124,7 +127,7 @@ def main():
         'json': 'JsonTreeCodec'
     }[args.tree_format] if args.tree_format else None
 
-    if (args.grlf or args.tools) and (not args.includedir or not args.generator):
+    if (args.generate or args.grlf) and (not args.includedir or not args.generator):
         parser.error('To build specialized artefacts, the `--generator` and `--includedir` arguments must be defined.')
 
     try:

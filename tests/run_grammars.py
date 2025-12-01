@@ -129,7 +129,7 @@ def run_build_cxx(grammar, commandline, tmpdir):
     :param commandline: command line as specified in the test command.
     :param tmpdir: path to a temporary directory (provided by the environment).
     """
-    run_subprocess(grammar, f'{sys.executable} {os.path.join(os.path.dirname(tool_dir), "grammarinator-cxx", "dev", "build.py")} --clean --debug --tools {commandline} --includedir={os.path.dirname(grammar)}', tmpdir)
+    run_subprocess(grammar, f'{sys.executable} {os.path.join(os.path.dirname(tool_dir), "grammarinator-cxx", "dev", "build.py")} --clean --debug --generate {commandline} --includedir={os.path.dirname(grammar)}', tmpdir)
 
 
 def run_generate(grammar, commandline, tmpdir):

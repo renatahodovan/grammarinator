@@ -5,14 +5,17 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-if(GRAMMARINATOR_TOOLS)
+if(GRAMMARINATOR_GENERATE)
     find_package(cxxopts REQUIRED)
     grammarinator_spec_target_name(GENERATE grammarinator-generate)
     add_executable(${GENERATE} generate.cpp)
     grammarinator_spec_definitions(${GENERATE})
     target_link_libraries(${GENERATE} grammarinator cxxopts::cxxopts)
     install(TARGETS ${GENERATE} DESTINATION bin)
+endif()
 
+if(GRAMMARINATOR_DECODE)
+    find_package(cxxopts REQUIRED)
     grammarinator_spec_target_name(DECODE grammarinator-decode)
     add_executable(${DECODE} decode.cpp)
     grammarinator_spec_definitions(${DECODE})
