@@ -66,11 +66,12 @@ public:
   explicit Tool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
                 const runtime::RuleSize& limit = runtime::RuleSize::max(), runtime::Population* population = nullptr,
                 bool generate = true, bool mutate = true, bool recombine = true, bool unrestricted = true,
-                const std::unordered_set<std::string> allowList = {}, const std::unordered_set<std::string> blockList = {},
+                const std::unordered_set<std::string> allowlist = {}, const std::unordered_set<std::string> blocklist = {},
                 const std::vector<TransformerFn>& transformers = {}, SerializerFn serializer = nullptr,
                 int memo_size = 0, bool print_mutators = false)
       : generator_factory(generator_factory), rule(rule), limit(limit), population(population),
-        transformers(transformers), serializer(serializer), memo_size(memo_size), print_mutators(print_mutators) {
+        transformers(transformers), serializer(serializer), memo_size(memo_size), print_mutators(print_mutators),
+        allowlist(allowlist), blocklist(blocklist) {
     if (generate) {
       allow_creator(generators, "generate", [this](auto i1, auto i2) { return this->generate(); });
     }
