@@ -51,28 +51,33 @@ class ExtendedErrorListener(error.ErrorListener.ErrorListener):
 
 class ParserTool:
     """
-    Tool to parse existing sources and create a tree pool from them. These
-    trees can be reused later by generation.
+    Tool to parse existing sources and create a tree pool from them. These trees
+    can be reused later by generation.
     """
 
     def __init__(self, grammars: list[str], parser_dir: str, antlr: str, population: Population | None,
                  rule: str | None = None, hidden: list[str] | None = None, transformers: list[Callable[[Rule], Rule]] | None = None, max_depth: int | float = RuleSize.max.depth, strict: bool = False,
                  lib_dir: str | None = None, cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict'):
         """
-        :param grammars: List of resources (grammars and additional sources) needed to parse the input.
-        :param parser_dir: Directory where grammars and the generated parser will be placed.
+        :param grammars: List of resources (grammars and additional sources)
+            needed to parse the input.
+        :param parser_dir: Directory where grammars and the generated parser
+            will be placed.
         :param antlr: Path to the ANTLR4 tool (Java jar binary).
-        :param population: Tree pool where the trees will be saved, e.g., an instance of
-            :class:`FilePopulation`.
+        :param population: Tree pool where the trees will be saved, e.g., an
+            instance of :class:`FilePopulation`.
         :param rule: Name of the rule to start parsing with (default: first
             parser rule in the grammar).
-        :param hidden: List of hidden rule names that are expected to be added to the grammar tree (hidden rules are skipped by default).
+        :param hidden: List of hidden rule names that are expected to be added
+            to the grammar tree (hidden rules are skipped by default).
         :param transformers: List of transformers to be applied to postprocess
             the parsed tree before serializing it.
         :param max_depth: Maximum depth of trees. Deeper trees are not saved.
         :param strict: Tests that contain syntax errors are discarded.
-        :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
-        :param cleanup: Boolean to enable the removal of the helper parser resources after processing the inputs.
+        :param lib_dir: Alternative directory to look for grammar imports beside
+            the current working directory.
+        :param cleanup: Boolean to enable the removal of the helper parser
+            resources after processing the inputs.
         :param encoding: Encoding of the input file.
         :param errors: Encoding error handling scheme.
         """
@@ -111,11 +116,15 @@ class ParserTool:
         """
         Build lexer and grammar from ANTLRv4 grammar files in Python3 target.
 
-        :param in_files: List resources (grammars and additional sources) needed to parse the input.
-        :param out: Directory where grammars are placed and where the output will be generated to.
+        :param in_files: List resources (grammars and additional sources) needed
+            to parse the input.
+        :param out: Directory where grammars are placed and where the output
+            will be generated to.
         :param antlr: Path to the ANTLR4 tool (Java jar binary).
-        :param lib_dir: Alternative directory to look for grammar imports beside the current working directory.
-        :return: Tuple of references/names of the lexer, parser and listener classes of the target.
+        :param lib_dir: Alternative directory to look for grammar imports beside
+            the current working directory.
+        :return: Tuple of references/names of the lexer, parser and listener
+            classes of the target.
         """
         try:
             # TODO: support Java parsers too.
@@ -165,9 +174,11 @@ class ParserTool:
         """
         Convert an ANTRL tree to Grammarinator tree.
 
-        :param antlr4.ParserRuleContext or antlr4.TerminalNode antlr_node: Root of ANTLR tree to convert.
+        :param antlr4.ParserRuleContext or antlr4.TerminalNode antlr_node: Root
+            of ANTLR tree to convert.
         :param antlr4.Parser parser: Parser object that created the ANTLR tree.
-        :param set visited: Set of visited ANTLR nodes in the tree to be transformed.
+        :param set visited: Set of visited ANTLR nodes in the tree to be
+            transformed.
         """
         rules = set()
 

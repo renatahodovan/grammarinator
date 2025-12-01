@@ -61,10 +61,10 @@ class FilePopulation(Population):
     def select_individual(self, recipient: Individual | None = None) -> Individual:
         """
         Randomly select an individual of the population and create a
-        DefaultIndividual instance from it.
+        FileIndividual instance from it.
 
         :param recipient: Unused.
-        :return: DefaultIndividual instance created from a randomly selected
+        :return: FileIndividual instance created from a randomly selected
             population item.
         """
         return FileIndividual(self, random.sample(self._files, k=1)[0])
