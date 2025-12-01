@@ -44,7 +44,7 @@ public:
       if (type == QuantifierKey) {
         return std::format("\"{}\", q, {}", name, idx);
       } else if (type == AlternativeKey) {
-        return std::format("\"{}\", a, ", name, idx);
+        return std::format("\"{}\", a, {}", name, idx);
       } else {
         return std::format("\"{}\"", name);
       }
