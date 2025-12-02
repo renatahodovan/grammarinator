@@ -14,14 +14,18 @@
 
 
 class CustomSubclassGenerator : public CustomGenerator {
+private:
+  int cnt{0};
+
 public:
   explicit CustomSubclassGenerator(Model* model=new DefaultModel(),
                                    const std::vector<Listener*>& listeners={},
                                    const RuleSize& limit=RuleSize::max())
       : CustomGenerator(model, listeners, limit) {}
 
-  // FIXME: this will not be called at all since the base method is not virtual
-  Rule* tagname(Rule *parent = nullptr) {
+  Rule* tagname(Rule *parent = nullptr) override {
+    cnt++;
+
     UnparserRuleContext rule(this, "tagname", parent);
     UnparserRule* current = static_cast<UnparserRule*>(rule.current());
     current->add_child(new UnlexerRule("ID", "customtag"));
@@ -29,6 +33,7 @@ public:
   }
 
   std::string _custom_lexer_content() override {
+    assert(cnt > 0);
     return "custom content";
   }
 };

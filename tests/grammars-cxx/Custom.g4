@@ -25,7 +25,6 @@
 // TEST-PROCESS-CXX: {grammar}.g4 -o {tmpdir}
 // TEST-BUILD-CXX: --generator={grammar}Generator --includedir={tmpdir} --builddir={tmpdir}/build/G
 // TEST-GENERATE-CXX: {tmpdir}/build/G/bin/grammarinator-generate-{grammar_lower} -r start -n 5 -o {tmpdir}/{grammar}G%d.txt
-// TEST-SKIP: method of subclass will not be called since the base method is not virtual
 // TEST-BUILD-CXX: --generator={grammar}SubclassGenerator --includedir={tmpdir} --builddir={tmpdir}/build/S
 // TEST-GENERATE-CXX: {tmpdir}/build/S/bin/grammarinator-generate-{grammar_lower}subclass -r start -n 5 -o {tmpdir}/{grammar}S%d.txt
 
@@ -61,7 +60,7 @@ tag
   : '<' remember=tagname '>' (cnt+=CONTENT)+ {assert(!$cnt.empty());} '</' tagname {static_cast<UnparserRule*>(current)->last_child()->replace($remember->clone());} '>'
   ;
 
-tagname
+tagname options {virtual=true;}
   : ID
   ;
 

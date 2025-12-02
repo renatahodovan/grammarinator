@@ -14,11 +14,16 @@ from CustomGenerator import CustomGenerator
 
 class CustomSubclassGenerator(CustomGenerator):
 
+    cnt: int = 0
+
     def tagname(self, parent=None):
+        self.cnt += 1
+
         with UnparserRuleContext(self, 'tagname', parent) as rule:
             current = rule.current
             current += UnlexerRule(name='ID', src='customtag')
             return current
 
     def _custom_lexer_content(self):
+        assert self.cnt > 0
         return 'custom content'

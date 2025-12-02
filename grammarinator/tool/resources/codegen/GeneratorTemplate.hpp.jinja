@@ -167,7 +167,7 @@ public:
     {% endif %}
 
     {% for rule in graph.rules %}
-    Rule* {{ rule.id | join('_') }}({% for t, k, v in rule.args %}{{ t }} {{ k }}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}Rule *parent = nullptr) {
+    {% if rule.options.get('virtual', graph.options.get('virtual', 'false')) == 'true' %}virtual {% endif %}Rule* {{ rule.id | join('_') }}({% for t, k, v in rule.args %}{{ t }} {{ k }}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}Rule *parent = nullptr) {
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
         struct {
             {% for t, k, _ in rule.args %}
