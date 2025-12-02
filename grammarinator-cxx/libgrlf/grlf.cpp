@@ -22,8 +22,6 @@
 namespace {
 
 struct {
-  bool print_test = false;
-  bool print_mutators = false;
   bool random_mutators = true;
   std::unordered_set<std::string> allowlist = {};
   std::unordered_set<std::string> blocklist = {};
@@ -41,9 +39,9 @@ void initialize_int_arg(const std::string& arg, const std::string& name, int& de
     long value = std::strtol(suffix.c_str(), &endp, 10);
     if (endp - suffix.c_str() == suffix.length()) {
       dest = (int)value;
-      grammarinator::util::poutf("{} set to {}", name, dest);
+      GRAMMARINATOR_LOG_INFO("{} set to {}", name, dest);
     } else {
-      grammarinator::util::perrf("invalid value for {}: {}", name, suffix);
+      GRAMMARINATOR_LOG_WARN("Invalid value for {}: {}", name, suffix);
     }
   }
 }
@@ -56,9 +54,9 @@ void initialize_bool_arg(const std::string& arg, const std::string& name, bool& 
     long value = std::strtol(suffix.c_str(), &endp, 10);
     if (endp - suffix.c_str() == suffix.length()) {
       dest = (bool)value;
-      grammarinator::util::poutf("{} set to {}", name, dest);
+      GRAMMARINATOR_LOG_INFO("{} set to {}", name, dest);
     } else {
-      grammarinator::util::perrf("invalid value for {}: {}", name, suffix);
+      GRAMMARINATOR_LOG_WARN("Invalid value for {}: {}", name, suffix);
     }
   }
 }
@@ -71,9 +69,9 @@ void initialize_double_arg(const std::string& arg, const std::string& name, doub
     double value = std::strtod(suffix.c_str(), &endp);
     if (endp - suffix.c_str() == suffix.length()) {
       dest = value;
-      grammarinator::util::poutf("{} set to {}", name, dest);
+      GRAMMARINATOR_LOG_INFO("{} set to {}", name, dest);
     } else {
-      grammarinator::util::perrf("invalid value for {}: {}", name, suffix);
+      GRAMMARINATOR_LOG_WARN("Invalid value for {}: {}", name, suffix);
     }
   }
 }
@@ -121,8 +119,7 @@ libfuzzer_tool() {
        GRAMMARINATOR_TRANSFORMER ? std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{},
        GRAMMARINATOR_SERIALIZER,
        settings.memo_size,
-       treeCodec,
-       settings.print_mutators);
+       treeCodec);
 
   return &tool;
 }
@@ -142,8 +139,6 @@ int GrammarinatorInitialize(int* argc, char*** argv) {
     if (std::strcmp((*argv)[i], "-ignore_remaining_args=1") == 0) {
       ignore_remaining_args = true;
     } else if (ignore_remaining_args) {
-      initialize_bool_arg((*argv)[i], "print_test", settings.print_test);
-      initialize_bool_arg((*argv)[i], "print_mutators", settings.print_mutators);
       initialize_bool_arg((*argv)[i], "random_mutators", settings.random_mutators);
       initialize_str_set_arg((*argv)[i], "allowlist", settings.allowlist);
       initialize_str_set_arg((*argv)[i], "blocklist", settings.blocklist);
@@ -169,8 +164,7 @@ size_t GrammarinatorGenerator(uint8_t* Data, size_t Size, size_t MaxSize, unsign
   auto tool = libfuzzer_tool();
   auto root = tool->generate();
   std::string test = tool->serializer(root);
-  if (settings.print_test)
-    grammarinator::util::pout(test);
+  GRAMMARINATOR_LOG_TRACE("Test: {}", test);
   delete root;
   Size = test.size();
   Size = Size < MaxSize ? Size : MaxSize;
@@ -200,8 +194,7 @@ void GrammarinatorOneInput(const uint8_t** Data, size_t* Size) {
   static std::string input;
 
   input = libfuzzer_tool()->one_input(*Data, *Size);
-  if (settings.print_test)
-    grammarinator::util::pout(input);
+  GRAMMARINATOR_LOG_TRACE("Test: {}", input);
   *Data = reinterpret_cast<const uint8_t*>(input.c_str());
   *Size = input.size();
 }

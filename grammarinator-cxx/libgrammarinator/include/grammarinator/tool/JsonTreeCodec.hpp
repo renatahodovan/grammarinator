@@ -40,16 +40,13 @@ public:
       std::memcpy(buffer, str.data(), size);
       return size;
     }
-    util::perrf("Output size is out of range ({} > {})", size, maxsize);
+    GRAMMARINATOR_LOG_WARN("Output size is out of range ({} > {})", size, maxsize);
     return 0;
   }
 
   runtime::Rule* decode(const uint8_t* buffer, size_t size) const override {
     std::string src(reinterpret_cast<const char*>(buffer), size);
     auto jsonObj = nlohmann::json::parse(src, nullptr, false);
-    // if (jsonObj.is_discarded()) {
-    //   util::perrf("codec error on data of size {} '{}'", size, src);
-    // }
     return !jsonObj.is_discarded() ? fromJson(jsonObj) : nullptr;
   }
 

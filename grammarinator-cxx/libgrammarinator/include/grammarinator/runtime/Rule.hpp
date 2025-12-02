@@ -180,6 +180,7 @@ public:
     }
   }
 
+  const std::string& rule_name() const;
   Rule* left_sibling();
   const Rule* left_sibling() const;
   Rule* right_sibling();
@@ -641,6 +642,18 @@ inline const Rule* Rule::root() const noexcept {
     node = node->parent;
   }
   return node;
+}
+
+inline const std::string& Rule::rule_name() const {
+  static const std::string empty{};
+  auto r = this;
+  while (r) {
+    if (!r->name.empty()) {
+      return r->name;
+    }
+    r = r->parent;
+  }
+  return empty;
 }
 
 inline Rule* Rule::replace(Rule* node) {

@@ -22,6 +22,7 @@ set(GRAMMARINATOR_TREECODEC "" CACHE STRING "name of the tree codec class (for s
 set(GRAMMARINATOR_INCLUDE "" CACHE STRING "path to a header file (relative to the include path) to include during compilation (for specialized artefacts)")
 set(GRAMMARINATOR_INCLUDEDIRS "" CACHE STRING "paths to directories to add to the include path during compilation (for specialized artefacts)")
 set(GRAMMARINATOR_SUFFIX "" CACHE STRING "suffix to append to the names of specialized artefacts")
+set(GRAMMARINATOR_LOG_LEVEL "" CACHE STRING "set log level")
 
 macro(grammarinator_status VARIABLE)
   message(STATUS "${VARIABLE}: ${${VARIABLE}}")
@@ -53,6 +54,7 @@ macro(grammarinator_spec_definitions TARGET)
     target_include_directories(${TARGET} PRIVATE "${GRAMMARINATOR_INCLUDEDIRS}")
   endif()
   target_include_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/config")
+  grammarinator_define(${TARGET} GRAMMARINATOR_LOG_LEVEL)
 endmacro()
 
 execute_process(COMMAND git describe --tags
@@ -86,11 +88,18 @@ if(GRAMMARINATOR_GENERATE OR GRAMMARINATOR_DECODE OR GRAMMARINATOR_FUZZNULL OR G
   grammarinator_status(GRAMMARINATOR_INCLUDE)
   grammarinator_status(GRAMMARINATOR_INCLUDEDIRS)
   grammarinator_status(GRAMMARINATOR_SUFFIX)
+
+  string(TOUPPER "${GRAMMARINATOR_LOG_LEVEL}" GRAMMARINATOR_LOG_LEVEL)
+  set(GRAMMARINATOR_LOG_LEVEL "GRAMMARINATOR_LOG_LEVEL_${GRAMMARINATOR_LOG_LEVEL}")
+  grammarinator_status(GRAMMARINATOR_LOG_LEVEL)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (MSVC)
+  add_compile_options(/Zc:preprocessor)
+endif()
 
 add_compile_definitions(GRAMMARINATOR_VERSION=${GRAMMARINATOR_VERSION})
 

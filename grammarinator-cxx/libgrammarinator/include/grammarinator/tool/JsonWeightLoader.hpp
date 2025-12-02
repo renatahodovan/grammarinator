@@ -26,13 +26,13 @@ public:
   void load(const std::string& fn, runtime::WeightedModel::WeightMap& weights) {
     std::ifstream wf(fn);
     if (!wf) {
-      util::perrf("Failed to open the weights JSON file for reading: {}", fn);
+      GRAMMARINATOR_LOG_FATAL("Failed to open the weights JSON file for reading: {}", fn);
       return;
     }
 
     nlohmann::json data = nlohmann::json::parse(wf, nullptr, false);
     if (data.is_discarded()) {
-      util::perrf("Invalid JSON in weights file: {}", fn);
+      GRAMMARINATOR_LOG_FATAL("Invalid JSON in weights file: {}", fn);
       return;
     }
 

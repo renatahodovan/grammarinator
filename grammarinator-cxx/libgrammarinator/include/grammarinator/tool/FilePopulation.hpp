@@ -9,6 +9,7 @@
 #define GRAMMARINATOR_TOOL_FILEPOPULATION_HPP
 
 #include "../runtime/Population.hpp"
+#include "../util/log.hpp"
 #include "../util/print.hpp"
 #include "FlatBuffersTreeCodec.hpp"
 #include "TreeCodec.hpp"
@@ -58,7 +59,7 @@ public:
       std::error_code ec;
       std::filesystem::create_directories(dirpath, ec);
       if (ec) {
-        util::perrf("Failed to create population directory '{}': {}", directory, ec.message());
+        GRAMMARINATOR_LOG_FATAL("Failed to create population directory '{}': {}", directory, ec.message());
       }
 
       for (auto const& entry : std::filesystem::directory_iterator(dirpath)) {
