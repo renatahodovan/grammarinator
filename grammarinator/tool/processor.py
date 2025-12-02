@@ -112,6 +112,7 @@ class RuleNode(Node):
         self.returns: list[EdgeArgType] = []
         self.init: str = ''
         self.after: str = ''
+        self.options: dict[str, str] = {}
 
     def __str__(self) -> str:
         return f'{super().__str__()}; name: {self.id}'
@@ -519,6 +520,10 @@ class ProcessorTool:
               3. ``any_unicode_char``: generate any Unicode characters
 
               (default: ``any_ascii_char``)
+            - ``virtual``: Define whether methods of the created generator class
+              should use dynamic dispatch and thus be overridable in derived
+              classes. Possible values are ``true`` or ``false``. (default:
+              ``false`` in C++ code generation; ignored in Python)
 
         :param default_rule: Name of the default rule to start generation from
             (default: first parser rule in the grammar).
@@ -970,9 +975,10 @@ class ProcessorTool:
                         rule.locals = parse_arg_action_block(node.localsSpec(), 'locals')
                         rule.returns = parse_arg_action_block(node.ruleReturns(), 'returns')
 
-                        for prequel in node.rulePrequel() or []:
-                            rule_action = prequel.ruleAction()
-                            if rule_action:
+                    for prequel in node.rulePrequel() or []:
+                        if prequel.ruleAction():
+                            if actions:
+                                rule_action = prequel.ruleAction()
                                 action_name = str(rule_action.identifier().TOKEN_REF() or rule_action.identifier().RULE_REF())
                                 if action_name not in ['init', 'after']:
                                     continue
@@ -982,7 +988,20 @@ class ProcessorTool:
                                     rule.init = src
                                 elif action_name == 'after':
                                     rule.after = src
+                        if prequel.optionsSpec():
+                            for option in prequel.optionsSpec().option():
+                                ident = option.identifier()
+                                ident = str(ident.RULE_REF() or ident.TOKEN_REF())
+                                rule.options[ident] = option.optionValue().getText()
                     build_expr(node.ruleBlock(), parent_id)
+
+                elif isinstance(node, ANTLRv4Parser.LexerRuleSpecContext):
+                    if node.optionsSpec():
+                        for option in node.optionsSpec().option():
+                            ident = option.identifier()
+                            ident = str(ident.RULE_REF() or ident.TOKEN_REF())
+                            rule.options[ident] = option.optionValue().getText()
+                    build_expr(node.lexerRuleBlock(), parent_id)
 
                 elif isinstance(node, (ANTLRv4Parser.RuleAltListContext, ANTLRv4Parser.AltListContext, ANTLRv4Parser.LexerAltListContext)):
                     children = [child for child in node.children if isinstance(child, ParserRuleContext)]
@@ -1205,17 +1224,15 @@ class ProcessorTool:
                 if rule.parserRuleSpec():
                     rule_spec = rule.parserRuleSpec()
                     rule_node: RuleNode = UnparserRuleNode(name=str(rule_spec.RULE_REF()))
-                    antlr_node = rule_spec
                 elif rule.lexerRuleSpec():
                     rule_spec = rule.lexerRuleSpec()
                     rule_node = UnlexerRuleNode(name=str(rule_spec.TOKEN_REF()))
-                    antlr_node = rule_spec.lexerRuleBlock()
                 else:
                     assert False, 'Should not get here.'
 
                 if rule_node.id not in graph.vertices:
                     graph.add_node(rule_node)
-                    generator_rules.append((rule_node, antlr_node))
+                    generator_rules.append((rule_node, rule_spec))
                 else:
                     duplicate_rules.append(rule_node.id)
 

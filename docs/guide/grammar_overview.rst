@@ -73,6 +73,12 @@ are as follows:
      - ``any_ascii_letter``: generates any ASCII letter
      - ``any_ascii_char``: generates any ASCII character
      - ``any_unicode_char``: generates any Unicode character
+  3) ``virtual``: This option defines whether methods of the created generator
+     should use dynamic dispatch and thus be overridable in derived classes.
+     Possible values are ``true`` or ``false``. Used by C++ code generation,
+     ignored in Python. (This option can also be specified on a per-rule basis
+     usig the rule option syntax, in which case the option defined at rule level
+     takes precedence.)
 
 **Imports** allow for the inclusion of external grammars into the importing
 grammar. This means that the rules defined in the imported grammar will be
