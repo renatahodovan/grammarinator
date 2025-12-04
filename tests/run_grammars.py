@@ -47,6 +47,20 @@ def collect_grammar_commands(grammars_dir):
     return sorted(params)
 
 
+def create_grammar_ids(params):
+    """
+    Build a list of custom test IDs for grammar-commands test cases collected by
+    ``collect_grammar_commands``.
+
+    :param params: the result of the ``collect_grammar_commands`` function.
+    :return: the base names of the collected grammars files.
+
+    The result of the function can be used with pytest decorators as
+    ``@pytest.mark.parametrize('grammar, commands', gc := collect_grammar_commands('...'), ids=create_grammar_ids(gc))``.
+    """
+    return [os.path.basename(grammar) for grammar, _ in params]
+
+
 def run_subprocess(grammar, commandline, tmpdir):
     """
     Helper function for test command runners to execute a subprocess.
