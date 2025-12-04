@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantifier
+from .rule import ParentRule, Rule, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 
 
 class Population:
@@ -112,14 +112,16 @@ class Annotations:
         def _annotate(current, level):
             nonlocal current_rule_name
             self.node_levels[current] = level
+            node_name = None
 
             if isinstance(current, (UnlexerRule, UnparserRule)):
-                if current.name and current.name != '<INVALID>':
+                if current.name != '<INVALID>':
                     current_rule_name = (current.name,)
                     if current != root and (not isinstance(current, UnlexerRule) or not current.immutable):
                         if current_rule_name not in self.rules_by_name:
                             self.rules_by_name[current_rule_name] = []
                         self.rules_by_name[current_rule_name].append(current)
+                        node_name = current_rule_name
                 else:
                     current_rule_name = None
             elif current_rule_name:
@@ -128,11 +130,15 @@ class Annotations:
                     if node_name not in self.quants_by_name:
                         self.quants_by_name[node_name] = []
                     self.quants_by_name[node_name].append(current)
+                elif isinstance(current, UnparserRuleQuantified):
+                    node_name = current_rule_name + ('qd', current.parent.idx,)
                 elif isinstance(current, UnparserRuleAlternative):
                     node_name = current_rule_name + ('a', current.alt_idx,)
-                    if node_name not in self.alts_by_name:
-                        self.alts_by_name[node_name] = []
-                    self.alts_by_name[node_name].append(current)
+
+            if node_name:
+                if node_name not in self.nodes_by_name:
+                    self.nodes_by_name[node_name] = []
+                self.nodes_by_name[node_name].append(current)
 
             self.node_depths[current] = 0
             self.node_tokens[current] = 0
@@ -143,13 +149,22 @@ class Annotations:
                     self.node_tokens[current] += self.node_tokens[child] if isinstance(child, ParentRule) else child.size.tokens + 1
 
         current_rule_name = None
+        self.nodes_by_name: dict[str, list[Rule]] = {}
         self.rules_by_name: dict[str, list[UnlexerRule | UnparserRule]] = {}
-        self.alts_by_name: dict[str, list[UnparserRuleAlternative]] = {}
         self.quants_by_name: dict[str, list[UnparserRuleQuantifier]] = {}
         self.node_levels: dict[Rule, int] = {}
         self.node_depths: dict[Rule, int] = {}
         self.node_tokens: dict[Rule, int] = {}
         _annotate(root, 0)
+
+    @property
+    def nodes(self) -> list[Rule]:
+        """
+        Get all the nodes of the tree.
+
+        :return: List of Rule nodes.
+        """
+        return [node for nodes in self.nodes_by_name.values() for node in nodes]
 
     @property
     def rules(self) -> list[UnlexerRule | UnparserRule]:
@@ -159,15 +174,6 @@ class Annotations:
         :return: List of rule nodes.
         """
         return [rule for rules in self.rules_by_name.values() for rule in rules]
-
-    @property
-    def alts(self) -> list[UnparserRuleAlternative]:
-        """
-        Get nodes created from alternatives.
-
-        :return: List of alternative nodes.
-        """
-        return [alt for alts in self.alts_by_name.values() for alt in alts]
 
     @property
     def quants(self) -> list[UnparserRuleQuantifier]:

@@ -465,13 +465,8 @@ class GeneratorTool:
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
         donor_annot = donor_individual.annotations
 
-        recipient_lookup: dict[str, Sequence[Rule]] = dict(recipient_annot.rules_by_name)
-        recipient_lookup.update(recipient_annot.quants_by_name)
-        recipient_lookup.update(recipient_annot.alts_by_name)
-
-        donor_lookup: dict[str, Sequence[Rule]] = dict(donor_annot.rules_by_name)
-        donor_lookup.update(donor_annot.quants_by_name)
-        donor_lookup.update(donor_annot.alts_by_name)
+        recipient_lookup: dict[str, Sequence[Rule]] = dict(recipient_annot.nodes_by_name)
+        donor_lookup: dict[str, Sequence[Rule]] = dict(donor_annot.nodes_by_name)
         common_types = sorted(set(recipient_lookup.keys()) & set(donor_lookup.keys()))
 
         recipient_options = [(rule_name, node) for rule_name in common_types for node in recipient_lookup[rule_name] if node.parent]
@@ -650,10 +645,7 @@ class GeneratorTool:
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
 
-        options: dict[str, Sequence[Rule]] = dict(annot.rules_by_name)
-        options.update(annot.quants_by_name)
-        options.update(annot.alts_by_name)
-
+        options: dict[str, Sequence[Rule]] = dict(annot.nodes_by_name)
         for _, nodes in random.sample(list(options.items()), k=len(options)):
             # Skip node types without two instances.
             if len(nodes) < 2:

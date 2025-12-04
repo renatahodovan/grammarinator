@@ -265,17 +265,8 @@ public:
     auto donor_annot = ensured_donor->annotations();
     const auto& donor_node_info = donor_annot->node_info();
 
-    // NOTE: merges clear the data structures of recipient_lookup
-    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> recipient_lookup;
-    recipient_lookup.merge(recipient_annot->rules_by_name());
-    recipient_lookup.merge(recipient_annot->quants_by_name());
-    recipient_lookup.merge(recipient_annot->alts_by_name());
-
-    // NOTE: merges clear the data structures of donor_lookup
-    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> donor_lookup;
-    donor_lookup.merge(donor_annot->rules_by_name());
-    donor_lookup.merge(donor_annot->quants_by_name());
-    donor_lookup.merge(donor_annot->alts_by_name());
+    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> recipient_lookup = recipient_annot->nodes_by_name();
+    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> donor_lookup = donor_annot->nodes_by_name();
 
     std::vector<runtime::Annotations::NodeKey> common_types;
     for (const auto& [recipient_key, value] : recipient_lookup) {
@@ -544,15 +535,7 @@ public:
     auto annot = individual->annotations();
 
     std::vector<std::vector<runtime::Rule*>*> options;
-    for (auto& [key, nodes] : annot->rules_by_name()) {
-      if (nodes.size() > 1)
-        options.push_back(&nodes);
-    }
-    for (auto& [key, nodes] : annot->quants_by_name()) {
-      if (nodes.size() > 1)
-        options.push_back(&nodes);
-    }
-    for (auto& [key, nodes] : annot->alts_by_name()) {
+    for (auto& [key, nodes] : annot->nodes_by_name()) {
       if (nodes.size() > 1)
         options.push_back(&nodes);
     }
