@@ -156,7 +156,7 @@ public:
     explicit {{ graph.name }}(Model* model=new DefaultModel(), const std::vector<Listener*>& listeners={}, const RuleSize& limit=RuleSize::max()) : {{ graph.superclass }}(model, listeners, limit) {}
 
     {% for rule in graph.imag_rules %}
-    Rule* {{ rule.id | join('_') }}(Rule *parent = nullptr) {
+    virtual Rule* {{ rule.id | join('_') }}(Rule *parent = nullptr) {
         UnlexerRuleContext rule(this, "{{ rule.id | join('_') }}", parent);
         return rule.current();
     }
