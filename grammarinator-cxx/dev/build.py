@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -123,7 +123,7 @@ def main():
                       help='format of the saved trees (choices: %(choices)s; default: flatbuffers)')
     sgrp.add_argument('--include', metavar='FILE',
                       help='file to include when compiling the specialized artefacts (default: derived from the generator class name by appending .hpp)')
-    sgrp.add_argument('--includedir', metavar='DIR', action='append',
+    sgrp.add_argument('--includedir', metavar='DIR', action='append', default=[],
                       help='directory to append to the include path, usually which contains the file produced by grammarinator-process (may be specified multiple times)')
     sgrp.add_argument('--suffix', metavar='NAME',
                       help='suffix of the specialized artefacts, possibly referring to the input format (default: derived from the generator class name by removing Generator and lowercasing)')
@@ -134,8 +134,11 @@ def main():
         'json': 'JsonTreeCodec'
     }[args.tree_format] if args.tree_format else None
 
-    if (args.generate or args.grlf) and (not args.includedir or not args.generator):
-        parser.error('To build specialized artefacts, the `--generator` and `--includedir` arguments must be defined.')
+    if args.generate or args.fuzznull or args.grlf:
+        if not args.includedir or (not args.generator and not args.include):
+            parser.error('To build specialized artefacts, either the `--generator` or the `--include`, and the `--includedir` arguments must be defined.')
+        if not args.generator and not args.suffix:
+            sys.stderr.write(f'{parser.prog}: Neither `--generator` nor `--suffix` is defined; the created binary will get a default name.\n')
 
     try:
         configure_cmake(args)
