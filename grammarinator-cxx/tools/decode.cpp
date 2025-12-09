@@ -56,6 +56,9 @@ int main(int argc, char **argv) {
        "directory to save the test cases",
        cxxopts::value<std::string>()->default_value((fs::current_path()).string()),
        "DIR")
+      ("stdout",
+       "print test cases to stdout (alias for --out='')",
+       cxxopts::value<bool>())
       ("tree-format",
        "format of the saved trees (choices: " + tree_format_choices + ")",
        cxxopts::value<std::string>()->default_value("flatbuffers"),
@@ -77,8 +80,10 @@ int main(int argc, char **argv) {
       exit(0);
     }
 
-    fs::path out_dir(args["out"].as<std::string>());
-    fs::create_directories(out_dir);
+    fs::path out_dir = args.count("stdout") ? "" : args["out"].as<std::string>();
+    if (!out_dir.empty()) {
+      fs::create_directories(out_dir);
+    }
 
     auto tf_it = tree_formats.find(args["tree-format"].as<std::string>());
     if (tf_it == tree_formats.end()) {
@@ -105,10 +110,14 @@ int main(int argc, char **argv) {
 
       // 3) serialize the decoded tree using the build-time serializer define
       std::string test_src = GRAMMARINATOR_SERIALIZER(root);
-      fs::path out_file = out_dir / in_file.stem();
-      std::ofstream ofs(out_file);
-      ofs << test_src;
-      ofs.close();
+      if (!out_dir.empty()) {
+        fs::path out_file = out_dir / in_file.stem();
+        std::ofstream ofs(out_file);
+        ofs << test_src;
+        ofs.close();
+      } else {
+        pout(test_src);
+      }
     }
 
     delete tree_codec;
