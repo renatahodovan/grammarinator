@@ -570,13 +570,12 @@ public:
           }
 
           // Ensure the subtrees rooted at recipient and donor nodes are disjunct.
-          auto const * const upper_node = first_node_level < second_node_level ? first_node : second_node;
-          auto const * const lower_node = first_node_level < second_node_level ? second_node : first_node;
           bool disjunct = true;
-          auto parent = lower_node->parent;
-          while (parent && disjunct) {
-            disjunct = parent != upper_node;
-            parent = parent->parent;
+          for (auto p = first_node->parent; p && disjunct; p = p->parent) {
+            disjunct = p != second_node;
+          }
+          for (auto p = second_node->parent; p && disjunct; p = p->parent) {
+            disjunct = p != first_node;
           }
           if (!disjunct) {
             continue;
