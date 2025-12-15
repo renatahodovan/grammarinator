@@ -7,7 +7,7 @@
 
 import os
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, SUPPRESS
 from collections.abc import Callable
 from functools import partial
 from multiprocessing import Pool
@@ -32,11 +32,15 @@ def decode(fn: str, codec: TreeCodec, serializer: Callable[[Rule], str], out: st
         logger.warning('File %s does not contain a valid tree.', fn)
         return
 
-    base, _ = os.path.splitext(fn)
-    out = os.path.join(out, f'{os.path.basename(base)}{ext}')
+    src = serializer(root)
+    if out:
+        base, _ = os.path.splitext(fn)
+        out = os.path.join(out, f'{os.path.basename(base)}{ext}')
 
-    with open(out, 'w', encoding=encoding, errors=errors, newline='') as f:
-        f.write(serializer(root))
+        with open(out, 'w', encoding=encoding, errors=errors, newline='') as f:
+            f.write(src)
+    else:
+        print(src)
 
 
 def execute() -> None:
@@ -54,6 +58,8 @@ def execute() -> None:
                         help='reference to a seralizer (in package.module.function format) that takes a tree and produces a string from it.')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
                         help='directory to save the test cases (default: %(default)s).')
+    parser.add_argument('--stdout', dest='out', action='store_const', const='', default=SUPPRESS,
+                        help='print test cases to stdout (alias for --out=%(const)r).')
     add_tree_format_argument(parser)
     add_encoding_argument(parser, help='output file encoding (default: %(default)s).')
     add_encoding_errors_argument(parser)
@@ -70,7 +76,8 @@ def execute() -> None:
     process_sys_path_argument(args)
     process_sys_recursion_limit_argument(args)
 
-    os.makedirs(args.out, exist_ok=True)
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
 
     if isinstance(args.serializer, str):
         args.serializer = import_object(args.serializer)
