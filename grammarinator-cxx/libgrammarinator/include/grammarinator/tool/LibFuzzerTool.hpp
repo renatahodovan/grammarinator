@@ -74,11 +74,11 @@ public:
                          bool unrestricted = true,
                          const std::unordered_set<std::string> allowlist = {}, const std::unordered_set<std::string> blocklist = {},
                          const std::vector<TransformerFn>& transformers = {}, SerializerFn serializer = nullptr,
-                         int memo_size = 0, const TreeCodec& codec = FlatBuffersTreeCodec(),
-                         bool print_mutators = false)
+                         int memo_size = 0, const TreeCodec& codec = FlatBuffersTreeCodec())
       : Tool<GeneratorFactoryClass>(generator_factory, rule, limit, nullptr,
-        true, true, true, unrestricted, allowlist, blocklist,
-        transformers, serializer, memo_size), codec(codec) {
+                                    true, true, true, unrestricted, allowlist, blocklist,
+                                    transformers, serializer, memo_size),
+        codec(codec) {
     if (unrestricted) {
       this->allow_creator(this->mutators, "libfuzzer_mutate", [this](auto i1, auto i2) { return libfuzzer_mutate(i1); });
     }
