@@ -20,6 +20,10 @@
 
 #include "grammarinator/config.hpp"
 
+#ifndef GRAMMARINATOR_GENERATOR
+#error "GRAMMARINATOR_GENERATOR must be defined"
+#endif
+
 using namespace grammarinator::runtime;
 using namespace grammarinator::tool;
 using namespace grammarinator::util;

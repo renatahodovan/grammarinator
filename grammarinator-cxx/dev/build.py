@@ -31,17 +31,21 @@ def generate_build_options(args):
     build_options_append('GRAMMARINATOR_DECODE', 'ON' if args.decode else 'OFF')
     build_options_append('GRAMMARINATOR_FUZZNULL', 'ON' if args.fuzznull else 'OFF')
     build_options_append('GRAMMARINATOR_GRLF', 'ON' if args.grlf else 'OFF')
-    if args.generate or args.decode or args.fuzznull or args.grlf:
+
+    if args.generate or args.fuzznull or args.grlf:
         build_options_append('GRAMMARINATOR_GENERATOR', args.generator)
         build_options_append('GRAMMARINATOR_MODEL', args.model)
         build_options_append('GRAMMARINATOR_LISTENER', args.listener)
         build_options_append('GRAMMARINATOR_TRANSFORMER', args.transformer)
+
+    if args.generate or args.decode or args.fuzznull or args.grlf:
         build_options_append('GRAMMARINATOR_SERIALIZER', args.serializer)
         build_options_append('GRAMMARINATOR_TREECODEC', args.treecodec)
         build_options_append('GRAMMARINATOR_INCLUDE', args.include)
         build_options_append('GRAMMARINATOR_INCLUDEDIRS', ';'.join(os.path.abspath(includedir) for includedir in args.includedir))
         build_options_append('GRAMMARINATOR_SUFFIX', args.suffix)
         build_options_append('GRAMMARINATOR_LOG_LEVEL', args.log_level)
+
     return build_options
 
 

@@ -20,6 +20,10 @@
 
 #include "grammarinator/config.hpp"
 
+#ifndef GRAMMARINATOR_GENERATOR
+#error "GRAMMARINATOR_GENERATOR must be defined"
+#endif
+
 namespace {
 
 struct {
