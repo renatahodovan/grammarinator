@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
 #
 # Licensed under the BSD 3-Clause License
@@ -870,6 +870,23 @@ class ProcessorTool:
 
             return []
 
+        def token_from_set_element(set_element: RuleContext) -> NodeIdType:
+            if set_element.TOKEN_REF():
+                name = str(set_element.TOKEN_REF())
+                assert (name,) in graph.vertices, f'Token reference {name} not found in graph.'
+                return (name,)
+            if set_element.STRING_LITERAL():
+                name = str(set_element.STRING_LITERAL())[1:-1]
+                if name in literal_lookup:
+                    return literal_lookup[name]
+
+                # Create a new unlexer node from unknown strings to expand the set of possible tokens used by parser dot.
+                lit_id = graph.add_node(UnlexerRuleNode())
+                literal_lookup[name] = lit_id
+                graph.add_edge(frm=lit_id, to=graph.add_node(LiteralNode(src=name)))
+                return lit_id
+            assert False, 'Unsupported construct in parser not set expression.'
+
         def unique_charset(ranges: list[tuple[int, int]]) -> int:
             if not ranges:
                 raise ValueError('Charset must contain at least one range')
@@ -963,6 +980,18 @@ class ProcessorTool:
                 return True
             except ValueError:
                 return False
+
+        def _create_token_alternatives(rule_id, token_ids):
+            if len(token_ids) == 1:
+                graph.add_edge(frm=rule_id, to=token_ids[0])
+                return
+
+            alt_id = graph.add_node(AlternationNode(rule_id=rule_id, idx=0, conditions=[1] * len(token_ids)))
+            graph.add_edge(frm=rule_id, to=alt_id)
+            for i, lexer_id in enumerate(token_ids):
+                alternative_id = graph.add_node(AlternativeNode(rule_id=rule_id, alt_idx=0, idx=i))
+                graph.add_edge(frm=alt_id, to=alternative_id)
+                graph.add_edge(frm=alternative_id, to=lexer_id)
 
         # TODO: Typing of build_rule is a nightmare, hence it's postponed.
         def build_rule(rule, node):
@@ -1114,26 +1143,30 @@ class ProcessorTool:
                                 # Create an artificial `_dot` rule with an alternation of all the lexer rules.
                                 parser_dot_id = graph.add_node(UnparserRuleNode(name='_dot'))
                                 unlexer_ids = [v.name for vid, v in graph.vertices.items() if isinstance(v, UnlexerRuleNode)]
-                                alt_id = graph.add_node(AlternationNode(rule_id=parser_dot_id, idx=0, conditions=[1] * len(unlexer_ids)))
-                                graph.add_edge(frm=parser_dot_id, to=alt_id)
-                                for i, lexer_id in enumerate(unlexer_ids):
-                                    alternative_id = graph.add_node(AlternativeNode(rule_id=parser_dot_id, alt_idx=0, idx=i))
-                                    graph.add_edge(frm=alt_id, to=alternative_id)
-                                    graph.add_edge(frm=alternative_id, to=lexer_id)
+                                _create_token_alternatives(parser_dot_id, unlexer_ids)
                             graph.add_edge(frm=parent_id, to='_dot')
 
                     elif node.notSet():
-                        if node.notSet().setElement():
-                            not_ranges = chars_from_set(node.notSet().setElement())
+                        if isinstance(node, ANTLRv4Parser.LexerAtomContext):
+                            if node.notSet().setElement():
+                                not_ranges = chars_from_set(node.notSet().setElement())
+                            else:
+                                not_ranges = []
+                                for set_element in node.notSet().blockSet().setElement():
+                                    not_ranges.extend(chars_from_set(set_element))
+
+                            charset = unique_charset(multirange_diff(graph.charsets[dot_charset], sorted(not_ranges, key=lambda x: x[0])))
+                            graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx[rule.name], charset=charset)))
+                            chr_idx[rule.name] += 1
                         else:
-                            not_ranges = []
-                            for set_element in node.notSet().blockSet().setElement():
-                                not_ranges.extend(chars_from_set(set_element))
-
-                        charset = unique_charset(multirange_diff(graph.charsets[dot_charset], sorted(not_ranges, key=lambda x: x[0])))
-                        graph.add_edge(frm=parent_id, to=graph.add_node(CharsetNode(rule_id=rule.id, idx=chr_idx[rule.name], charset=charset)))
-                        chr_idx[rule.name] += 1
-
+                            if node.notSet().setElement():
+                                disabled_tokens = [token_from_set_element(node.notSet().setElement())]
+                            else:
+                                disabled_tokens = []
+                                for set_element in node.notSet().blockSet().setElement():
+                                    disabled_tokens.append(token_from_set_element(set_element))
+                            enabled_token_ids = [v.id for _, v in graph.vertices.items() if isinstance(v, UnlexerRuleNode) and v.id not in disabled_tokens]
+                            _create_token_alternatives(parent_id, enabled_token_ids)
                     elif isinstance(node, ANTLRv4Parser.LexerAtomContext) and node.characterRange():
                         start, end = character_range_interval(node)
                         if lexer_rule:
