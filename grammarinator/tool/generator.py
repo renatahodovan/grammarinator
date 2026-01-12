@@ -299,7 +299,7 @@ class GeneratorTool:
         # is evicted.
         if self._memo_size < 1:
             return True
-        test = xxhash.xxh3_64_intdigest(input)
+        test = xxhash.xxh3_64_intdigest(input.encode(encoding=self._encoding, errors=self._errors))
         if test in self._memo:
             return False
         self._memo[test] = None
