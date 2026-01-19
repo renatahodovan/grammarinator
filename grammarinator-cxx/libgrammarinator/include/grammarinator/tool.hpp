@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -8,6 +8,7 @@
 #ifndef GRAMMARINATOR_TOOL_HPP
 #define GRAMMARINATOR_TOOL_HPP
 
+#include "tool/AFLTool.hpp"
 #include "tool/DefaultGeneratorFactory.hpp"
 #include "tool/FilePopulation.hpp"
 #include "tool/FlatBuffersTreeCodec.hpp"
@@ -16,6 +17,7 @@
 #include "tool/JsonTreeCodec.hpp"
 #include "tool/JsonWeightLoader.hpp"
 #include "tool/LibFuzzerTool.hpp"
+#include "tool/SubTreePopulation.hpp"
 #include "tool/Tool.hpp"
 #include "tool/TreeCodec.hpp"
 

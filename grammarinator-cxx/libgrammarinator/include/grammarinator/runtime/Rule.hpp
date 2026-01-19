@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -630,7 +630,7 @@ inline const Rule* Rule::right_sibling() const {
 
 inline Rule* Rule::root() noexcept {
   Rule* node = this;
-  while (node->parent) {
+  while (node->parent && node->parent->name != "<ROOT>") {
     node = node->parent;
   }
   return node;
@@ -638,7 +638,7 @@ inline Rule* Rule::root() noexcept {
 
 inline const Rule* Rule::root() const noexcept {
   const Rule* node = this;
-  while (node->parent) {
+  while (node->parent && node->parent->name != "<ROOT>") {
     node = node->parent;
   }
   return node;

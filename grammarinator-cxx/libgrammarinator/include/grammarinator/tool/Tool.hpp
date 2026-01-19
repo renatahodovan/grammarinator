@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -43,6 +43,7 @@ public:
   runtime::RuleSize limit;
   std::vector<TransformerFn> transformers;
   SerializerFn serializer;
+  std::string last_mutator;
 
 protected:
   std::map<std::string, CreatorFn> generators;
@@ -121,7 +122,7 @@ protected:
     return {individual1, individual2};
   }
 
-  virtual std::map<std::string, CreatorFn>::iterator select_creator(std::map<std::string, CreatorFn>& creators, runtime::Individual* individual1, runtime::Individual* individual2) const  {
+  virtual std::map<std::string, CreatorFn>::iterator select_creator(std::map<std::string, CreatorFn>& creators, runtime::Individual* individual1, runtime::Individual* individual2) const {
     size_t idx = util::random_int<size_t>(0, creators.size() - 1);
     return std::next(creators.begin(), idx);
   }
@@ -133,6 +134,7 @@ protected:
     while (!creators.empty()) {
       auto creatorit = select_creator(creators, individual1, individual2);
       GRAMMARINATOR_LOG_TRACE("Original test: '{}'", serializer(individual1->root()));
+      last_mutator = creatorit->first;
       root = creatorit->second(individual1, individual2);
       if (root) {
         break;
@@ -148,6 +150,7 @@ protected:
     return root;
   }
 
+public:
   bool memoize_test(const void *input, size_t length) {
     // Memoize the (hash of the) test case. The size of the memo is capped by
     // ``memo_size``, i.e., it contains at most that many test cases.
@@ -174,22 +177,16 @@ protected:
     return true;
   }
 
-public:
   runtime::Rule* mutate(runtime::Individual* individual = nullptr) {
     // Regenerate root if it has no children.
     individual = ensure_individual(individual);
-    auto root = static_cast<runtime::ParentRule*>(individual->root());
-    if (root->children.size() == 0) {
-      root->add_child(generate());
-      return root;
-    } else {
-      auto real_root = static_cast<runtime::ParentRule*>(root->children[0]);
-      if (real_root->children.empty()) {
-        GRAMMARINATOR_LOG_DEBUG("Mutate empty tree. Regenerate {}", real_root->name);
-        real_root->replace(generate(real_root->name));
-        delete real_root;
-        return root;
-      }
+    auto real_root = static_cast<runtime::ParentRule*>(individual->root());
+
+    if (real_root->children.empty()) {
+      GRAMMARINATOR_LOG_DEBUG("Mutate empty tree. Regenerate {}", real_root->name);
+      real_root->replace(generate(real_root->name));
+      delete real_root;
+      return individual->root();
     }
 
     auto creators = mutators;
@@ -250,7 +247,7 @@ public:
                                 root_tokens - node_info.at(mutated_node).tokens);
       auto new_node = mutated_node->replace(generate(mutated_node->name, reserve));
       delete mutated_node;
-      return new_node->root();
+      return individual->root();
     }
 
     GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
