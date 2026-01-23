@@ -4,6 +4,125 @@
 
 .. start included documentation
 
+26.1
+====
+
+Summary of changes:
+
+* Grammar feature support:
+
+  * Improved handling of inline literals in parser rules by ensuring a
+    corresponding lexer rule always exists.
+  * Fixed and extended support for arguments, locals, and returns, including
+    complex parameter lists and uninitialized values.
+  * Added support for typed rule attributes (args, locals, returns), supporting
+    both prefix and postfix type notation.
+  * Added support for unicode properties and "not set" constructs in lexer and
+    "not set" constructs in parser rules.
+  * Improved handling of the dot (``.``) wildcard in parser rules to generate
+    random tokens instead of single characters.
+  * Added support for rule-level named actions.
+  * Enabled rule labels with recurring names and removed incorrect naming
+    restrictions.
+  * Added support for per-rule options.
+  * Ignored the artificial EOF rule during generation and parsing.
+
+* Generated fuzzer, runtime API:
+
+  * Introduced token-based size control in addition to depth-based limits.
+  * Improved backtracking logic in quantified expression matching during
+    ``grammariantor-parse``
+  * Unified the presentation of static size data of various language constructs
+    in the generated generator.
+  * Added detailed decision nodes (alternatives, quantifiers) to generated
+    trees to preserve generation semantics.
+  * Improved tree node APIs, including formatting (``str``, ``repr``,
+    ``debug``), equality comparison, and token sequence access.
+  * Added memoization of generated test cases to improve uniqueness.
+  * Improved handling and marking of immutable lexer and parser rules.
+  * Refined listener notifications to correctly reflect sub-rule execution.
+  * Removed deprecated concepts (e.g., cooldown factor).
+  * Introduced grammar-violating mutation support (optional,
+    runtime-controlled).
+
+* Population, mutation, and recombination:
+
+  * Introduced new mutation operators (swap, insert, replicate quantified,
+    unrestricted delete/hoist).
+  * Generalized existing mutators to work on quantified nodes as well.
+  * Improved determinism and reproducibility of mutation and recombination.
+  * Refactored population handling by introducing Individual abstractions.
+  * Renamed DefaultPopulation / DefaultIndividual to FilePopulation /
+    FileIndividual.
+  * Enabled different selection strategies for donor and recipient individuals.
+  * Added support for parsing and using seed inputs with syntax errors, with an
+    optional strict mode to discard them.
+
+* Tools and CLI:
+
+  * Extended ``grammarinator-parse`` to accept directories and file patterns.
+  * Added dry-run mode and infinite generation (``-n inf``) support to
+    ``grammarinator-generate``.
+  * Added progress bars for bulk processing tools.
+  * Added the ``grammarinator-decode`` CLI utility to convert population trees
+    back into test sources.
+  * Unified CLI argument conventions across tools.
+  * Improved diagnostic messages and error handling throughout the toolchain.
+  * Added support for reproducible generation and encoding-error handling in
+    memoized workflows.
+
+* Tree codecs and serialization:
+
+  * Introduced a tree codec framework supporting JSON, pickle, and FlatBuffers.
+  * Added ``Annotation``-aware codecs and unified infinite quantifier
+    representation.
+  * Improved serializers and tree printing.
+  * Enabled equality comparison of trees.
+
+* C++ backend and native integrations:
+
+  * Added full C++ code generation support with a header-only runtime library.
+  * Added C-based helper library (libgrlf) for libFuzzer integration.
+  * Introduced AFL++ integration with subtree-based populations and trimming.
+  * Added memoization support to LibFuzzer and AFL++ integrations and native
+    generators.
+  * Improved and modularized the C++ build system (CMake, build helper).
+  * Added extensive C++ grammar test coverage and CI integration.
+
+* Documentation:
+
+  * Significantly expanded and unified documentation for Python and C++ usage.
+  * Added detailed API documentation, user guides, and backend-specific
+    examples.
+  * Updated README with end-to-end workflows and minimal working examples.
+  * Improved docstring quality, consistency, and formatting.
+
+* Packaging, installation, dependencies:
+
+  * Dropped support for Python 3.7, 3.8, and 3.9; added support up to
+    Python 3.14.
+  * Updated and pinned key dependencies (ANTLR, FlatBuffers, xxHash, PyPy).
+  * Improved ReadTheDocs configuration and build reproducibility.
+  * Updated GitHub Actions workflows and toolchain versions.
+  * Adopted SPDX license identifiers.
+
+* Testing and CI:
+
+  * Greatly expanded test coverage, including C++ grammar tests.
+  * Improved determinism and stability of multiprocessing tests.
+  * Added mypy-based static type checking.
+  * Improved CI resilience (non-fail-fast, expanded matrices).
+  * Regenerated example fuzzers and ensured consistency across backends.
+
+* Under-the-hood:
+
+  * Extensive internal refactoring, cleanup, and API consistency improvements.
+  * Improved grammar graph construction and node identification.
+  * Optimized static data access and reduced runtime overhead.
+  * Introduced interning for static grammar structures.
+  * Numerous bug fixes, typo fixes, lint cleanups, and internal
+    simplifications.
+
 23.7
 ====
 
