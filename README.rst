@@ -22,12 +22,55 @@ grammar-based approach is to leverage the large variety of publicly
 available `ANTLR v4 grammars`_. It includes both a Python-based and a
 high-performance C++ backend for generation.
 
-The `trophy page`_ of the found issues is available from the wiki.
-
 .. _ANTLR: http://www.antlr.org
 .. _`ANTLR v4 grammars`: https://github.com/antlr/grammars-v4
 .. _`trophy page`: https://github.com/renatahodovan/grammarinator/wiki
 
++--------------------------------------------------------------------------+
+| **TL;DR - KEY FEATURES**                                                 |
++--------------------------------------------------------------------------+
+| *Quick overview of the most important capabilities*                      |
++==========================================================================+
+|                                                                          |
+| * **Generate** test cases from scratch based on `ANTLR v4 grammars`_ or  |
+|   **mutate/recombine** existing test cases after they have been parsed.  |
+|                                                                          |
+| * Beside blackbox test generation, supports guided fuzzing through       |
+|   native integration with `libFuzzer`_ and `AFL++`_.                     |
+|                                                                          |
+|   * The AFL++ integration also enables **grammar-aware test case         |
+|     minimization** via the ``afl-tmin`` utility.                         |
+|                                                                          |
+| * **Grammar-aware mutation and recombination** without slowing down the  |
+|   fuzzing with parsing (using pre-parsed input seeds).                   |
+|                                                                          |
+| * Fine-grained **probabilistic generation control** via inline grammar   |
+|   weights or external JSON-based weight configurations (for alternatives |
+|   and quantifiers).                                                      |
+|                                                                          |
+| * Support for inline **semantic predicates** in grammars to dynamically  |
+|   enable or disable grammar alternatives during generation.              |
+|                                                                          |
+| * Multiple **size-control strategies**, including maximum recursion depth|
+|   and maximum token count limits.                                        |
+|                                                                          |
+| * Built-in **caching** to filter out duplicate generated inputs.         |
+|                                                                          |
+| * Both **grammar-aware and grammar-unaware mutators**, with selective    |
+|   enablement and disabling support.                                      |
+|                                                                          |
+| * Extensible **serialization** pipeline with custom serializers for      |
+|   formatting tree-based outputs into concrete test inputs.               |
+|                                                                          |
+| * Advanced customization hooks:                                          |
+|                                                                          |
+|   * **custom models** for programmatic decision guidance                 |
+|   * **custom listeners** for information collection during generation    |
+|   * **custom transformers** for post-generation tree transformations     |
++--------------------------------------------------------------------------+
+
+.. _libFuzzer: https://llvm.org/docs/LibFuzzer.html
+.. _AFL++: https://aflplus.plus
 
 Requirements
 ============

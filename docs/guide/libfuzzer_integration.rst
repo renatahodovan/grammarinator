@@ -59,6 +59,27 @@ mutator. Test inputs are expected to be serialized ``.grt*`` trees
 Note that only ``.grt*``-style inputs (e.g., ``.grtf`` for FlatBuffer-encoded
 trees) are supported by the libFuzzer integration.
 
+Fuzzing Configuration
+---------------------
+
+The libFuzzer mutator integration can be configured through command-line
+options, similarly to :ref:`grammarinator-generate<grammarinator-generate>`.
+These arguments **must** be passed after the ``-ignore_remaining_args=1`` flag,
+so that libFuzzer forwards them to Grammarinator.
+
+The following options are supported:
+
+* **-max_depth**: Equivalent to ``--max-depth`` (integer)
+* **-max_tokens**: Equivalent to ``--max-tokens`` (integer)
+* **-memo_size**: Equivalent to ``--memo-size`` (integer)
+* **-random_mutators**: Enable random mutators; equivalent to the
+  inverse of ``--disable-random-mutators`` (0 or 1)
+* **-weights**: Equivalent to ``--weights`` (path to a JSON file)
+* **-allowlist**: Equivalent to ``--allowlist`` (comma-separated list of
+  enabled creators)
+* **-blocklist**: Equivalent to ``--blocklist`` (comma-separated list of
+  disabled creators)
+
 Verifying the Setup
 -------------------
 
@@ -74,5 +95,12 @@ This will create a ``fuzznull-html`` binary under
 ``grammarinator-cxx/build/Release/bin/``, which can be invoked directly to
 verify the setup and test input processing.
 
-Note: clang++ must be used in this case, since other compilers don't support
-libFuzzer.
+**Note 1:** clang++ must be used in this case, since other compilers don't
+support libFuzzer.
+
+**Note 2:** When using LibFuzzer with Grammarinator integration, both the input
+and output corpora must be in tree format. Therefore, any existing input corpus
+must first be converted into trees using the
+:ref:`grammarinator-parse<grammarinator-parse>` utility. After the fuzzing
+session, the resulting tree corpus can be converted back into source-level test
+cases using the :ref:`grammarinator-decode<grammarinator-decode-cpp>` utility.

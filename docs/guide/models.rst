@@ -108,10 +108,12 @@ models are:
 
   3. :class:`grammarinator.runtime.WeightedModel`: This model modifies the
      behavior of another model by adjusting (pre-multiplying) the weights of
-     alternatives. By default, the multiplier of each alternative starts from 1,
-     unless custom values are assigned to specific alternatives. This assignment
-     can happen through the constructor of WeightedModel (when using the API)
-     or with the ``--weigths`` CLI option of the
+     alternatives and by setting the probability of repeating a quantified
+     subexpression. By default, the multiplier of each alternative starts from
+     1 and the probability of each quantifier is 0.5, unless custom values are
+     assigned to specific alternatives or quantifiers. This assignment can
+     happen through the constructor of WeightedModel (when using the API) or
+     with the ``--weigths`` CLI option of the
      :ref:`grammarinator-generate<grammarinator-generate>` utility by providing
      a file containing the weights.
 
@@ -124,4 +126,7 @@ models are:
 
     .. code-block:: text
 
-     { "ruleName_A": {"alternation_B_idx": {"alternative_C_idx": weight_ABC, ...}, ...}, ... }
+      {
+        "alts": { "ruleName_A": {"alternation_B_idx": {"alternative_C_idx": weight_ABC, ...}, ...}, ... ,
+        "quants": { "ruleName_C": {"quant_D_idx": weight_ABC, ...}, ... ,
+      }

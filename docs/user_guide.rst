@@ -10,3 +10,4 @@ User Guide
    guide/population
    guide/test_generation
    guide/libfuzzer_integration
+   guide/aflpp_integration
