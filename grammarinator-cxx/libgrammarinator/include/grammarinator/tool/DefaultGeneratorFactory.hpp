@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -23,16 +23,17 @@ namespace tool {
 template<class GeneratorClass, class ModelClass = runtime::DefaultModel, class... ListenerClasses>
 class DefaultGeneratorFactory : public GeneratorFactory<GeneratorClass> {
 private:
-  runtime::WeightedModel::WeightMap weights;
+  runtime::WeightedModel::AltMap weights;
+  runtime::WeightedModel::QuantMap probs;
 
 public:
-  explicit DefaultGeneratorFactory(const runtime::WeightedModel::WeightMap& weights = {})
-      : weights(weights) {}
+  explicit DefaultGeneratorFactory(const runtime::WeightedModel::AltMap& weights = {}, const runtime::WeightedModel::QuantMap& probs = {})
+      : weights(weights), probs(probs) {}
 
   GeneratorClass operator()(const runtime::RuleSize& limit = runtime::RuleSize::max()) {
     runtime::Model* model = new ModelClass();
-    if (!weights.empty()) {
-      model = new runtime::WeightedModel(model, weights);
+    if (!weights.empty() || !probs.empty()) {
+      model = new runtime::WeightedModel(model, weights, probs);
     }
     std::vector<runtime::Listener*> listeners = {(new ListenerClasses())...};
     return GeneratorClass(model, listeners, limit);

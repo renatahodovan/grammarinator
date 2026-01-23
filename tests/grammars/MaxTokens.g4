@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -22,7 +22,7 @@ from grammarinator.runtime import DispatchingModel
 
 class MaxTokensModel(DispatchingModel):
 
-    def quantify_start(self, node, idx, cnt, min, max):
+    def quantify_start(self, node, idx, cnt, min, max, prob=0.5):
         return True
 }
 

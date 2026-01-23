@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -71,7 +71,7 @@ class DefaultGeneratorFactory(GeneratorFactory):
     """
 
     def __init__(self, generator_class: type[Generator], *,
-                 model_class: type[Model] | None = None, weights: dict[tuple[str, int, int], float] | None = None,
+                 model_class: type[Model] | None = None, weights: dict[tuple[str, int, int], float] | None = None, probs: dict[tuple[str, int], float] | None = None,
                  listener_classes: list[type[Listener]] | None = None) -> None:
         """
         :param generator_class: The class of the generator to instantiate.
@@ -80,12 +80,16 @@ class DefaultGeneratorFactory(GeneratorFactory):
         :param weights: Initial multipliers of alternatives. Used to instantiate
             a :class:`~grammarinator.runtime.WeightedModel` wrapper around the
             model.
+        :param probs: Initial custom  probabilities for quantifiers. Used to instantiate
+            a :class:`~grammarinator.runtime.WeightedModel` wrapper around the
+            model.
         :param listener_classes: List of listener classes to instantiate and
             attach to the generator.
         """
         super().__init__(generator_class)
         self._model_class: type[Model] = model_class or DefaultModel
         self._weights: dict[tuple[str, int, int], float] | None = weights
+        self._probs: dict[tuple[str, int], float] | None = probs
         self._listener_classes: list[type[Listener]] = listener_classes or []
 
     def __call__(self, limit: RuleSize | None = None) -> Generator:
@@ -102,8 +106,8 @@ class DefaultGeneratorFactory(GeneratorFactory):
         :return: The created generator instance.
         """
         model = self._model_class()
-        if self._weights:
-            model = WeightedModel(model, weights=self._weights)
+        if self._weights or self._probs:
+            model = WeightedModel(model, weights=self._weights, probs=self._probs)
 
         listeners = []
         for listener_class in self._listener_classes:

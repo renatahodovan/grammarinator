@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -35,8 +35,8 @@ public:
     return grammarinator::util::random_weighted_choice(weights);
   }
 
-  bool quantify(const Rule* node, int idx, int cnt, int start, int stop) override {
-    return grammarinator::util::random_real(0.0, 1.0) > 0.5;
+  bool quantify(const Rule* node, int idx, int cnt, int start, int stop, double prob = 0.5) override {
+    return grammarinator::util::random_real(0.0, 1.0) < prob;
   }
 
   std::string charset(const Rule* node, int idx, const std::vector<std::string>& chars) override {

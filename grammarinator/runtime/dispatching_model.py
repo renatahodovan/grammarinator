@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -28,14 +28,14 @@ class DispatchingModel(DefaultModel):
         name = 'choice_' + node.name
         return (getattr(self, name) if hasattr(self, name) else super().choice)(node, idx, weights)
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float, prob: float = 0.5) -> bool:
         """
         Trampoline to the ``quantify_{node.name}`` method of the subclassed
         model, if it exists. Otherwise, it calls the default implementation
         (:meth:`DefaultModel.quantify`).
         """
         name = 'quantify_' + node.name
-        return (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, cnt, start, stop)
+        return (getattr(self, name) if hasattr(self, name) else super().quantify)(node, idx, cnt, start, stop, prob)
 
     def charset(self, node: Rule, idx: int, chars: tuple[int, ...]) -> str:
         """

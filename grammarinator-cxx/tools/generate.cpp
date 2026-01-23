@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
        cxxopts::value<int>()->default_value(std::to_string(RuleSize::max().tokens)),
        "NUM")
       ("weights",
-       "JSON file defining custom weights for alternatives",
+       "JSON file defining custom weights for alternatives and quantifiers",
        cxxopts::value<std::string>(),
        "FILE")
       ("p,population",
@@ -158,9 +158,10 @@ int main(int argc, char **argv) {
     TreeCodec* tree_codec = std::get<1>(tree_format_it->second)();
 
     // Parse optional custom weights from JSON
-    runtime::WeightedModel::WeightMap weights;
+    runtime::WeightedModel::AltMap weights;
+    runtime::WeightedModel::QuantMap probs;
     if (args.count("weights")) {
-      JsonWeightLoader().load(args["weights"].as<std::string>(), weights);
+      JsonWeightLoader().load(args["weights"].as<std::string>(), weights, probs);
     }
 
     auto allowlist = args.count("allowlist")
@@ -179,7 +180,7 @@ int main(int argc, char **argv) {
 
     FilePopulation *population = args.count("population") ? new FilePopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr;
     int seed = args.count("random-seed") ? args["random-seed"].as<int>() : std::random_device()();
-    GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights),  // generator_factory
+    GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights, probs),  // generator_factory
                             args.count("stdout") ? "" : args["out"].as<std::string>(),  // out_format
                             args.count("rule") ? args["rule"].as<std::string>() : "",  // rule
                             RuleSize(args["max-depth"].as<int>(), args["max-tokens"].as<int>()),  // limit
