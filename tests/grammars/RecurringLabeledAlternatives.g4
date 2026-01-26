@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2024-2026 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -28,10 +28,10 @@ class RecurringLabeledAlternativesModel(DefaultModel):
             assert idx == 1, idx
         return super().choice(node, idx, weights)
 
-    def quantify(self, node, idx, cnt, start, stop):
+    def quantify(self, node, idx, cnt, start, stop, prob=0.5):
         assert node.name == 'start_Binary', node.name
         assert idx == 1, idx
-        return super().quantify(node, idx, cnt, start, stop)
+        return super().quantify(node, idx, cnt, start, stop, prob)
 }
 
 start

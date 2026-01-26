@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -28,7 +28,7 @@ class CustomModel(DispatchingModel):
         # Enforce choosing the third alternative (`c`).
         return 2
 
-    def quantify_start(self, node, idx, cnt, start, stop):
+    def quantify_start(self, node, idx, cnt, start, stop, prob=0.5):
         # Enforce to repeat 3 times.
         return cnt < 3
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -30,11 +30,11 @@ public:
   MaxTokensModel& operator=(MaxTokensModel&& other) = delete;
   ~MaxTokensModel() override = default;
 
-  bool quantify(const grammarinator::runtime::Rule* node, int idx, int cnt, int start, int stop) override {
+  bool quantify(const grammarinator::runtime::Rule* node, int idx, int cnt, int start, int stop, double prob = 0.5) override {
     if (node->name == "start") {
       return true;
     }
-    return DefaultModel::quantify(node, idx, cnt, start, stop);
+    return DefaultModel::quantify(node, idx, cnt, start, stop, prob);
   }
 };
 }

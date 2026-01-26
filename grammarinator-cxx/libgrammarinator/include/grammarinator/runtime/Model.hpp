@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -30,7 +30,7 @@ public:
   virtual ~Model() = default;
 
   virtual int choice(const Rule* node, int idx, const std::vector<double>& weights) = 0;
-  virtual bool quantify(const Rule* node, int idx, int cnt, int start, int stop) = 0;
+  virtual bool quantify(const Rule* node, int idx, int cnt, int start, int stop, double prob = 0.5) = 0;
   virtual std::string charset(const Rule* node, int idx, const std::vector<std::string>& chars) = 0;
 };
 

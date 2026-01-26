@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -25,7 +25,7 @@ class DefaultModel(Model):
         # assert sum(weights) > 0, 'Sum of weights is zero.'
         return random.choices(range(len(weights)), weights=weights)[0]
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float, prob: float = 0.5) -> bool:
         """
         After generating the minimum expected items (``start``) and before
         reaching the maximum expected items (``stop``), quantify decides about
@@ -34,7 +34,7 @@ class DefaultModel(Model):
         Parameters ``node``, ``idx``, ``cnt``, ``start``, and ``stop`` are
         unused.
         """
-        return bool(random.getrandbits(1))
+        return random.random() < prob
 
     def charset(self, node: Rule, idx: int, chars: tuple[int, ...]) -> str:
         """

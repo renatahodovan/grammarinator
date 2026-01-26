@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -43,12 +43,21 @@ def process_args(args):
             raise ValueError('Custom weights should point to an existing JSON file.')
 
         with open(args.weights, 'r') as f:
-            weights = {}
-            for rule, alts in json.load(f).items():
+            weights, probs = {}, {}
+            data = json.load(f)
+
+            for rule, alts in data.get('alts', {}).items():
                 for alternation_idx, alternatives in alts.items():
                     for alternative_idx, w in alternatives.items():
                         weights[(rule, int(alternation_idx), int(alternative_idx))] = w
+
+            for rule, quants in data.get('quants', {}).items():
+                for quantifier_idx, quant in quants.items():
+                    probs[(rule, int(quantifier_idx))] = quant
             args.weights = weights
+            args.probs = probs
+    else:
+        args.probs = None
 
     if args.population:
         args.population = abspath(args.population)
@@ -58,6 +67,7 @@ def generator_tool_helper(args, lock=None):
     return GeneratorTool(generator_factory=DefaultGeneratorFactory(args.generator,
                                                                    model_class=args.model,
                                                                    weights=args.weights,
+                                                                   probs=args.probs,
                                                                    listener_classes=args.listener),
                          rule=args.rule, out_format=args.out, lock=lock,
                          limit=RuleSize(depth=args.max_depth, tokens=args.max_tokens),
@@ -99,7 +109,7 @@ def execute():
     parser.add_argument('--max-tokens', default=RuleSize.max.tokens, type=int, metavar='NUM',
                         help='maximum token number during generation (default: %(default)f).')
     parser.add_argument('-w', '--weights', metavar='FILE',
-                        help='JSON file defining custom weights for alternatives.')
+                        help='JSON file defining custom weights for alternatives and quantifiers.')
 
     # Evolutionary settings.
     parser.add_argument('--population', metavar='DIR',

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -30,7 +30,7 @@ class Model:
         """
         raise NotImplementedError()
 
-    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float) -> bool:
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float, prob: float = 0.5) -> bool:
         """
         Guide the loop of subtree quantification. This has to make a binary
         decision to tell whether to enable the next iteration or stop the loop.
@@ -44,6 +44,8 @@ class Model:
             between ``start`` (inclusive) and ``stop`` (exclusive).
         :param start: Lower bound of the quantification range.
         :param stop: Upper bound of the quantification range.
+        :param prob: Predefined probability of enabling the next iteration
+            (between 0 and 1).
         :return: Boolean value enabling the next iteration or stopping it.
         """
         raise NotImplementedError()
