@@ -20,6 +20,8 @@ The following sections describe each step in detail.
 Generator Creation from ANTLR Grammar
 -------------------------------------
 
+.. _grammarinator-process:
+
 In both Python and C++ backends, the first step is to convert the ANTLR grammar
 into a generator class. This generator encapsulates the logic for producing
 derivation trees from the grammar rules.
@@ -34,7 +36,8 @@ header-only C++ file (e.g., ``HTMLGenerator.hpp``). While this class does not
 yet have dedicated API documentation, it mirrors the structure and behavior of
 the Python generator and is used by the compiled fuzzing tools
 (e.g., the ``grammarinator-generate-html`` binary and
-:ref:`libFuzzer integration<libfuzzer integration>`).
+:ref:`libFuzzer integration<libfuzzer integration>` or
+:ref:`AFL++ integration<aflpp integration>`).
 
 The generator class -- whether Python or C++ -- is automatically produced by
 the ``grammarinator-process`` command line utility. This tool loads and
@@ -125,7 +128,7 @@ For example, if using a custom serializer and transformer, your config file
 
 Depending on the build flags, the following outputs may be generated:
 
-- With ``--tools``:
+- With ``--generate``:
 
   - ``grammarinator-generate-<name>``: standalone blackbox generator
 
@@ -135,9 +138,19 @@ Depending on the build flags, the following outputs may be generated:
     ``LLVMFuzzerCustomMutator`` or ``LLVMFuzzerCustomCrossover`` (useful for
     :ref:`libFuzzer integration<libfuzzer integration>`)
 
+- With ``--grafl``:
+
+  - ``libgafl-<name>.so``: shared library to define various hooks for
+    :ref:`AFL++ integration<aflpp integration>`
+
 - With ``--fuzznull``:
 
   - ``fuzznull-<name>``: dummy libFuzzer binary for integration testing
+
+- With ``--decode``:
+
+  - ``grammarinator-decode-<name>``: standalone tool to convert tests from
+    tree to source format with the chosen serializer
 
 All outputs are written to the ``build/<Release|Debug>/bin`` and
 ``build/<Release|Debug>/lib`` directories.
