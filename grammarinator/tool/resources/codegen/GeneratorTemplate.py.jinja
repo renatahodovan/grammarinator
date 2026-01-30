@@ -27,12 +27,23 @@ local_ctx['{{ node.name }}']{% if node.is_list %}.append(current.last_child){% e
 pass
 {% endmacro %}
 
+{% set py_keywords = [
+    'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'case', 'class',
+    'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if',
+    'import', 'in', 'is', 'lambda', 'match', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
+    'try', 'while', 'with', 'yield'
+] %}
+
+{% macro py_escape(name) %}
+{%- if name in py_keywords -%}{{ name }}_{%- else -%}{{ name }}{%- endif -%}
+{% endmacro %}
+
 
 {% macro processRuleNode(node, inedge) %}
 {% if inedge.reserve != 0 %}
-self._reserve({{ inedge.reserve }}, self.{{ node.id | join('_') }}, {% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+self._reserve({{ inedge.reserve }}, self.{{ py_escape(node.id | join('_')) }}, {% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% else %}
-self.{{ node.id  | join('_') }}({% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
+self.{{ py_escape(node.id | join('_')) }}({% if inedge.args %}{% for _, k, v in inedge.args %}{% if k %}{{ k }}={% endif %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}parent=current)
 {% endif %}
 {% endmacro %}
 
@@ -67,7 +78,7 @@ with AlternationContext(rule, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ nod
     {% if simple_lits and simple_rules %}
     choice{{ node.idx }} = alt{{ node.idx }}()
     alt_src = [{% for lit in simple_lits %}{% if lit is not none %}'{{ lit | escape_string }}'{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
-    alt_rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ rule | join('_') }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
+    alt_rule = [{% for rule in simple_rules %}{% if rule is not none %}self.{{ py_escape(rule | join('_')) }}{% else %}None{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}][choice{{ node.idx }}]
     if alt_src is not None:
         current.src += alt_src
     else:
@@ -75,7 +86,7 @@ with AlternationContext(rule, {{ node.idx }}, {{ graph.name }}._alt_sizes[{{ nod
     {% elif simple_lits %}
     current.src += [{% for lit in simple_lits %}'{{ lit | escape_string }}'{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()]
     {% elif simple_rules %}
-    [{% for rule in simple_rules %}self.{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()](parent=current)
+    [{% for rule in simple_rules %}self.{{ py_escape(rule | join('_')) }}{% if not loop.last %}, {% endif %}{% endfor %}][alt{{ node.idx }}()](parent=current)
     {% else %}
     choice{{ node.idx }} = alt{{ node.idx }}()
     {% for edge in node.out_edges if not edge.dst.is_lambda_alternative %}
@@ -136,7 +147,7 @@ else:
 class {{ graph.name }}({{ graph.superclass }}):
 
     {% for rule in graph.imag_rules %}
-    def {{ rule.id | join('_') }}(self, parent: ParentRule | None = None) -> Rule:
+    def {{ py_escape(rule.id | join('_')) }}(self, parent: ParentRule | None = None) -> Rule:
         with UnlexerRuleContext(self, '{{ rule.id | join('_') }}', parent) as rule:
             current = rule.current
         return current
@@ -147,7 +158,7 @@ class {{ graph.name }}({{ graph.superclass }}):
     {% endif %}
 
     {% for rule in graph.rules %}
-    def {{ rule.id | join('_') }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}: {{ t }}{% endif %}{% if v %} = {{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent: ParentRule | None = None) -> Rule:
+    def {{ py_escape(rule.id | join('_')) }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}: {{ t }}{% endif %}{% if v %} = {{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent: ParentRule | None = None) -> Rule:
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
         local_ctx = {
             {%- for _, k, _ in rule.args -%}
@@ -186,7 +197,7 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     {% endfor %}
 
-    _default_rule: ClassVar[Callable[['{{ graph.name }}', ParentRule | None], Rule]] = {{ graph.default_rule }}
+    _default_rule: ClassVar[Callable[['{{ graph.name }}', ParentRule | None], Rule]] = {{ py_escape(graph.default_rule) }}
 
     _rule_sizes: ClassVar[dict[str, RuleSize]] = {
         {% for rule in graph.rules %}
