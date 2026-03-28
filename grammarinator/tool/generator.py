@@ -279,7 +279,7 @@ class GeneratorTool:
             if self._memoize_test(test):
                 break
             logger.debug("test case #%d, attempt %d/%d: already generated among the last %d unique test cases", index, attempt, self._unique_attempts, len(self._memo))
-        if self._dry_run:
+        if self._dry_run or not root:
             return None
 
         test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
@@ -317,7 +317,7 @@ class GeneratorTool:
         # NOTE: May be overridden.
         return random.choice(creators)
 
-    def _create_tree(self, creators: list[Callable[[Individual | None, Individual | None], Rule | None]], individual1: Individual | None, individual2: Individual | None) -> Rule:
+    def _create_tree(self, creators: list[Callable[[Individual | None, Individual | None], Rule | None]], individual1: Individual | None, individual2: Individual | None) -> Rule | None:
         # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
         while creators:
             creator = self._select_creator(creators, individual1, individual2)
@@ -326,14 +326,14 @@ class GeneratorTool:
                 break
             creators.remove(creator)
         else:
-            assert individual1 is not None
-            root = individual1.root
+            logger.warning("No test creators could produce a tree")
+            return None
 
         for transformer in self._transformers:
             root = transformer(root)
         return root
 
-    def create(self) -> Rule:
+    def create(self) -> Rule | None:
         """
         Create a new tree with a randomly selected generator method from the
         available options (see :meth:`generate`, :meth:`mutate`, and
@@ -350,7 +350,7 @@ class GeneratorTool:
             creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
 
-    def mutate(self, individual: Individual | None = None) -> Rule:
+    def mutate(self, individual: Individual | None = None) -> Rule | None:
         """
         Dispatcher method for mutation operators: it picks one operator randomly
         and creates a new tree by applying the operator to an individual. The
@@ -372,7 +372,7 @@ class GeneratorTool:
         individual = self._ensure_individual(individual)
         return self._create_tree(self._mutators[:], individual, None)
 
-    def recombine(self, individual1: Individual | None = None, individual2: Individual | None = None) -> Rule:
+    def recombine(self, individual1: Individual | None = None, individual2: Individual | None = None) -> Rule | None:
         """
         Dispatcher method for recombination operators: it picks one operator
         randomly and creates a new tree by applying the operator to an

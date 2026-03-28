@@ -133,7 +133,9 @@ protected:
 
     while (!creators.empty()) {
       auto creatorit = select_creator(creators, individual1, individual2);
-      GRAMMARINATOR_LOG_TRACE("Original test: '{}'", serializer(individual1->root()));
+      if (individual1) {
+        GRAMMARINATOR_LOG_TRACE("Original test: '{}'", serializer(individual1->root()));
+      }
       last_mutator = creatorit->first;
       root = creatorit->second(individual1, individual2);
       if (root) {
@@ -142,7 +144,8 @@ protected:
       creators.erase(creatorit->first);
     }
     if (!root) {
-      root = individual1->root();
+      GRAMMARINATOR_LOG_WARN("No test creator could produce a tree.");
+      return nullptr;
     }
     for (const auto& transformer : transformers) {
       root = transformer(root);
