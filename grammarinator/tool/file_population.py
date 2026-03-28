@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -113,4 +113,6 @@ class FileIndividual(Individual):
         """
         if not self._root:
             self._root, self._annot = self._population._load(self._name)
+            if not self._root:
+                logger.warning("Failed to load individual from %r", self._name)
         return self._root
