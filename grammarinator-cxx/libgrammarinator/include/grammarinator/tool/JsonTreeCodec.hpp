@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -8,6 +8,7 @@
 #ifndef GRAMMARINATOR_TOOL_JSONTREECODEC_HPP
 #define GRAMMARINATOR_TOOL_JSONTREECODEC_HPP
 
+#include "../util/log.hpp"
 #include "../util/print.hpp"
 #include "TreeCodec.hpp"
 
@@ -80,7 +81,7 @@ private:
         j["e"] = quant_node->stop != INT_MAX ? quant_node->stop : -1;
       }
       j["c"] = nlohmann::json::array();
-      for (const auto& child : static_cast<runtime::UnparserRule*>(node)->children) {
+      for (const auto& child : static_cast<runtime::ParentRule*>(node)->children) {
         j["c"].push_back(toJson(child));
       }
     }
@@ -88,6 +89,10 @@ private:
   }
 
   runtime::Rule* fromJson(const nlohmann::json& obj) const {
+    if (!obj.is_object() || !obj.contains("t")) {
+      GRAMMARINATOR_LOG_WARN("Invalid JSON tree node.");
+      return nullptr;
+    }
     if (obj["t"] == "l") {
       auto size = obj["z"].get<std::vector<int>>();
       return new runtime::UnlexerRule(obj["n"].get<std::string>(), obj["s"].get<std::string>(), runtime::RuleSize(size[0], size[1]), obj["i"]);
@@ -103,7 +108,11 @@ private:
       int end = obj["e"].get<int>();
       node = new runtime::UnparserRuleQuantifier(obj["i"].get<int>(), obj["b"].get<int>(), end != -1 ? end : INT_MAX);
     }
-    if (!obj["c"].empty()) {
+    if (!node) {
+      GRAMMARINATOR_LOG_WARN("Unknown JSON tree node type.");
+      return nullptr;
+    }
+    if (obj.contains("c") && !obj["c"].empty()) {
       for (const auto& child : obj["c"]) {
         node->add_child(fromJson(child));
       }
