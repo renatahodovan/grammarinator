@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2020-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -6,10 +6,10 @@
 # according to those terms.
 
 import glob
-import logging
 import os
 
 from inators.imp import import_object
+from inators import log as logging
 
 from .tool import FlatBuffersTreeCodec, JsonTreeCodec, PickleTreeCodec
 

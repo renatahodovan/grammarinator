@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -183,6 +183,20 @@ class Rule:
         while node.parent:
             node = node.parent
         return node
+
+    @property
+    def rule_name(self) -> str:
+        """
+        Get the name of the container rule node.
+
+        :return: The name of container rule node.
+        """
+        r = self
+        while r:
+            if r.name:
+                return r.name
+            r = r.parent  # type: ignore[assignment]
+        return ''
 
     def replace(self, node: Rule) -> Rule:
         """

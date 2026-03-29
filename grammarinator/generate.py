@@ -79,6 +79,11 @@ def generator_tool_helper(args, lock=None):
                          cleanup=False, encoding=args.encoding, errors=args.encoding_errors, dry_run=args.dry_run)
 
 
+def init_worker_logging(log_level):
+    init_logging()
+    logger.setLevel(log_level)
+
+
 def create_test(generator_tool, index, *, seed):
     if seed:
         random.seed(seed + index)
@@ -171,7 +176,7 @@ def execute():
             with Manager() as manager:
                 with generator_tool_helper(args, lock=manager.Lock()) as generator_tool:
                     parallel_create_test = partial(create_test, generator_tool, seed=args.random_seed)
-                    with Pool(args.jobs) as pool:
+                    with Pool(args.jobs, initializer=init_worker_logging, initargs=(logger.level,)) as pool:
                         for _ in pool.imap_unordered(parallel_create_test, count(0) if args.n == inf else range(args.n)):
                             progress_bar.update()
         else:
