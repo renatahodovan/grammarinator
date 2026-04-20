@@ -24,12 +24,30 @@ local_ctx.{{ node.name }}{% if node.is_list %}.push_back(static_cast<ParentRule*
 {% macro processLambdaNode(node, inedge) %}
 {% endmacro %}
 
+{% set cpp_keywords = [
+    'NULL','alignas', 'alignof', 'and', 'and_eq', 'asm', 'atomic_cancel', 'atomic_commit', 'atomic_noexcept',
+    'auto', 'bitand', 'bitor', 'bool', 'break', 'case', 'catch', 'char', 'char8_t', 'char16_t',
+    'char32_t', 'class', 'compl', 'concept', 'const', 'consteval', 'constexpr', 'constinit',
+    'const_cast', 'continue', 'co_await', 'co_return', 'co_yield', 'decltype', 'default', 'delete',
+    'do', 'double', 'dynamic_cast', 'else', 'enum', 'explicit', 'export', 'extern', 'false', 'float',
+    'for', 'friend', 'goto', 'if', 'inline', 'int', 'long', 'mutable', 'namespace', 'new', 'noexcept',
+    'not', 'not_eq', 'nullptr', 'operator', 'or', 'or_eq', 'private', 'protected', 'public', 'register',
+    'reinterpret_cast', 'requires', 'return', 'short', 'signed', 'sizeof', 'static', 'static_assert',
+    'static_cast', 'struct', 'switch', 'synchronized', 'template', 'this', 'thread_local', 'throw',
+    'true', 'try', 'typedef', 'typeid', 'typename', 'union', 'unsigned', 'using', 'virtual', 'void',
+    'volatile', 'wchar_t', 'while', 'xor', 'xor_eq'
+] %}
+
+{% macro cpp_escape(name) %}
+{%- if name in cpp_keywords -%}{{ name }}_{%- else -%}{{ name }}{%- endif -%}
+{% endmacro %}
+
 
 {% macro processRuleNode(node, inedge) %}
 {% if inedge.reserve != 0 %}
-_reserve({{ inedge.reserve }}, this, &{{ graph.name }}::{{ node.id | join('_') }}, {% if inedge.args %}{% for _, _, v in inedge.args %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}current);
+_reserve({{ inedge.reserve }}, this, &{{ graph.name }}::{{ cpp_escape(node.id | join('_')) }}, {% if inedge.args %}{% for _, _, v in inedge.args %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}current);
 {% else %}
-{{ node.id | join('_') }}({% if inedge.args %}{% for _, _, v in inedge.args %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}current);
+{{ cpp_escape(node.id | join('_')) }}({% if inedge.args %}{% for _, _, v in inedge.args %}{{ resolveVarRefs(v) }}, {% endfor %}{% endif %}current);
 {% endif %}
 {% endmacro %}
 
@@ -70,7 +88,7 @@ current = rule.current();
     {% if simple_lits and simple_rules %}
     size_t choice{{ node.idx }} = alt{{ node.idx }}();
     const char* alt_src = std::vector<const char*>{ {% for lit in simple_lits %}{% if lit is not none %}"{{ lit | escape_string }}"{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
-    RuleFn alt_rule = std::vector<RuleFn>{ {% for rule in simple_rules %}{% if rule is not none %}&{{ graph.name }}::{{ rule | join('_') }}{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
+    RuleFn alt_rule = std::vector<RuleFn>{ {% for rule in simple_rules %}{% if rule is not none %}&{{ graph.name }}::{{ cpp_escape(rule | join('_')) }}{% else %}nullptr{% endif %}{% if not loop.last %}, {% endif %}{% endfor %} }[choice{{ node.idx }}];
     if (alt_src) {
         static_cast<UnlexerRule*>(current)->src += alt_src;
     } else {
@@ -79,7 +97,7 @@ current = rule.current();
     {% elif simple_lits %}
     static_cast<UnlexerRule*>(current)->src += std::vector<std::string>{ {% for lit in simple_lits %}"{{ lit | escape_string }}"{% if not loop.last %}, {% endif %}{% endfor %} }[alt{{ node.idx }}()];
     {% elif simple_rules %}
-    std::vector<RuleFn> options{ {% for rule in simple_rules %}&{{ graph.name }}::{{ rule | join('_') }}{% if not loop.last %}, {% endif %}{% endfor %} };
+    std::vector<RuleFn> options{ {% for rule in simple_rules %}&{{ graph.name }}::{{ cpp_escape(rule | join('_')) }}{% if not loop.last %}, {% endif %}{% endfor %} };
     RuleFn fn = options[alt{{ node.idx }}()];
     (this->*fn)(current);
     {% else %}
@@ -156,7 +174,7 @@ public:
     explicit {{ graph.name }}(Model* model=new DefaultModel(), const std::vector<Listener*>& listeners={}, const RuleSize& limit=RuleSize::max()) : {{ graph.superclass }}(model, listeners, limit) {}
 
     {% for rule in graph.imag_rules %}
-    virtual Rule* {{ rule.id | join('_') }}(Rule *parent = nullptr) {
+    virtual Rule* {{ cpp_escape(rule.id | join('_')) }}(Rule *parent = nullptr) {
         UnlexerRuleContext rule(this, "{{ rule.id | join('_') }}", parent);
         return rule.current();
     }
@@ -167,7 +185,7 @@ public:
     {% endif %}
 
     {% for rule in graph.rules %}
-    {% if rule.options.get('virtual', graph.options.get('virtual', 'false')) == 'true' %}virtual {% endif %}Rule* {{ rule.id | join('_') }}({% for t, k, v in rule.args %}{{ t }} {{ k }}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}Rule *parent = nullptr) {
+    {% if rule.options.get('virtual', graph.options.get('virtual', 'false')) == 'true' %}virtual {% endif %}Rule* {{ cpp_escape(rule.id | join('_')) }}({% for t, k, v in rule.args %}{{ t }} {{ k }}{% if v %}={{ resolveVarRefs(v) }}{% endif %}, {% endfor %}Rule *parent = nullptr) {
         {% if rule.labels or rule.args or rule.locals or rule.returns %}
         struct {
             {% for t, k, _ in rule.args %}
@@ -215,7 +233,7 @@ public:
 
     inline static const std::unordered_map<std::string, RuleFn> _rule_fns = {
         {% for rule in graph.rules %}
-        {%+ if rule.args %}// {% endif %}{ "{{ rule.id | join('_') }}", &{{ graph.name }}::{{ rule.id | join('_') }} },
+        {%+ if rule.args %}// {% endif %}{ "{{ rule.id | join('_') }}", &{{ graph.name }}::{{ cpp_escape(rule.id | join('_')) }} },
         {% endfor %}
     };
 
