@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -6,6 +6,7 @@
 # according to those terms.
 
 import json
+import logging
 import pickle
 import struct
 
@@ -16,6 +17,8 @@ import flatbuffers
 
 from ..runtime import Rule, RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 from .fbs import CreateFBRuleSize, FBRule, FBRuleAddAltIdx, FBRuleAddChildren, FBRuleAddIdx, FBRuleAddImmutable, FBRuleAddName, FBRuleAddSize, FBRuleAddSrc, FBRuleAddStart, FBRuleAddStop, FBRuleAddType, FBRuleEnd, FBRuleStart, FBRuleStartChildrenVector, FBRuleType
+
+logger = logging.getLogger(__name__)
 
 
 class TreeCodec:
@@ -154,6 +157,10 @@ class JsonTreeCodec(TreeCodec):
         bytes using the specified encoding.
         """
         def _dict_to_rule(dct):
+            if not isinstance(dct, dict) or 't' not in dct:
+                logger.warning('Invalid JSON tree node.')
+                return None
+
             if dct['t'] == 'l':
                 return UnlexerRule(name=dct['n'], src=dct['s'], size=RuleSize(depth=dct['z'][0], tokens=dct['z'][1]), immutable=dct['i'])
             if dct['t'] == 'p':
@@ -164,11 +171,14 @@ class JsonTreeCodec(TreeCodec):
                 return UnparserRuleQuantified(children=dct['c'])
             if dct['t'] == 'q':
                 return UnparserRuleQuantifier(idx=dct['i'], start=dct['b'], stop=dct['e'] if dct['e'] != -1 else inf, children=dct['c'])
-            raise json.JSONDecodeError
+
+            logger.warning('Unknown JSON tree node type.')
+            return None
 
         try:
             return json.loads(data.decode(encoding=self._encoding, errors=self._encoding_errors), object_hook=_dict_to_rule)
         except json.JSONDecodeError:
+            logger.warning('Invalid JSON input.')
             return None
 
 
