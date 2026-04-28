@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -73,10 +73,14 @@ public:
   ~GeneratorTool() override = default;
 
   std::string create_test(int index) {
-    grammarinator::runtime::Rule* root;
+    grammarinator::runtime::Rule* root = nullptr;
     std::string test;
     for (int attempt = 1; attempt <= unique_attempts; ++attempt) {
       root = create();
+      if (!root) {
+        GRAMMARINATOR_LOG_WARN("Test case #{} attempt {}/{}: could not be generated.", index, attempt);
+        continue;
+      }
       test = this->serializer(root);
 
       if (this->memoize_test(test.data(), test.size())) {
@@ -84,6 +88,12 @@ public:
       }
       GRAMMARINATOR_LOG_DEBUG("Test case #{}, attempt {}/{}: already generated among the last {} unique test cases", index, attempt, unique_attempts, this->memo.size());
       GRAMMARINATOR_LOG_TRACE("Duplicate test case: '{}'", test);
+      delete root;
+      root = nullptr;
+    }
+
+    if (!root) {
+      return "";
     }
 
     std::string test_fn;
@@ -126,7 +136,7 @@ public:
       creators.insert(this->recombiners.begin(), this->recombiners.end());
     }
     auto root = this->create_tree(creators, individual1, individual2);
-    if (individual1 && individual1->root() == root) {
+    if (individual1 && root && individual1->root() == root) {
       root = root->clone();  // FIXME: this is expensive
     }
     delete individual1;

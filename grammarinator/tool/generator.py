@@ -273,6 +273,8 @@ class GeneratorTool:
         """
         for attempt in range(1, self._unique_attempts + 1):
             root = self.create()
+            if not root:
+                continue
             test = self._serializer(root)
             if self._memoize_test(test):
                 break
