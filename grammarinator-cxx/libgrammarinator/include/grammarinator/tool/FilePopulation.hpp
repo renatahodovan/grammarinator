@@ -107,16 +107,22 @@ private:
   runtime::Rule* load(const std::string& fn) {
     std::ifstream infile(fn, std::ios::binary | std::ios::ate);
     if (!infile.is_open()) {
+      GRAMMARINATOR_LOG_WARN("Failed to open population file '{}'.", fn);
       return nullptr;
     }
 
     std::streamsize size = infile.tellg();
+    if (size < 0) {
+      GRAMMARINATOR_LOG_WARN("Failed to determine population file size '{}'.", fn);
+      return nullptr;
+    }
     infile.seekg(0, std::ios::beg);
     std::vector<uint8_t> buffer;
     buffer.resize(size);
 
     infile.unsetf(std::ios::skipws); // FIXME: Stop eating new lines in binary mode (necessary?)
-    if (!infile.read(reinterpret_cast<char*>(buffer.data()), size)) {
+    if (size > 0 && !infile.read(reinterpret_cast<char*>(buffer.data()), size)) {
+      GRAMMARINATOR_LOG_WARN("Failed to read population file '{}'.", fn);
       return nullptr;
     }
     infile.close();
@@ -133,6 +139,10 @@ inline runtime::Rule* FileIndividual::root() {
     return r;
   }
   r = population_->load(name_);
+  if (!r) {
+    GRAMMARINATOR_LOG_WARN("Failed to load individual from '{}'.", name_);
+    return nullptr;
+  }
   root_->add_child(r);
   return r;
 }

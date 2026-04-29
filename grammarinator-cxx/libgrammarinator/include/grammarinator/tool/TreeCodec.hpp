@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -30,7 +30,10 @@ public:
 
   virtual size_t encode(runtime::Rule* root, uint8_t* buffer, size_t maxsize) const {
     std::vector<uint8_t> vec = encode(root);
-    std::memcpy(buffer, vec.data(), vec.size() <= maxsize ? vec.size() : maxsize);
+    if (vec.size() > maxsize) {
+      return 0;
+    }
+    std::memcpy(buffer, vec.data(), vec.size());
     return vec.size();
   }
 
