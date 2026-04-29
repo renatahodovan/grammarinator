@@ -5,7 +5,6 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import logging
 import os
 import random
 
@@ -16,6 +15,8 @@ from shutil import rmtree
 from typing import Callable, Sequence
 
 import xxhash
+
+from inators import log as logging
 
 from ..runtime import Generator, DefaultModel, Individual, Listener, Model, Population, Rule, RuleSize, UnlexerRule, UnparserRule, WeightedModel
 
@@ -257,6 +258,9 @@ class GeneratorTool:
         if creator_name not in self.blocklist and (not self.allowlist or creator_name in self.allowlist):
             creator_map.append(creator)
 
+    def print_mutator(self, fmt: str, *args) -> None:
+        logger.debug('GrammarinatorMutator [%s]', fmt.format(*args))
+
     def create_test(self, index: int) -> str | None:
         """
         Create a new test case with a randomly selected generator method from
@@ -274,6 +278,7 @@ class GeneratorTool:
         for attempt in range(1, self._unique_attempts + 1):
             root = self.create()
             if not root:
+                logger.debug("test case #%d, attempt %d/%d: could not be generated", index, attempt, self._unique_attempts)
                 continue
             test = self._serializer(root)
             if self._memoize_test(test):
@@ -321,6 +326,8 @@ class GeneratorTool:
         # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
         while creators:
             creator = self._select_creator(creators, individual1, individual2)
+            if individual1 is not None:
+                logger.trace("Original test: '%s'", self._serializer(individual1.root))
             root = creator(individual1, individual2)
             if root:
                 break
@@ -409,6 +416,10 @@ class GeneratorTool:
         reserve = reserve if reserve is not None else RuleSize()
         generator = self._generator_factory(limit=self._limit - reserve)
         rule = rule or self._rule or generator._default_rule.__name__
+        if not hasattr(generator, rule):
+            logger.error('Rule %s not found.', rule)
+            raise AttributeError(rule)
+        self.print_mutator('{}: {}', self.generate.__name__, rule)
         return getattr(generator, rule)()
 
     def _ensure_individual(self, individual: Individual | None) -> Individual:
@@ -438,12 +449,20 @@ class GeneratorTool:
         # Filter items from the nodes of the selected tree that can be regenerated
         # within the current maximum depth and token limit (except immutable nodes).
         root_tokens = annot.node_tokens[root]
-        options = [node for nodes in annot.rules_by_name.values() for node in nodes
-                   if (node.parent is not None
-                       and annot.node_levels[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).depth < self._limit.depth
-                       and root_tokens - annot.node_tokens[node] + self._generator_factory._rule_sizes.get(node.name, RuleSize(0, 0)).tokens < self._limit.tokens)]
+        options = []
+        for rule_name, nodes in annot.rules_by_name.items():
+            rule_size = self._generator_factory._rule_sizes.get(rule_name)
+            if rule_size is None:
+                logger.error('Unknown rule name in generation: %s.', rule_name)
+                continue
+            for node in nodes:
+                if (node.parent is not None
+                        and annot.node_levels[node] + rule_size.depth < self._limit.depth
+                        and root_tokens - annot.node_tokens[node] + rule_size.tokens < self._limit.tokens):
+                    options.append(node)
         if options:
             mutated_node = random.choice(options)
+            self.print_mutator('{}: {}', self.regenerate_rule.__name__, mutated_node.name)
             reserve = RuleSize(depth=annot.node_levels[mutated_node],
                                tokens=root_tokens - annot.node_tokens[mutated_node])
             mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))  # type: ignore[assignment]
@@ -451,6 +470,7 @@ class GeneratorTool:
 
         # If selection strategy fails, we fallback and discard the whole tree
         # and generate a brand new one instead.
+        logger.trace('%s failed.', self.regenerate_rule.__name__)
         return self.generate(rule=root.name)
 
     def replace_node(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
@@ -486,9 +506,11 @@ class GeneratorTool:
                 # Make sure that the output tree won't exceed the depth limit.
                 if (recipient_node_level + donor_annot.node_depths[donor_node] <= self._limit.depth
                         and recipient_root_tokens - recipient_node_tokens + donor_annot.node_tokens[donor_node] < self._limit.tokens):
+                    self.print_mutator('{}: {}', self.replace_node.__name__, recipient_node.rule_name)
                     recipient_node.replace(donor_node)
                     return recipient_root
 
+        logger.trace('%s failed.', self.replace_node.__name__)
         return None
 
     def insert_quantified(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
@@ -518,8 +540,10 @@ class GeneratorTool:
                 # Make sure that the output tree won't exceed the depth and token limits.
                 if (recipient_node_level + donor_annot.node_depths[donor_node] <= self._limit.depth
                         and recipient_root_tokens + donor_annot.node_tokens[donor_node] < self._limit.tokens):
+                    self.print_mutator('{}: {}, {}', self.insert_quantified.__name__, recipient_node.rule_name, recipient_node.idx)
                     recipient_node.insert_child(random.randint(0, len(recipient_node.children)), donor_node)
                     return recipient_root
+        logger.trace('%s failed.', self.insert_quantified.__name__)
         return None
 
     def delete_quantified(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -534,8 +558,10 @@ class GeneratorTool:
         options = [child for node in annot.quants if len(node.children) > node.start for child in node.children]
         if options:
             removed_node = random.choice(options)
+            self.print_mutator('{}: {}, {}', self.delete_quantified.__name__, removed_node.rule_name, removed_node.parent.idx)  # type: ignore[union-attr]
             removed_node.remove()
             return root
+        logger.trace('%s failed.', self.delete_quantified.__name__)
         return None
 
     def unrestricted_delete(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -551,8 +577,10 @@ class GeneratorTool:
         options = [node for node in annot.rules if node != root]
         if options:
             removed_node = random.choice(options)
+            self.print_mutator('{}: {}', self.unrestricted_delete.__name__, removed_node.name)
             removed_node.remove()
             return root
+        logger.trace('%s failed.', self.unrestricted_delete.__name__)
         return None
 
     def replicate_quantified(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -575,7 +603,9 @@ class GeneratorTool:
             repeat = random.randint(1, int(max_repeat)) if max_repeat > 1 else 1
             for _ in range(repeat):
                 node_to_repeat.parent.insert_child(idx=random.randint(0, len(node_to_repeat.parent.children)), node=deepcopy(node_to_repeat))  # type: ignore[union-attr]
+            self.print_mutator('{}: {}, {}', self.replicate_quantified.__name__, node_to_repeat.rule_name, node_to_repeat.parent.idx)  # type: ignore[union-attr]
             return root
+        logger.trace('%s failed.', self.replicate_quantified.__name__)
         return None
 
     def shuffle_quantifieds(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -591,7 +621,9 @@ class GeneratorTool:
         if options:
             node_to_shuffle = random.choice(options)
             random.shuffle(node_to_shuffle.children)
+            self.print_mutator('{}: {}, {}', self.shuffle_quantifieds.__name__, node_to_shuffle.rule_name, node_to_shuffle.idx)
             return root
+        logger.trace('%s failed.', self.shuffle_quantifieds.__name__)
         return None
 
     def hoist_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -610,9 +642,11 @@ class GeneratorTool:
             parent = rule.parent
             while parent:
                 if parent.name == rule.name:
+                    self.print_mutator('{}: {}', self.hoist_rule.__name__, parent.name)
                     parent.replace(rule)
                     return root
                 parent = parent.parent
+        logger.trace('%s failed.', self.hoist_rule.__name__)
         return None
 
     def unrestricted_hoist_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -635,8 +669,11 @@ class GeneratorTool:
                 parent = parent.parent
 
             if options:
-                random.choice(options).replace(rule)
+                hoist_parent = random.choice(options)
+                self.print_mutator('{}: {}, {}', self.unrestricted_hoist_rule.__name__, hoist_parent.name, rule.name)
+                hoist_parent.replace(rule)
                 return root
+        logger.trace('%s failed.', self.unrestricted_hoist_rule.__name__)
         return None
 
     def swap_local_nodes(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -690,7 +727,9 @@ class GeneratorTool:
                     second_parent.children[second_parent.children.index(second_node)] = first_node
                     first_node.parent = second_parent
                     second_node.parent = first_parent
+                    self.print_mutator('{}: {}', self.swap_local_nodes.__name__, first_node.rule_name)
                     return root
+        logger.trace('%s failed.', self.swap_local_nodes.__name__)
         return None
 
     def insert_local_node(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -706,7 +745,8 @@ class GeneratorTool:
         root, annot = individual.root, individual.annotations
         options = [quantifiers for quantifiers in annot.quants_by_name.values() if len(quantifiers) > 1]
         if not options:
-            return root
+            logger.trace('%s failed.', self.insert_local_node.__name__)
+            return None
 
         root_tokens = annot.node_tokens[root]
         for quantifiers in random.sample(options, k=len(options)):
@@ -722,5 +762,7 @@ class GeneratorTool:
                                 and root_tokens + annot.node_tokens[donor_quantified_node] <= self._limit.tokens):
                             recipient_node.insert_child(random.randint(0, len(recipient_node.children)) if recipient_node.children else 0,
                                                         deepcopy(donor_quantified_node))
+                            self.print_mutator('{}: {}, {}', self.insert_local_node.__name__, recipient_node.rule_name, recipient_node.idx)
                             return root
+        logger.trace('%s failed.', self.insert_local_node.__name__)
         return None
