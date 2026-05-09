@@ -19,6 +19,7 @@
 #include <xxhash.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -28,8 +29,10 @@
 #include <iterator>
 #include <map>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "grammarinator/config.hpp"
@@ -103,6 +106,28 @@ static bool env_bool(const char* k, bool dflt) {
   return dflt;
 }
 
+static void trim(std::string& s) {
+  auto not_space = [](unsigned char c) { return !std::isspace(c); };
+
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
+  s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
+}
+
+static std::unordered_set<std::string> env_str_set(const char* k) {
+  std::unordered_set<std::string> set;
+  if (const char* v = std::getenv(k)) {
+    std::stringstream ss(v);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+      trim(item);
+      if (!item.empty()) {
+        set.emplace(item);
+      }
+    }
+  }
+  return set;
+}
+
 template <typename T>
 static void assign_and_shrink_buffer_if_needed(std::vector<uint8_t>& buffer, T first, T last) {
   buffer.assign(first, last);
@@ -139,6 +164,8 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   const unsigned int max_tokens = env_u32("GRAFL_MAX_TOKENS", 0);
   const unsigned int memo_size = env_u32("GRAFL_MEMO_SIZE", 0);
   const bool random_mut = env_bool("GRAFL_RANDOM_MUTATORS", true);
+  const std::unordered_set<std::string> allowlist = env_str_set("GRAFL_ALLOWLIST");
+  const std::unordered_set<std::string> blocklist = env_str_set("GRAFL_BLOCKLIST");
   st->trim_max_steps = env_u32("GRAFL_MAX_TRIM_STEPS", 200);
 
   WeightedModel::AltMap weights;
@@ -162,7 +189,7 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER> factory(weights, probs);
   st->tool = std::make_unique<grammarinator::tool::AFLTool<grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>>>(
     factory, GRAMMARINATOR_GENERATOR::_default_rule, rule_size,
-    random_mut, std::unordered_set<std::string>{}, std::unordered_set<std::string>{},
+    random_mut, allowlist, blocklist,
     transformers, GRAMMARINATOR_SERIALIZER,
     memo_size, treeCodec
   );
