@@ -208,13 +208,6 @@ unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
     return 0;
   }
 
-  // Skip too large test cases since they will be truncated and cannot be
-  // decoded anyway.
-  if (fsize > st->afl->max_length) {
-    GRAMMARINATOR_LOG_WARN("{} is larger than max_length ({} > {}). Skipping.", fn, fsize, st->afl->max_length);
-    return 0;
-  }
-
   FILE* f = std::fopen(fn.c_str(), "rb");
   if (!f) {
     return 0;
@@ -472,18 +465,17 @@ extern "C"
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf) {
   auto* st = static_cast<grafl_state*>(data);
 
-  // If the size of the current buffer equals with exactly the max_length, then it's most probabl truncated.
-  if (buf_size == st->afl->max_length) {
-    GRAMMARINATOR_LOG_WARN("Test case is probably truncated in post process. Skipping it.");
-    *out_buf = buf;
-    return buf_size;
-  }
-
   Rule* root = st->tool->decode(buf, buf_size);
   if (root) {
     std::string out = st->tool->serializer(root);
     GRAMMARINATOR_LOG_TRACE("# {}. test:\n{}\n----------------------\n", st->fuzz_cnt, out);
     delete root;
+
+    if (out.size() > st->afl->max_length) {
+      GRAMMARINATOR_LOG_WARN("Post-processed test case is larger than max_length ({} > {}). Skipping it.", out.size(), st->afl->max_length);
+      *out_buf = nullptr;
+      return 0;
+    }
 
     st->post_process_buf.assign(out.begin(), out.end());
     *out_buf = st->post_process_buf.data();
