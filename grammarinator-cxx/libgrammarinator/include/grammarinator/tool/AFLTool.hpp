@@ -51,7 +51,7 @@ public:
   AFLTool& operator=(const AFLTool& other) = delete;
   AFLTool(AFLTool&& other) = delete;
   AFLTool& operator=(AFLTool&& other) = delete;
-  ~AFLTool() override = default;
+  ~AFLTool() override { delete this->population; }
 
   runtime::Rule* replace_from_pool(runtime::Individual* individual) {
     auto root = individual->root();
