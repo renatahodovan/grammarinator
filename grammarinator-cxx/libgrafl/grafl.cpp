@@ -61,6 +61,9 @@ struct grafl_state {
   // Fuzz buffer
   std::vector<uint8_t> fuzz_buf;
 
+  // Post-process buffer
+  std::vector<uint8_t> post_process_buf;
+
   // Fuzz loop planning
   unsigned int fuzz_cnt;
 
@@ -482,16 +485,8 @@ size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, 
     GRAMMARINATOR_LOG_TRACE("# {}. test:\n{}\n----------------------\n", st->fuzz_cnt, out);
     delete root;
 
-    unsigned char *nbuf = (unsigned char *)std::malloc(out.size());
-    if (!nbuf && out.size() > 0) {
-      *out_buf = buf;
-      return buf_size;
-    }
-
-    if (out.size() > 0) {
-      std::memcpy(nbuf, out.data(), out.size());
-    }
-    *out_buf = nbuf;
+    st->post_process_buf.assign(out.begin(), out.end());
+    *out_buf = st->post_process_buf.data();
     return out.size();
   }
 
