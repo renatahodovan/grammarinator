@@ -227,19 +227,12 @@ unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
 
   delete st->current_tree;
   st->current_tree = root;
-  //st->tool->save_tree(root);
-  return 1;
-}
 
-/**
- * This methods is called after adding a new test case to the queue. If the
- * contents of the file was changed, return True, False otherwise.
- */
-extern "C"
-u8 afl_custom_queue_new_entry(void *data, const unsigned char *filename_new_queue, const unsigned int *filename_orig_queue) {
-  auto* st = static_cast<grafl_state*>(data);
-  st->tool->save_tree(st->current_tree);
-  return 0;
+  // Save seed corpus entries to the tree pool when they are first processed.
+  if (st->afl->queue_cur && st->afl->queue_cur->depth == 1) {
+    st->tool->save_tree(root);
+  }
+  return 1;
 }
 
 /**
