@@ -79,6 +79,8 @@ struct grafl_state {
 
 // ---- Helpers ------------------------------------------------------------
 
+static constexpr size_t default_buffer_size = 1 * 1024 * 1024;
+
 static unsigned int env_u32(const char* k, unsigned int dflt) {
   if (const char* v = std::getenv(k)) {
     char* endptr = nullptr;
@@ -99,6 +101,14 @@ static bool env_bool(const char* k, bool dflt) {
     return s == "1" || s == "true" || s == "yes";
   }
   return dflt;
+}
+
+template <typename T>
+static void assign_and_shrink_buffer_if_needed(std::vector<uint8_t>& buffer, T first, T last) {
+  buffer.assign(first, last);
+  if (buffer.capacity() > default_buffer_size && buffer.size() <= default_buffer_size) {
+    buffer.shrink_to_fit();
+  }
 }
 
 }  // anonymous namespace
@@ -122,7 +132,7 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   st->mutated_tree = nullptr;
 
   // Buffers
-  st->fuzz_buf.resize(1 * 1024 * 1024);
+  st->fuzz_buf.resize(default_buffer_size);
 
   // Env config (all GRAFL_*)
   const unsigned int max_depth = env_u32("GRAFL_MAX_DEPTH", 0);
@@ -289,7 +299,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   }
 
   st->fuzz_cnt++;
-  st->fuzz_buf = out;
+  assign_and_shrink_buffer_if_needed(st->fuzz_buf, out.begin(), out.end());
   *out_buf = st->fuzz_buf.data();
   return n;
 }
@@ -394,16 +404,12 @@ size_t afl_custom_trim(void* data, unsigned char** out_buf) {
   size_t len = s.length();
   GRAMMARINATOR_LOG_TRACE("TRIM #{} [{}]", st->trim_step, st->trimmer.recall().size());
 
-  // reserve large enough memory for trim_buffer
-  if (st->trim_buffer.size() < len) {
-    st->trim_buffer.resize(len);
-  }
-
   // return trim_buffer via out_buffer, and the length of the data in trim_buffer
-  *out_buf = st->trim_buffer.data();
-  if (*out_buf) {
-    std::memcpy(*out_buf, s.data(), len);
+  assign_and_shrink_buffer_if_needed(st->trim_buffer, s.begin(), s.end());
+  if (len == 0 && st->trim_buffer.empty()) {
+    st->trim_buffer.resize(1);
   }
+  *out_buf = st->trim_buffer.data();
   return len;
 }
 
@@ -470,7 +476,7 @@ size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, 
       return 0;
     }
 
-    st->post_process_buf.assign(out.begin(), out.end());
+    assign_and_shrink_buffer_if_needed(st->post_process_buf, out.begin(), out.end());
     *out_buf = st->post_process_buf.data();
     return out.size();
   }
