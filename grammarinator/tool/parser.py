@@ -21,7 +21,8 @@ from typing import Callable, Iterable
 from antlr4 import CommonTokenStream, error, FileStream, InputStream, Lexer, ParseTreeListener, Parser, ParserRuleContext, TerminalNode, Token
 
 from ..runtime import Population, Rule, RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
-from .processor import AlternationNode, AlternativeNode, LambdaNode, ProcessorTool, QuantifierNode, UnlexerRuleNode, UnparserRuleNode
+from .grammar import AlternationNode, AlternativeNode, LambdaNode, QuantifierNode, UnlexerRuleNode, UnparserRuleNode
+from .processor import ProcessorTool
 
 
 logger = logging.getLogger(__name__)
