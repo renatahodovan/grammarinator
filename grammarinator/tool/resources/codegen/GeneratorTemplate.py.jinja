@@ -105,6 +105,12 @@ current = rule.current
 {% endmacro %}
 
 
+{% macro processFragmentRefNode(node, inedge) %}
+self.{{ node.method_name }}(rule{% if node.has_local_ctx %}, local_ctx{% endif %})
+current = rule.current
+{% endmacro %}
+
+
 {% macro processNode(node, inedge) %}
 {% set processors = {
     'QuantifierNode': processQuantifierNode,
@@ -118,6 +124,7 @@ current = rule.current
     'ActionNode': processActionNode,
     'LambdaNode': processLambdaNode,
     'VariableNode': processVariableNode,
+    'FragmentRefNode': processFragmentRefNode,
     }
 %}
 {{ processors[node.__class__.__name__](node, inedge) -}}
@@ -159,7 +166,7 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     {% for rule in graph.rules %}
     def {{ py_escape(rule.id | join('_')) }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}: {{ t }}{% endif %}{% if v %} = {{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent: ParentRule | None = None) -> Rule:
-        {% if rule.labels or rule.args or rule.locals or rule.returns %}
+        {% if rule.has_local_ctx %}
         local_ctx = {
             {%- for _, k, _ in rule.args -%}
             '{{ k }}': {{ k }}{% if not loop.last %}, {% endif %}
@@ -195,6 +202,11 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% endif %}
         return current
 
+    {% endfor %}
+    {% for frag in graph.fragments %}
+    def {{ frag.method_name }}(self, rule{% if frag.has_local_ctx %}, local_ctx{% endif %}) -> None:
+        current = rule.current
+        {{ processNode(frag.edge.dst, frag.edge) | indent | indent }}
     {% endfor %}
 
     _default_rule: ClassVar[Callable[['{{ graph.name }}', ParentRule | None], Rule]] = {{ py_escape(graph.default_rule) }}

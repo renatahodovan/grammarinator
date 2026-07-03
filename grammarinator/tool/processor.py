@@ -45,6 +45,7 @@ from .grammar import (
     dot_ranges,
     multirange_diff,
 )
+from .splitter import split_deep_rules
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +175,8 @@ class ProcessorTool:
             actions, lexer_root, parser_root, options, default_rule
         )
         ProcessorTool._analyze_graph(graph)
+        if self._lang == 'py':
+            split_deep_rules(graph)
 
         src = self._template.render(graph=graph, version=__version__).lstrip()
         with open(join(self._work_dir, graph.name + "." + self._lang), "w") as f:

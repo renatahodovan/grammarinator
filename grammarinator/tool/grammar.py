@@ -97,8 +97,44 @@ class RuleNode(Node):
         self.after: str = ''
         self.options: dict[str, str] = {}
 
+    @property
+    def has_local_ctx(self) -> bool:
+        # A rule method builds a `local_ctx` dict (and threads it into any
+        # extracted fragment) exactly when it has args, labels, locals or returns.
+        return bool(self.labels or self.args or self.locals or self.returns)
+
     def __str__(self) -> str:
         return f'{super().__str__()}; name: {self.id}'
+
+
+class FragmentRuleNode(Node):
+    # A synthetic helper method carved out of a rule (or another fragment) whose
+    # block nesting would exceed CPython's CO_MAXBLOCKS limit (see
+    # `splitter.split_deep_rules`). It subclasses `Node` (not `RuleNode`)
+    # on purpose, so it stays out of `graph.rules`/`_rule_sizes`. The moved
+    # quantifier/alternation edge is kept as its single out-edge, preserving the
+    # original `args`/`reserve`.
+
+    def __init__(self, method_name: str, has_local_ctx: bool, edge: Edge) -> None:
+        super().__init__()
+        self.method_name = method_name
+        self.has_local_ctx = has_local_ctx
+        self.out_edges = [edge]
+
+    @property
+    def edge(self) -> Edge:
+        return self.out_edges[0]
+
+
+class FragmentRefNode(Node):
+    # Placeholder left at the cut point of a rule/fragment body; renders as a
+    # call to the extracted `FragmentRuleNode`'s method followed by the usual
+    # `current = rule.current` reset.
+
+    def __init__(self, method_name: str, has_local_ctx: bool) -> None:
+        super().__init__()
+        self.method_name = method_name
+        self.has_local_ctx = has_local_ctx
 
 
 class UnlexerRuleNode(RuleNode):
@@ -305,6 +341,7 @@ class GrammarGraph:
         self.vertices: OrderedDict = OrderedDict()
         self.options: dict[str, str] = {}
         self.charsets: list[list[tuple[int, int]]] = []
+        self.fragments: list[FragmentRuleNode] = []
         self.alt_conds: list[AlternationNode] = []
         self.alt_sizes: list[list[NodeSize]] = []
         self.quant_sizes: list[NodeSize] = []
