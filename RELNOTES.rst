@@ -40,10 +40,6 @@ Summary of changes:
     ``debug``), equality comparison, and token sequence access.
   * Added memoization of generated test cases to improve uniqueness.
   * Improved handling and marking of immutable lexer and parser rules.
-  * Fixed deeply nested quantifiers/alternations breaking the Python generator:
-    rules that would exceed CPython's statically-nested block limit
-    (``CO_MAXBLOCKS``) are now automatically split into fragment helper methods,
-    so the generated module always imports.
   * Refined listener notifications to correctly reflect sub-rule execution.
   * Removed deprecated concepts (e.g., cooldown factor).
   * Introduced grammar-violating mutation support (optional,

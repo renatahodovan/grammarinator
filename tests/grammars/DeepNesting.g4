@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2026 Piotr Oleś.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,16 +11,16 @@
 /*
  * This test checks whether deeply nested quantifiers/alternations (which would
  * exceed CPython's CO_MAXBLOCKS statically-nested block limit in a single rule
- * method) are auto-split into fragment helper methods so that the generated
- * Python fuzzer stays importable.
+ * method) are outlined into helper methods so that the generated Python fuzzer
+ * stays importable.
  *
  * `deepquant` carries a labelled element (`v=`) deep inside the nesting, forcing
- * a `local_ctx` that a fragment must receive as a parameter. `dotrule` uses the
- * `.` wildcard, which creates the internal, leading-underscore `_dot` rule.
+ * a `local_ctx` that an outlined helper must receive as a parameter. `dotrule`
+ * uses the `.` wildcard, which creates the internal, leading-underscore `_dot`
+ * rule.
  *
- * `deeptwice` is nested deep enough (~49 blocks) that a single cut is not
- * sufficient: the split must be applied repeatedly, producing more than one
- * fragment helper for the rule.
+ * `deeptwice` is nested deep enough to produce more than one outlined helper for
+ * the rule.
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
@@ -33,7 +34,7 @@ start
   ;
 
 deepquant
-  : ('a' ('b' ('c' ('d' ('e' ('f' ('g' ('h' ('i' (v='j' 'end'?)?)?)?)?)?)?)?)?)?)?
+  : ('a' ('b' ('c' ('d' ('e' ('f' ('g' ('h' ('i' (v='j' 'end'+)+)+)+)+)+)+)+)+)+)+
   ;
 
 deepalt
@@ -45,5 +46,5 @@ dotrule
   ;
 
 deeptwice
-  : ('a' ('b' ('c' ('d' ('e' ('f' ('g' ('h' ('i' ('j' ('k' ('l' ('m' ('n' ('o' 'p'?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?
+  : ('a' ('b' ('c' ('d' ('e' ('f' ('g' ('h' ('i' ('j' ('k' ('l' ('m' ('n' ('o' 'p'+)+)+)+)+)+)+)+)+)+)+)+)+)+)+)+
   ;

@@ -105,8 +105,8 @@ current = rule.current
 {% endmacro %}
 
 
-{% macro processFragmentRefNode(node, inedge) %}
-self.{{ node.method_name }}(rule{% if node.has_local_ctx %}, local_ctx{% endif %})
+{% macro processOutlinedNode(node, inedge) %}
+self.{{ node.name }}(rule{% if node.has_local_ctx %}, local_ctx{% endif %})
 current = rule.current
 {% endmacro %}
 
@@ -124,7 +124,7 @@ current = rule.current
     'ActionNode': processActionNode,
     'LambdaNode': processLambdaNode,
     'VariableNode': processVariableNode,
-    'FragmentRefNode': processFragmentRefNode,
+    'OutlinedNode': processOutlinedNode,
     }
 %}
 {{ processors[node.__class__.__name__](node, inedge) -}}
@@ -203,10 +203,12 @@ class {{ graph.name }}({{ graph.superclass }}):
         return current
 
     {% endfor %}
-    {% for frag in graph.fragments %}
-    def {{ frag.method_name }}(self, rule{% if frag.has_local_ctx %}, local_ctx{% endif %}) -> None:
+    {% for outlined in graph.outlined %}
+    def {{ outlined.name }}(self, rule{% if outlined.has_local_ctx %}, local_ctx{% endif %}) -> None:
         current = rule.current
-        {{ processNode(frag.edge.dst, frag.edge) | indent | indent }}
+        {% for edge in outlined.out_edges %}
+        {{ processNode(edge.dst, edge) | indent | indent }}
+        {% endfor %}
     {% endfor %}
 
     _default_rule: ClassVar[Callable[['{{ graph.name }}', ParentRule | None], Rule]] = {{ py_escape(graph.default_rule) }}
