@@ -379,7 +379,10 @@ class GeneratorTool:
         individual = self._ensure_individual(individual)
         if not individual.root.children:  # type: ignore[attr-defined]
             logger.debug('Mutate empty tree. Regenerate %s', individual.root.name)
-            return self.generate(rule=individual.root.name)
+            root = self.generate(rule=individual.root.name)
+            for transformer in self._transformers:
+                root = transformer(root)  # type: ignore[assignment]
+            return root
         return self._create_tree(self._mutators[:], individual, None)
 
     def recombine(self, individual1: Individual | None = None, individual2: Individual | None = None) -> Rule | None:

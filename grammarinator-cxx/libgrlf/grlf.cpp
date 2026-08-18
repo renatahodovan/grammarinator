@@ -169,6 +169,9 @@ size_t GrammarinatorGenerator(uint8_t* Data, size_t Size, size_t MaxSize, unsign
   grammarinator::util::random_engine.seed(Seed);
   auto tool = libfuzzer_tool();
   auto root = tool->generate();
+  for (const auto& transformer : tool->transformers) {
+    root = transformer(root);
+  }
   std::string test = tool->serializer(root);
   GRAMMARINATOR_LOG_TRACE("Test: {}", test);
   delete root;

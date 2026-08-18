@@ -187,7 +187,11 @@ public:
 
     if (real_root->children.empty()) {
       GRAMMARINATOR_LOG_DEBUG("Mutate empty tree. Regenerate {}", real_root->name);
-      real_root->replace(generate(real_root->name));
+      auto new_root = generate(real_root->name);
+      for (const auto& transformer : transformers) {
+        new_root = transformer(new_root);
+      }
+      real_root->replace(new_root);
       delete real_root;
       return individual->root();
     }
