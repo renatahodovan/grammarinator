@@ -168,7 +168,7 @@ After generating the C++-based fuzzer using ``grammarinator-process`` with the
     python3 grammarinator-cxx/dev/build.py --clean \
         --generator <generator> \
         --includedir <include-dir> \
-        --tools
+        --generate
 
 Once built, the standalone generator can be run as follows::
 

@@ -10,7 +10,7 @@ be guided while keeping the source grammar clean and separate from the
 decision-making logic. (Another way of guiding the selection of alternatives
 is by injecting :ref:`semantic predicates <semantic-predicates>` into the
 grammar.)
-A model can be registered with using the ``--model`` argument in the
+A model can be registered using the ``--model`` argument in the
 :ref:`grammarinator-generate<grammarinator-generate>` script or through the
 constructor of :class:`grammarinator.runtime.Generator`. If no custom model
 is specified, the default model (:class:`grammarinator.runtime.DefaultModel`)
@@ -120,7 +120,8 @@ models are:
      The expected format of the weights differs depending on whether
      Grammarinator is used from API or from CLI. When using the API, a compact
      representation is used, which is not JSON serializable. For API usage,
-     refer to the documention of :class:`grammarinator.runtime.WeightedModel`.
+     refer to the documentation of
+     :class:`grammarinator.runtime.WeightedModel`.
      When providing weights from the CLI, then the input JSON file should have
      the following format:
 

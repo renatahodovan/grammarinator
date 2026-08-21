@@ -108,7 +108,7 @@ of an alternative, regardless of whether it is in a lexer or parser rule. This
 approach is necessary due to the nature of code generation, as the generator
 needs to determine the allowed alternatives at branching points.
 
-Note: There are another ways of guiding alternative selection in Grammarinator:
+Note: There are other ways of guiding alternative selection in Grammarinator:
 using :doc:`models <models>` or subclassing the
 :class:`grammarinator.runtime.Generator`.
 
