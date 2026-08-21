@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
       poutf("generator: {}", GRAMMARINATOR_STRFY(GRAMMARINATOR_GENERATOR));
       poutf("model: {}", GRAMMARINATOR_STRFY(GRAMMARINATOR_MODEL));
       poutf("listener: {}", GRAMMARINATOR_STRFY(GRAMMARINATOR_LISTENER));
-      poutf("transformer: {}", GRAMMARINATOR_STRFY(GRAMMARINATOR_TRANSFORMER));
+      poutf("transformers: {}", GRAMMARINATOR_STRFY(GRAMMARINATOR_TRANSFORMERS));
       poutf("serializer: {}", GRAMMARINATOR_STRFY(GRAMMARINATOR_SERIALIZER));
       exit(0);
     }
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
                             !args["no-grammar-violations"].as<bool>(), // unrestricted
                             std::unordered_set<std::string>(allowlist.begin(), allowlist.end()), // allowlist
                             std::unordered_set<std::string>(blocklist.begin(), blocklist.end()), // blocklist
-                            GRAMMARINATOR_TRANSFORMER ? std::vector<Rule*(*)(Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<Rule*(*)(Rule*)>{},  // transformers
+                            std::vector<Rule*(*)(Rule*)>{GRAMMARINATOR_TRANSFORMERS},  // transformers
                             GRAMMARINATOR_SERIALIZER,  // serializer
                             args["memo-size"].as<int>(),  // memo-size
                             args["unique-attempts"].as<int>(),  // unique-attempts

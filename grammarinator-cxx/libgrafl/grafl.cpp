@@ -181,10 +181,7 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
     max_tokens > 0 ? max_tokens : RuleSize::max().tokens
   );
 
-  std::vector<Rule* (*)(Rule*)> transformers =
-    GRAMMARINATOR_TRANSFORMER
-      ? std::vector<Rule* (*)(Rule*)>{GRAMMARINATOR_TRANSFORMER}
-      : std::vector<Rule* (*)(Rule*)>{};
+  std::vector<Rule* (*)(Rule*)> transformers{GRAMMARINATOR_TRANSFORMERS};
 
   grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER> factory(weights, probs);
   st->tool = std::make_unique<grammarinator::tool::AFLTool<grammarinator::tool::DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>>>(
