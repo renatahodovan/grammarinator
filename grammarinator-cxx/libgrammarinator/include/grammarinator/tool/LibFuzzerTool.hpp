@@ -120,6 +120,10 @@ public:
 
     runtime::Individual individual(root, false);
     auto mutated_root = this->mutate(&individual);
+    if (!mutated_root) {
+      GRAMMARINATOR_LOG_WARN("Mutation failed, no tree was produced");
+      return 0;
+    }
     // Encode into a temporary buffer first instead of writing directly into
     // `data`. This avoids a transient mismatch between `data` contents and the
     // reported size when the mutator is invoked repeatedly; the encoded bytes
@@ -161,6 +165,10 @@ public:
 
     runtime::Individual recipient_individual(recipient_root, false), donor_individual(donor_root, false);
     auto cross_over_root = this->recombine(&recipient_individual, &donor_individual);
+    if (!cross_over_root) {
+      GRAMMARINATOR_LOG_WARN("Crossover failed, no tree was produced");
+      return 0;
+    }
     // Use temporal buffer similar to custom_mutator.
     tmp_buf_.resize(std::max<size_t>(1, maxoutsize));
     size_t outsize = this->codec.encode(cross_over_root, tmp_buf_.data(), maxoutsize);

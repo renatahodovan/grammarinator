@@ -377,6 +377,9 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if mutation is disabled.
         # If individual is None, population MUST exist.
         individual = self._ensure_individual(individual)
+        if not individual.root.children:  # type: ignore[attr-defined]
+            logger.debug('Mutate empty tree. Regenerate %s', individual.root.name)
+            return self.generate(rule=individual.root.name)
         return self._create_tree(self._mutators[:], individual, None)
 
     def recombine(self, individual1: Individual | None = None, individual2: Individual | None = None) -> Rule | None:
@@ -435,7 +438,7 @@ class GeneratorTool:
             individual2 = self._population.select_individual(individual1)
         return individual1, individual2
 
-    def regenerate_rule(self, individual: Individual | None = None, _=None) -> Rule:
+    def regenerate_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Mutate a tree at a random position, i.e., discard and re-generate its
         sub-tree at a randomly selected node.
@@ -468,10 +471,8 @@ class GeneratorTool:
             mutated_node = mutated_node.replace(self.generate(rule=mutated_node.name, reserve=reserve))  # type: ignore[assignment]
             return mutated_node.root
 
-        # If selection strategy fails, we fallback and discard the whole tree
-        # and generate a brand new one instead.
         logger.trace('%s failed.', self.regenerate_rule.__name__)
-        return self.generate(rule=root.name)
+        return None
 
     def replace_node(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
         """
