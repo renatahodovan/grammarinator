@@ -289,8 +289,8 @@ Compatibility
 *Grammarinator* was tested on:
 
 * Linux (Ubuntu 16.04 ... 24.04)
-* OS X / macOS (10.12 ... 15.5)
-* Windows (Server 2012 R2 / Server version 1809 / Windows 10 / Windows Server 2022)
+* OS X / macOS (10.12 ... 26.5)
+* Windows (Server 2012 ... 2025)
 
 
 Citations
@@ -304,12 +304,19 @@ Background on *Grammarinator* is published in:
   Test Case Design, Selection, and Evaluation (A-TEST 2018), pages 45-48, Lake
   Buena Vista, Florida, USA, November 2018. ACM.
   https://doi.org/10.1145/3278186.3278193
-* Renata Hodovan, Akos Kiss. Grammarinator Meets LibFuzzer: A Structure-Aware
+* Renata Hodovan and Akos Kiss. Grammarinator Meets LibFuzzer: A Structure-Aware
   In-Process Approach.
   In Proceedings of the 20th International Conference on Software Technologies
   (ICSOFT 2025), pages 178-189, Bilbao, Spain, June 2025. SciTePress.
   Best paper award.
   https://doi.org/10.5220/0013571500003964
+* Renata Hodovan and Akos Kiss. Grammar-Aware Coverage-Guided Fuzzing with
+  Grammarinator and AFL++.
+  In Proceedings of the 9th International Workshop on Validation, Analysis, and
+  Evolution of Software Tests (VST 2026) in 2026 IEEE International Conference
+  on Software Analysis, Evolution and Reengineering - Companion (SANER-C 2026),
+  pages 365-372, Limassol, Cyprus, March 2026. IEEE.
+  https://doi.org/10.1109/SANER-C67878.2026.00055
 
 .. end included documentation
 
