@@ -147,7 +147,7 @@ above. Those creators will be enabled that are in the allowlist but not in
 the blocklist. As default, allowlist contains all the possible creators and
 blocklist is empty.
 
-To decrease to number of potential duplicated test generations, use the
+To decrease the number of potentially duplicated test cases, use the
 memoization functionality, which maintains a cache with parametrizable item
 count (``--memo-size``) and gives at most ``--unique-attempts`` to every
 generation to produce an outcome not in the memo cache.

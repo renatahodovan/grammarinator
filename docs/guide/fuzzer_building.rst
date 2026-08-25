@@ -53,7 +53,7 @@ methods corresponding to each rule defined in the grammar.
    :syntax: none
    :replace: "process.py/grammarinator-process"
 
-The usage of ``grammarinator-process`` is straigthforward: it processes the
+The usage of ``grammarinator-process`` is straightforward: it processes the
 specified grammars encoded with the ``--encoding`` option (default: ``utf-8``)
 and generates the output in the directory specified by ``--out`` (default is the
 current working directory). The generated code is written in the programming
@@ -101,17 +101,23 @@ into the resulting binary:
 - ``--generator`` (**required**): Fully qualified name of the generator class,
   e.g., ``HTMLGenerator``.
 
-- ``--model``, ``--listener``, ``--transformer``, ``--serializer`` (*optional*):
-  Fully qualified names of additional components to be compiled into the binary
-  (e.g., ``grammarinator::runtime::NoSpaceSerializer``).
+- ``--model``, ``--listener`` (*optional*): Fully qualified names of additional
+  component classes to be compiled into the binary.
 
-- ``--includedir`` (**required**): Directory that contains the source headers of
-  all specified components. Only one include directory can be specified, so it is
-  recommended to place all related source files (generator, serializer, etc.)
-  in the same folder.
+- ``--serializer`` (*optional*): Fully qualified name of a serializer function
+  to be compiled into the binary (e.g.,
+  ``grammarinator::runtime::NoSpaceSerializer``).
 
-If any component beyond the generator is specified, an additional argument is
-required:
+- ``--transformer`` (*optional, may be specified multiple times*): Fully
+  qualified names of transformer functions to be compiled into the binary.
+
+- ``--includedir`` (*optional, may be specified multiple times*): Directories
+  that contain the source headers of the specified components. This option is
+  required when building specialized artifacts with ``--generate``,
+  ``--fuzznull``, ``--grlf``, or ``--grafl``.
+
+If a component is declared outside the generator header, an additional
+argument is required:
 
 - ``--include`` (*optional*): A header file (e.g., ``HTMLConfig.hpp``) that
   explicitly includes all component headers. This is **only needed** if any
@@ -140,7 +146,7 @@ Depending on the build flags, the following outputs may be generated:
 
 - With ``--grafl``:
 
-  - ``libgafl-<name>.so``: shared library to define various hooks for
+  - ``libgrafl-<name>.so``: shared library to define various hooks for
     :ref:`AFL++ integration<aflpp integration>`
 
 - With ``--fuzznull``:
@@ -161,4 +167,3 @@ Clang is required for building libFuzzer-linked binaries due to the use of
 ``-fsanitize=fuzzer``. You can specify it by setting the environment variable::
 
    CXX=clang++ python3 grammarinator-cxx/dev/build.py ...
-

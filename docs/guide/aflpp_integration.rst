@@ -47,6 +47,12 @@ This command produces a shared library::
 
     grammarinator-cxx/build/lib/libgrafl-html.so
 
+C++ transformers can be compiled into the mutator with the
+``--transformer <function>`` option, which may be specified multiple times.
+The header containing their implementations must also be passed with
+``--include <header>``. The transformers run on the tree before Grammarinator
+serializes it into the raw target input.
+
 AFL++ will load this ``.so`` as the custom mutator library through the
 ``AFL_CUSTOM_MUTATOR_LIBRARY`` environment variable.
 
@@ -86,7 +92,7 @@ Verifying the Setup
 
 To run a fuzzing session with AFL++ equipped with Grammarinator, a compiler
 wrapper (e.g., ``afl-clang-fast``) and the ``afl-fuzz`` utility must first be
-obtained. Both can be installed or built with following the instruction in the
+obtained. Both can be installed or built by following the instructions in the
 official `AFL++ documentation`_.
 
 Once the target application is compiled with the AFL++ compiler wrapper, the
@@ -121,12 +127,17 @@ To test the integration, run AFL++ in custom-mutator-only mode and point it to
 the generated shared library::
 
     AFL_CUSTOM_MUTATOR_ONLY=1 \
+    AFL_FRAMESHIFT_DISABLE=1 \
     AFL_CUSTOM_MUTATOR_LIBRARY=grammarinator-cxx/build/lib/libgrafl-html.so \
     afl-fuzz -i html-trees -o outdir -- ./target_app @@
 
-Setting ``AFL_CUSTOM_MUTATOR_ONLY=1`` is **mandatory**. Without this flag,
-AFL++ would apply its built-in byte-level mutators to the test cases, which
-would corrupt the encoded tree representation used by Grammarinator.
+Setting both ``AFL_CUSTOM_MUTATOR_ONLY=1`` and
+``AFL_FRAMESHIFT_DISABLE=1`` is **mandatory**. Without the former, AFL++ would
+apply its built-in byte-level mutators to the test cases, which would corrupt
+the encoded tree representation used by Grammarinator. Recent AFL++ releases
+also enable FrameShift by default. It modifies the encoded tree as a byte
+array and is therefore incompatible with Grammarinator's structured custom
+mutator.
 
 **Note 1:** When using AFL++ with Grammarinator integration, both the input
 and output corpora must be in tree format. Therefore, any existing input corpus
@@ -140,6 +151,7 @@ tool in a grammar-aware manner by providing the appropriate custom
 mutator-related environment variables. For example::
 
     AFL_CUSTOM_MUTATOR_ONLY=1 \
+    AFL_FRAMESHIFT_DISABLE=1 \
     AFL_CUSTOM_MUTATOR_LIBRARY=grammarinator-cxx/build/lib/libgrafl-html.so \
     afl-tmin -i html-trees -o html-trimmed -e -- ./target_app @@
 
