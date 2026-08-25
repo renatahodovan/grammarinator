@@ -122,7 +122,7 @@ libfuzzer_tool() {
        grammarinator::runtime::RuleSize(settings.max_depth > 0 ? settings.max_depth : grammarinator::runtime::RuleSize::max().depth,
                                         settings.max_tokens > 0 ? settings.max_tokens : grammarinator::runtime::RuleSize::max().tokens),
        settings.random_mutators, settings.allowlist, settings.blocklist,
-       GRAMMARINATOR_TRANSFORMER ? std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{GRAMMARINATOR_TRANSFORMER} : std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{},
+       std::vector<grammarinator::runtime::Rule* (*)(grammarinator::runtime::Rule*)>{GRAMMARINATOR_TRANSFORMERS},
        GRAMMARINATOR_SERIALIZER,
        settings.memo_size,
        treeCodec);

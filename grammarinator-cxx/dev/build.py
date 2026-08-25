@@ -37,7 +37,7 @@ def generate_build_options(args):
         build_options_append('GRAMMARINATOR_GENERATOR', args.generator)
         build_options_append('GRAMMARINATOR_MODEL', args.model)
         build_options_append('GRAMMARINATOR_LISTENER', args.listener)
-        build_options_append('GRAMMARINATOR_TRANSFORMER', args.transformer)
+        build_options_append('GRAMMARINATOR_TRANSFORMERS', ','.join(args.transformer))
 
     if args.generate or args.decode or args.fuzznull or args.grlf or args.grafl:
         build_options_append('GRAMMARINATOR_SERIALIZER', args.serializer)
@@ -123,8 +123,8 @@ def main():
                       help='name of the model class (default: grammarinator::runtime::DefaultModel)')
     sgrp.add_argument('--listener', metavar='NAME',
                       help='name of the listener class (default: grammarinator::runtime::Listener)')
-    sgrp.add_argument('--transformer', metavar='NAME',
-                      help='name of the transformer function (default: nullptr, signaling no transformer)')
+    sgrp.add_argument('--transformer', metavar='NAME', action='append', default=[],
+                      help='name of a transformer function (may be specified multiple times)')
     sgrp.add_argument('--serializer', metavar='NAME',
                       help='name of the serializer function (default: grammarinator::runtime::NoSpaceSerializer)')
     sgrp.add_argument('--tree-format', metavar='NAME', choices=['json', 'flatbuffers'],
