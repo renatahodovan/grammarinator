@@ -1,5 +1,6 @@
 # Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
+# Copyright (c) 2026 Piotr Oleś.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -107,14 +108,13 @@ class RuleNode(Node):
 
 class OutlinedNode(Node):
 
-    def __init__(self, node: AlternationNode | QuantifierNode, rule: RuleNode) -> None:
-        super().__init__()
-        # Avoid `__name` class mangling for rules with leading underscores.
-        rule_name = '_'.join(str(part) for part in rule.id).lstrip('_')
-        node_name = 'quant' if isinstance(node, QuantifierNode) else 'alt'
-        self.name = f'_{rule_name}_{node_name}{node.idx}'
-        self.has_local_ctx = rule.has_local_ctx
-        self.out_edges = [Edge(node)]
+    def __init__(self, rule_id: RuleIdType, type: str, idx: int, has_local_ctx: bool) -> None:
+        super().__init__((rule_id, f'outline_{type}', idx))
+        self.has_local_ctx = has_local_ctx
+        self.name = f'_{"_".join(str(part) for part in rule_id)}_{type}{idx}'
+
+    def __str__(self) -> str:
+        return f'{super().__str__()}; name: {self.name}; has_local_ctx: {self.has_local_ctx}'
 
 
 class UnlexerRuleNode(RuleNode):

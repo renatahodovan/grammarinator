@@ -1,5 +1,6 @@
 # Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
+# Copyright (c) 2026 Piotr Oleś.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -41,7 +42,6 @@ from .grammar import (
     LambdaNode,
     LiteralNode,
     multirange_diff,
-    Node,
     NodeIdType,
     OutlinedNode,
     QuantifierNode,
@@ -55,44 +55,6 @@ logger = logging.getLogger(__name__)
 
 # Portable CPython limit for statically nested blocks in one code object.
 MAX_BLOCKS = 20
-
-
-def _block_cost(node: Node) -> int:
-    # Keep in sync with GeneratorTemplate.py.jinja: quantifiers render three
-    # blocks (`with`/`while`/`with`), alternations one (`with`).
-    if isinstance(node, QuantifierNode):
-        return 3
-    if isinstance(node, AlternationNode):
-        return 1
-    return 0
-
-
-def outline_deep_rules(graph: GrammarGraph) -> None:
-    def depth(edge: Edge) -> int:
-        node = edge.dst
-        if not isinstance(node, (QuantifierNode, AlternationNode, AlternativeNode)):
-            return 0
-        return _block_cost(node) + max((depth(child_edge) for child_edge in node.out_edges), default=0)
-
-    def outline(edge: Edge, rule: RuleNode) -> int:
-        node = edge.dst
-        if not isinstance(node, (QuantifierNode, AlternationNode, AlternativeNode)):
-            return 0
-
-        node_depth = _block_cost(node) + max((outline(child_edge, rule) for child_edge in node.out_edges), default=0)
-        if isinstance(node, (QuantifierNode, AlternationNode)) and node_depth > MAX_BLOCKS - 3:
-            outlined = OutlinedNode(node, rule)
-            outlined.out_edges[0].args = edge.args
-            outlined.out_edges[0].reserve = edge.reserve
-            edge.dst = outlined
-            graph.outlined.append(outlined)
-            return 0
-        return node_depth
-
-    for rule in graph.rules:
-        if 1 + max((depth(edge) for edge in rule.out_edges), default=0) > MAX_BLOCKS:
-            for edge in rule.out_edges:
-                outline(edge, rule)
 
 
 def escape_string(s: str) -> str:
@@ -201,7 +163,7 @@ class ProcessorTool:
         graph = ProcessorTool.build_graph(actions, lexer_root, parser_root, options, default_rule)
         ProcessorTool._analyze_graph(graph)
         if self._lang == 'py':
-            outline_deep_rules(graph)
+            ProcessorTool._outline_deep_rules(graph)
 
         src = self._template.render(graph=graph, version=__version__).lstrip()
         with open(join(self._work_dir, graph.name + '.' + self._lang), 'w') as f:
@@ -1008,3 +970,40 @@ class ProcessorTool:
             logger.warning('\t%d alternative(s) with infinite derivation (rule, alternation, alternative):\n\t\t%s', len(inf_alts), ',\n\t\t'.join(inf_alts))
         if inf_rules:
             logger.warning('\t%d rule(s) with infinite derivation (possible cycles): %s', len(inf_rules), ', '.join(repr('_'.join(inf_rule)) for inf_rule in inf_rules))
+
+    @staticmethod
+    def _outline_deep_rules(graph: GrammarGraph) -> None:
+
+        def _outline(edge: Edge) -> int:
+            node = edge.dst
+
+            # Keep in sync with GeneratorTemplate.py.jinja: quantifiers render three
+            # blocks (`with`/`while`/`with`), alternations one (`with`).
+            if isinstance(node, QuantifierNode):
+                node_depth = 3
+                node_type = 'quant'
+            elif isinstance(node, AlternationNode):
+                node_depth = 1
+                node_type = 'alt'
+            elif isinstance(node, AlternativeNode):
+                node_depth = 0
+                node_type = None
+            else:
+                return 0
+
+            node_depth += max((_outline(child_edge) for child_edge in node.out_edges), default=0)
+
+            if node_type is not None and node_depth > MAX_BLOCKS - 3:
+                out_id = graph.add_node(OutlinedNode(rule_id=rule.id, type=node_type, idx=node.idx, has_local_ctx=rule.has_local_ctx))  # type: ignore[arg-type]
+                out_node = graph.vertices[out_id]
+                graph.add_edge(frm=out_id, to=node.id, args=edge.args)
+                out_node.out_edges[0].reserve = edge.reserve
+                edge.dst = out_node
+                graph.outlined.append(out_node)
+                return 0
+
+            return node_depth
+
+        for rule in list(graph.rules):
+            for edge in rule.out_edges:
+                _outline(edge)
