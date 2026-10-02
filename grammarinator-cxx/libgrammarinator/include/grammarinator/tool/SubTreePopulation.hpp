@@ -10,9 +10,12 @@
 
 #include "../runtime/Population.hpp"
 #include "../runtime/Rule.hpp"
+#include "../util/random.hpp"
 
 #include <xxhash.h>
 
+#include <cassert>
+#include <climits>
 #include <cstdint>
 #include <functional>
 #include <map>
