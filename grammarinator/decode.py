@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2024-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -23,7 +23,7 @@ from .tool import TreeCodec
 from .pkgdata import __version__
 
 
-def decode(fn: str, codec: TreeCodec, serializer: Callable[[Rule], str], out: str, ext: str, encoding: str, errors: str) -> None:
+def decode(fn: str, codec: TreeCodec, serializer: Callable[[Rule], str], out: str, encoding: str, errors: str) -> None:
     logger.info('Process file %s.', fn)
     with open(fn, 'rb') as f:
         root = codec.decode(f.read())
@@ -35,7 +35,7 @@ def decode(fn: str, codec: TreeCodec, serializer: Callable[[Rule], str], out: st
     src = serializer(root)
     if out:
         base, _ = os.path.splitext(fn)
-        out = os.path.join(out, f'{os.path.basename(base)}{ext}')
+        out = os.path.join(out, os.path.basename(base))
 
         with open(out, 'w', encoding=encoding, errors=errors, newline='') as f:
             f.write(src)
@@ -52,8 +52,6 @@ def execute() -> None:
                         help='input files or directories to process')
     parser.add_argument('--glob', metavar='PATTERN', nargs='+',
                         help='wildcard patterns for input files to process (supported wildcards: ?, *, **, [])')
-    parser.add_argument('--ext', default='.txt',
-                        help='extension to use when saving decoded trees (default: %(default)s).')
     parser.add_argument('-s', '--serializer', metavar='NAME', default=str,
                         help='reference to a seralizer (in package.module.function format) that takes a tree and produces a string from it.')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
@@ -87,13 +85,13 @@ def execute() -> None:
         progress_bar = progress_manager.counter(total=len(files), desc='Decoding', unit='file')
 
         if args.jobs > 1:
-            parallel_decode = partial(decode, codec=args.tree_codec, serializer=args.serializer, out=args.out, ext=args.ext, encoding=args.encoding, errors=args.encoding_errors)
+            parallel_decode = partial(decode, codec=args.tree_codec, serializer=args.serializer, out=args.out, encoding=args.encoding, errors=args.encoding_errors)
             with Pool(args.jobs) as pool:
                 for _ in pool.imap_unordered(parallel_decode, files):
                     progress_bar.update()
         else:
             for fn in files:
-                decode(fn, args.tree_codec, args.serializer, args.out, args.ext, args.encoding, args.encoding_errors)
+                decode(fn, args.tree_codec, args.serializer, args.out, args.encoding, args.encoding_errors)
                 progress_bar.update()
 
 

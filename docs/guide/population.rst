@@ -120,8 +120,8 @@ directories are traversed recursively.
 First, the files are converted to trees using the appropriate tree codec
 specified by ``--tree-format``. The resulting trees are then serialized using
 the function defined by ``--serializer`` (or :class:`str` by default). The
-serialized tests are saved into the ``--out`` directory with the ``--ext``
-extension and encoded with ``--encoding``.
+serialized tests are saved into the ``--out`` directory, named after the tree
+files without their extension, and encoded with ``--encoding``.
 
 .. _grammarinator-decode-cpp:
 
