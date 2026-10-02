@@ -1,5 +1,6 @@
 # Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
 # Copyright (c) 2020 Sebastian Kimberk.
+# Copyright (c) 2026 Piotr Oleś.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -97,8 +98,23 @@ class RuleNode(Node):
         self.after: str = ''
         self.options: dict[str, str] = {}
 
+    @property
+    def has_local_ctx(self) -> bool:
+        return bool(self.labels or self.args or self.locals or self.returns)
+
     def __str__(self) -> str:
         return f'{super().__str__()}; name: {self.id}'
+
+
+class OutlinedNode(Node):
+
+    def __init__(self, rule_id: RuleIdType, type: str, idx: int, has_local_ctx: bool) -> None:
+        super().__init__((rule_id, f'outline_{type}', idx))
+        self.has_local_ctx = has_local_ctx
+        self.name = f'_{"_".join(str(part) for part in rule_id)}_{type}{idx}'
+
+    def __str__(self) -> str:
+        return f'{super().__str__()}; name: {self.name}; has_local_ctx: {self.has_local_ctx}'
 
 
 class UnlexerRuleNode(RuleNode):
@@ -305,6 +321,7 @@ class GrammarGraph:
         self.vertices: OrderedDict = OrderedDict()
         self.options: dict[str, str] = {}
         self.charsets: list[list[tuple[int, int]]] = []
+        self.outlined: list[OutlinedNode] = []
         self.alt_conds: list[AlternationNode] = []
         self.alt_sizes: list[list[NodeSize]] = []
         self.quant_sizes: list[NodeSize] = []
