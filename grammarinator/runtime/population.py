@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2023-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -84,6 +84,13 @@ class Individual:
         """
         assert self._root is not None
         return self._root
+
+    @property
+    def name(self) -> str | None:
+        """
+        Return the name identifying the individual, if any.
+        """
+        return None
 
     @property
     def annotations(self) -> Annotations:

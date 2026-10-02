@@ -275,6 +275,8 @@ public:
     return root_->children.size() == 0 ? nullptr : root_->children[0];
   };
 
+  virtual std::string name() const { return {}; }
+
   Annotations* annotations() {
     if (!annot_) {
       annot_ = new Annotations(root());

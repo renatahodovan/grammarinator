@@ -28,10 +28,10 @@ class FilePopulation;
 class FileIndividual : public runtime::Individual {
 private:
   FilePopulation* population_;
-  std::string name_;
+  std::filesystem::path name_;
 
 public:
-  FileIndividual(FilePopulation* population, const std::string& name)
+  FileIndividual(FilePopulation* population, const std::filesystem::path& name)
       : Individual(), population_(population), name_(name) { }
 
   FileIndividual(const FileIndividual& other) = delete;
@@ -40,32 +40,36 @@ public:
   FileIndividual& operator=(FileIndividual&& other) = delete;
   ~FileIndividual() override = default;
 
+  std::string name() const override { return name_.string(); }
+
   runtime::Rule* root() override;
 };
 
 class FilePopulation : public runtime::Population {
 private:
-  std::string directory_;
+  std::filesystem::path directory_;
   std::string extension_;
   const TreeCodec& codec_;
-  std::vector<std::string> files_{};
+  std::vector<std::filesystem::path> names_{};
 
 public:
   FilePopulation(const std::string& directory, const std::string& extension,
                  const TreeCodec& codec = FlatBuffersTreeCodec())
       : directory_(directory), extension_(extension), codec_(codec) {
-    if (!directory.empty()) {
-      std::filesystem::path dirpath(directory);
+    if (!directory_.empty()) {
       std::error_code ec;
-      std::filesystem::create_directories(dirpath, ec);
+      std::filesystem::create_directories(directory_, ec);
       if (ec) {
-        GRAMMARINATOR_LOG_FATAL("Failed to create population directory '{}': {}", directory, ec.message());
+        GRAMMARINATOR_LOG_FATAL("Failed to create population directory '{}': {}", directory_.string(), ec.message());
       }
 
-      for (auto const& entry : std::filesystem::directory_iterator(dirpath)) {
-        auto const& entrypath = entry.path();
-        if (entrypath.extension().string() == "." + extension) {
-          files_.push_back(entrypath.string());
+      for (auto const& entry : std::filesystem::directory_iterator(directory_)) {
+        if (!entry.is_regular_file()) {
+          continue;
+        }
+        auto const& filename = entry.path().filename();
+        if (filename.extension() == "." + extension) {
+          names_.push_back(filename.stem());
         }
       }
     }
@@ -77,58 +81,62 @@ public:
   FilePopulation& operator=(FilePopulation&& other) = delete;
   ~FilePopulation() override = default;
 
-  bool empty() const override { return files_.size() == 0; }
+  bool empty() const override { return names_.size() == 0; }
 
   void add_individual(runtime::Rule* root, const std::string& path = "") override {
-    std::string fn = std::filesystem::path(path).filename().string();
-
-    if (fn.empty()) {
-      fn = "FilePopulation";
+    auto name = std::filesystem::path(path).filename();
+    if (name.empty()) {
+      name = "FilePopulation";
     }
-    fn = (std::filesystem::path(directory_) / (fn + "." + extension_)).string();
 
-    if (save(fn, root)) {
-      files_.push_back(fn);
+    if (save(name, root)) {
+      names_.push_back(name);
     }
   }
 
   FileIndividual* select_individual(runtime::Individual* recipient = nullptr) override {
-    return new FileIndividual(this, files_[util::random_int<size_t>(0, files_.size() - 1)]);
+    return new FileIndividual(this, names_[util::random_int<size_t>(0, names_.size() - 1)]);
   }
 
 private:
-  bool save(const std::string& fn, runtime::Rule* root) {
+  bool save(const std::filesystem::path& name, runtime::Rule* root) {
+    std::filesystem::path path{directory_};
+    path /= name;
+    path += "." + extension_;
+
     std::vector<uint8_t> buffer = codec_.encode(root);
     if (buffer.empty()) {
-      GRAMMARINATOR_LOG_WARN("Failed to encode population file '{}'.", fn);
+      GRAMMARINATOR_LOG_WARN("Failed to encode population file '{}'.", path.string());
       return false;
     }
 
-    std::ofstream outfile(fn, std::ios::binary | std::ios::out);
+    std::ofstream outfile(path, std::ios::binary | std::ios::trunc);
     outfile.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
     outfile.close();
     return true;
   }
 
-  runtime::Rule* load(const std::string& fn) {
-    std::ifstream infile(fn, std::ios::binary | std::ios::ate);
+  runtime::Rule* load(const std::filesystem::path& name) {
+    std::filesystem::path path{directory_};
+    path /= name;
+    path += "." + extension_;
+
+    std::ifstream infile(path, std::ios::binary | std::ios::ate);
     if (!infile.is_open()) {
-      GRAMMARINATOR_LOG_WARN("Failed to open population file '{}'.", fn);
+      GRAMMARINATOR_LOG_WARN("Failed to open population file '{}'.", path.string());
       return nullptr;
     }
 
     std::streamsize size = infile.tellg();
     if (size < 0) {
-      GRAMMARINATOR_LOG_WARN("Failed to determine population file size '{}'.", fn);
+      GRAMMARINATOR_LOG_WARN("Failed to determine population file size '{}'.", path.string());
       return nullptr;
     }
     infile.seekg(0, std::ios::beg);
-    std::vector<uint8_t> buffer;
-    buffer.resize(size);
+    std::vector<uint8_t> buffer(size);
 
-    infile.unsetf(std::ios::skipws); // FIXME: Stop eating new lines in binary mode (necessary?)
     if (size > 0 && !infile.read(reinterpret_cast<char*>(buffer.data()), size)) {
-      GRAMMARINATOR_LOG_WARN("Failed to read population file '{}'.", fn);
+      GRAMMARINATOR_LOG_WARN("Failed to read population file '{}'.", path.string());
       return nullptr;
     }
     infile.close();
@@ -146,9 +154,9 @@ inline runtime::Rule* FileIndividual::root() {
   }
   r = population_->load(name_);
   if (!r) {
-    GRAMMARINATOR_LOG_WARN("Failed to load individual from '{}'.", name_);
+    GRAMMARINATOR_LOG_WARN("Failed to load individual from '{}'.", name_.string());
     // Drop the undecodable file from the population, so that it is not selected again.
-    std::erase(population_->files_, name_);
+    std::erase(population_->names_, name_);
     return nullptr;
   }
   root_->add_child(r);
