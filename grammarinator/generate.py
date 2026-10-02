@@ -14,7 +14,7 @@ from functools import partial
 from itertools import count
 from math import inf
 from multiprocessing import Manager, Pool
-from os.path import abspath, exists, join
+from os.path import abspath, basename, exists, join
 
 import enlighten
 
@@ -27,6 +27,9 @@ from .runtime import RuleSize
 from .tool import DefaultGeneratorFactory, FilePopulation, GeneratorTool
 
 
+DEFAULT_OUTPUT_NAME = 'id={id},src={src},op={op}'
+
+
 def int_or_inf(value):
     return inf if value == 'inf' else int(value)
 
@@ -37,6 +40,9 @@ def process_args(args):
     args.listener = import_list(args.listener)
     args.transformer = import_list(args.transformer)
     args.serializer = import_object(args.serializer) if args.serializer else None
+
+    if args.out and not basename(args.out):
+        args.out = join(args.out, DEFAULT_OUTPUT_NAME)
 
     if args.weights:
         if not exists(args.weights):
@@ -136,8 +142,8 @@ def execute():
     add_tree_format_argument(parser)
 
     # Auxiliary settings.
-    parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', 'test_%d'),
-                        help='output file name pattern (default: %(default)s).')
+    parser.add_argument('-o', '--out', metavar='FILE', default=join(os.getcwd(), 'tests', ''),
+                        help=f'output file name pattern ({DEFAULT_OUTPUT_NAME} is appended if it ends with a directory separator; default: %(default)s).')
     parser.add_argument('--stdout', dest='out', action='store_const', const='', default=SUPPRESS,
                         help='print test cases to stdout (alias for --out=%(const)r)')
     parser.add_argument('-n', default=1, type=int_or_inf, metavar='NUM',

@@ -7,11 +7,13 @@
 
 import os
 import random
+import re
 
 from contextlib import nullcontext
 from copy import deepcopy
-from os.path import abspath, dirname
+from os.path import abspath, dirname, join, split
 from shutil import rmtree
+from string import Formatter
 from typing import Callable, Sequence
 
 import xxhash
@@ -145,10 +147,18 @@ class GeneratorTool:
         :param rule: Name of the rule to start generation from (default: the
             default rule of the generator).
         :param out_format: Test output description. It can be a file path
-            pattern possibly including the ``%d`` placeholder which will be
-            replaced by the index of the test case. Otherwise, it can be an
-            empty string, which will result in printing the test case to the
-            stdout (i.e., not saving to file system).
+            pattern whose filename part may include the ``{id}``, ``{src}``,
+            and ``{op}`` placeholders (in :meth:`str.format` syntax), which
+            will be replaced by the index of the test case, the index of the
+            test case that the current test case is based on (or the name of
+            the source tree, if its index cannot be recovered), and the name
+            of the creator (generator, mutator, or recombiner) that produced
+            the test case, respectively. Placeholders without a value are
+            replaced by ``-``. For backward compatibility, the filename may
+            include the ``%d`` placeholder, which is equivalent to ``{id}``.
+            Otherwise, it can be an empty string, which will result in
+            printing the test case to the stdout (i.e., not saving to file
+            system).
         :param lock: Lock object necessary when printing test cases in parallel
             (optional).
         :type lock: :class:`multiprocessing.Lock` | None
@@ -198,10 +208,28 @@ class GeneratorTool:
         self._serializer = serializer or str
         self._rule = rule
 
-        if out_format and not dry_run:
-            os.makedirs(abspath(dirname(out_format)), exist_ok=True)
-
         self._out_format = out_format
+        self._out_dir, self._out_name = split(out_format)
+        # Convert the legacy %d placeholder to {id}.
+        self._out_name = self._out_name.replace('%d', '{id}', 1)
+        # Fail early on invalid patterns.
+        try:
+            self._out_name.format(id=0, src='-', op='-')
+        except (KeyError, IndexError, ValueError) as e:
+            raise ValueError(f'Invalid output file name pattern: {out_format!r}') from e
+
+        # Build the regex that recovers {id} from the names created by the
+        # pattern.
+        regex = ''
+        for literal, field, _, _ in Formatter().parse(self._out_name):
+            regex += re.escape(literal)
+            if field is not None:
+                regex += '.*?' if field != 'id' else '(?P=id)' if '(?P<id>' in regex else '(?P<id>.*?)'
+        self._src_regex = re.compile(regex)
+
+        if out_format and not dry_run:
+            os.makedirs(abspath(self._out_dir), exist_ok=True)
+
         self._lock = lock or nullcontext()
         self._limit = limit or RuleSize.max
         self._population = population
@@ -216,6 +244,8 @@ class GeneratorTool:
         self._encoding = encoding
         self._errors = errors
         self._dry_run = dry_run
+        self._last_mutator = ''
+        self._last_individual = ''
 
         self.allowlist = allowlist or []
         self.blocklist = blocklist or []
@@ -287,7 +317,9 @@ class GeneratorTool:
         if self._dry_run or not root:
             return None
 
-        test_fn = self._out_format % index if '%d' in self._out_format else self._out_format
+        match = self._src_regex.fullmatch(self._last_individual)
+        src = match.groupdict().get('id', self._last_individual) if match else self._last_individual
+        test_fn = join(self._out_dir, self._out_name.format(id=index, src=src or '-', op=self._last_mutator or '-'))
 
         if self._population is not None and self._keep_trees:
             self._population.add_individual(root, path=test_fn)
@@ -330,6 +362,8 @@ class GeneratorTool:
                 logger.trace("Original test: '%s'", self._serializer(individual1.root))
             root = creator(individual1, individual2)
             if root:
+                self._last_mutator = creator.__name__
+                self._last_individual = (individual1.name or '') if individual1 and creator not in self._generators else ''
                 break
             creators.remove(creator)
         else:

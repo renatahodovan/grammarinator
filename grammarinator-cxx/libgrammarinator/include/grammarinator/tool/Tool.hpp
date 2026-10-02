@@ -44,6 +44,7 @@ public:
   std::vector<TransformerFn> transformers;
   SerializerFn serializer;
   std::string last_mutator;
+  std::string last_individual;
 
 protected:
   std::map<std::string, CreatorFn> generators;
@@ -149,6 +150,7 @@ protected:
       last_mutator = creatorit->first;
       root = creatorit->second(individual1, individual2);
       if (root) {
+        last_individual = individual1 && !generators.contains(creatorit->first) ? individual1->name() : "";
         break;
       }
       creators.erase(creatorit->first);

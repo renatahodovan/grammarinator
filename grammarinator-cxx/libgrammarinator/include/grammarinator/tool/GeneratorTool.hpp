@@ -15,7 +15,9 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <format>
 #include <fstream>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -31,6 +33,9 @@ public:
 
 private:
   std::string out_format;
+  std::filesystem::path out_dir;
+  std::string out_name;  // Filename pattern with positional placeholders: {0}=id, {1}=src, {2}=op.
+  std::regex src_regex;  // Matches the names created by out_name, capturing their id (if any).
   bool keep_trees;
   int unique_attempts;
   // bool cleanup;
@@ -58,11 +63,50 @@ public:
         out_format(out_format), keep_trees(keep_trees), unique_attempts(std::max(unique_attempts, 1)),
         // cleanup(cleanup), encoding(encoding), errors(errors),
         dry_run(dry_run) {
-    if (!out_format.empty() && !dry_run) {
-      std::filesystem::path directoryPath = std::filesystem::absolute(std::filesystem::path(out_format).parent_path());
+    if (!out_format.empty()) {
+      std::filesystem::path out_path(out_format);
+      out_dir = out_path.parent_path();
 
-      if (!std::filesystem::exists(directoryPath))
-        std::filesystem::create_directories(directoryPath);
+      // Convert the legacy %d placeholder to {id}.
+      std::string name = out_path.filename().string();
+      if (const auto pos = name.find("%d"); pos != std::string::npos) {
+        name.replace(pos, 2, "{id}");
+      }
+
+      // Rewrite the named placeholders to positional ones (as expected by
+      // std::vformat) and build the regex that recovers {id} from the names
+      // created by the pattern.
+      static const std::regex field_re(R"(\{\{|\}\}|\{(id|src|op)(:[^{}]*)?\})");
+      static const std::regex special_re(R"([\\^$.|?*+()\[\]{}])");
+      std::string literal = name;
+      std::string regex;
+      bool has_id = false;
+      for (std::sregex_iterator it(name.cbegin(), name.cend(), field_re), end; it != end; ++it) {
+        const std::smatch& field = *it;
+        out_name += field.prefix().str();
+        regex += std::regex_replace(field.prefix().str(), special_re, R"(\$&)");
+        if (!field[1].matched) {  // Escaped brace.
+          out_name += field.str();
+          regex += "\\" + field.str().substr(1);
+        } else {
+          out_name += "{" + std::string(field[1] == "id" ? "0" : field[1] == "src" ? "1" : "2") + field[2].str() + "}";
+          regex += field[1] != "id" ? ".*?" : has_id ? "\\1" : "(.*?)";
+          has_id = has_id || field[1] == "id";
+        }
+        literal = field.suffix().str();
+      }
+      out_name += literal;
+      regex += std::regex_replace(literal, special_re, R"(\$&)");
+      src_regex = std::regex(regex);
+
+      // Fail early on invalid patterns.
+      int id = 0;
+      std::string none = "-";
+      (void)std::vformat(out_name, std::make_format_args(id, none, none));
+
+      if (!dry_run && !out_dir.empty()) {
+        std::filesystem::create_directories(out_dir);
+      }
     }
   }
 
@@ -99,11 +143,16 @@ public:
     std::string test_fn;
     if (!dry_run) {
       if (!out_format.empty()) {
-        test_fn = out_format;
-        size_t pos = test_fn.find("%d");
-        if (pos != std::string::npos) {
-          test_fn.replace(pos, 2, std::to_string(index));
+        std::string src = this->last_individual;
+        if (std::smatch match; std::regex_match(this->last_individual, match, src_regex) && match.size() > 1) {
+          src = match[1].str();
         }
+        if (src.empty()) {
+          src = "-";
+        }
+        std::string op = !this->last_mutator.empty() ? this->last_mutator : "-";
+        test_fn = (out_dir / std::vformat(out_name, std::make_format_args(index, src, op))).string();
+
         std::ofstream file(test_fn);
         file << test;
         file.close();

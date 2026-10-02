@@ -13,6 +13,7 @@
 #include <cxxopts.hpp>
 
 #include <filesystem>
+#include <format>
 #include <map>
 #include <random>
 #include <string>
@@ -35,6 +36,8 @@ static const std::map<std::string, std::tuple<std::string, TreeCodec*(*)()>> tre
   {"flatbuffers", {"grtf", treecodec_factory<FlatBuffersTreeCodec>}},
   {"json", {"grtj", treecodec_factory<JsonTreeCodec>}},
 };
+
+static const std::string default_output_name = "id={id},src={src},op={op}";
 
 // Trim from both ends (in place)
 inline void trim(std::string& s) {
@@ -104,8 +107,8 @@ int main(int argc, char **argv) {
        cxxopts::value<std::string>()->default_value("flatbuffers"),
        "NAME")
       ("o,out",
-       "output file name pattern",
-       cxxopts::value<std::string>()->default_value((std::filesystem::current_path() / "tests" / "test_%d").string()),
+       "output file name pattern (" + default_output_name + " is appended if it ends with a directory separator)",
+       cxxopts::value<std::string>()->default_value((std::filesystem::current_path() / "tests" / "").string()),
        "FILE")
       ("stdout",
        "print test cases to stdout (alias for --out='')",
@@ -150,6 +153,11 @@ int main(int argc, char **argv) {
       exit(0);
     }
 
+    std::string out_format = args.count("stdout") ? "" : args["out"].as<std::string>();
+    if (!out_format.empty() && !std::filesystem::path(out_format).has_filename()) {
+      out_format = (std::filesystem::path(out_format) / default_output_name).string();
+    }
+
     auto tree_format_it = tree_formats.find(args["tree-format"].as<std::string>());
     if (tree_format_it == tree_formats.end()) {
       throw cxxopts::exceptions::parsing("Invalid argument for option 'tree-format'");
@@ -181,7 +189,7 @@ int main(int argc, char **argv) {
     FilePopulation *population = args.count("population") ? new FilePopulation(args["population"].as<std::string>(), tree_extension, *tree_codec) : nullptr;
     int seed = args.count("random-seed") ? args["random-seed"].as<int>() : std::random_device()();
     GeneratorTool generator(DefaultGeneratorFactory<GRAMMARINATOR_GENERATOR, GRAMMARINATOR_MODEL, GRAMMARINATOR_LISTENER>(weights, probs),  // generator_factory
-                            args.count("stdout") ? "" : args["out"].as<std::string>(),  // out_format
+                            out_format,  // out_format
                             args.count("rule") ? args["rule"].as<std::string>() : "",  // rule
                             RuleSize(args["max-depth"].as<int>(), args["max-tokens"].as<int>()),  // limit
                             population,  // population
@@ -208,6 +216,9 @@ int main(int argc, char **argv) {
     delete population;
   } catch (const cxxopts::exceptions::parsing &e) {
     perrf("error parsing options: {}", e.what());
+    exit(1);
+  } catch (const std::format_error &e) {
+    perrf("error in output file name pattern: {}", e.what());
     exit(1);
   }
 }
