@@ -34,14 +34,6 @@ private:
 
 public:
   void store(const uint8_t* data, size_t size, runtime::Rule* root) {
-    if (!root_ || root_.get() != root) {
-      root_.reset(root);
-    }
-    data_.assign(data, data + size);
-  }
-
-  void store_without_delete(const uint8_t* data, size_t size, runtime::Rule* root) {
-    root_.release();
     root_.reset(root);
     data_.assign(data, data + size);
   }
@@ -158,11 +150,13 @@ public:
     util::random_engine.seed(seed);
 
     auto recipient_root = getCache()->load(data1, size1);
-    bool cache_hit = recipient_root != nullptr;
-    if (!cache_hit)
+    if (recipient_root)
+      recipient_root = recipient_root->clone();
+    else
       recipient_root = decode(data1, size1);
     auto donor_root = decode(data2, size2);
 
+    std::unique_ptr<runtime::Rule> recipient_owner(recipient_root);
     runtime::Individual recipient_individual(recipient_root, false), donor_individual(donor_root, true);
     auto cross_over_root = this->recombine(&recipient_individual, &donor_individual);
     if (!cross_over_root) {
@@ -185,13 +179,8 @@ public:
 
     std::memcpy(out, tmp_buf_.data(), outsize);
 
-    if (cache_hit && recipient_root != cross_over_root) {
-      getCache()->store_without_delete(out, outsize, cross_over_root);
-    } else {
-      // if (!decode_success && recipient_root != cross_over_root && recipient_root != donor_root && recipient_root)
-      //   delete recipient_root;
-      getCache()->store(out, outsize, cross_over_root);
-    }
+    getCache()->store(out, outsize, cross_over_root);
+    recipient_owner.release();
     return outsize;
   }
 
