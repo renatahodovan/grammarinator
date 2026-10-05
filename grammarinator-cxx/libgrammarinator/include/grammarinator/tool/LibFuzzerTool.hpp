@@ -163,7 +163,7 @@ public:
       recipient_root = decode(data1, size1);
     auto donor_root = decode(data2, size2);
 
-    runtime::Individual recipient_individual(recipient_root, false), donor_individual(donor_root, false);
+    runtime::Individual recipient_individual(recipient_root, false), donor_individual(donor_root, true);
     auto cross_over_root = this->recombine(&recipient_individual, &donor_individual);
     if (!cross_over_root) {
       GRAMMARINATOR_LOG_WARN("Crossover failed, no tree was produced");
@@ -192,7 +192,6 @@ public:
       //   delete recipient_root;
       getCache()->store(out, outsize, cross_over_root);
     }
-    delete donor_root;
     return outsize;
   }
 
