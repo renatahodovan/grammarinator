@@ -114,15 +114,21 @@ public:
     util::random_engine.seed(seed);
 
     auto root = getCache()->load(data, size);
-    bool cache_hit = root != nullptr;
-    if (!cache_hit)
+    if (root)
+      root = root->clone();
+    else
       root = decode(data, size);
 
+    std::unique_ptr<runtime::Rule> root_owner(root);
     runtime::Individual individual(root, false);
     auto mutated_root = this->mutate(&individual);
     if (!mutated_root) {
       GRAMMARINATOR_LOG_WARN("Mutation failed, no tree was produced");
       return 0;
+    }
+    if (root != mutated_root) {
+      root_owner.release();
+      root_owner.reset(mutated_root);
     }
     // Encode into a temporary buffer first instead of writing directly into
     // `data`. This avoids a transient mismatch between `data` contents and the
@@ -142,14 +148,8 @@ public:
 
     std::memcpy(data, tmp_buf_.data(), outsize);
 
-    if (cache_hit && root != mutated_root) {
-      // if mutated_root != root, then this->mutate(root) has completely replaced
-      // and deleted root already, so the cache must not call delete on the root
-      // again
-      getCache()->store_without_delete(data, outsize, mutated_root);
-    } else {
-      getCache()->store(data, outsize, mutated_root);
-    }
+    getCache()->store(data, outsize, mutated_root);
+    root_owner.release();
     return outsize;
   }
 
