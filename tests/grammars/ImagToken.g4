@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023 Renata Hodovan, Akos Kiss.
+ * Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -25,8 +25,8 @@ def REDEFINED(self, parent=None):
     return current
 }
 
-tokens { IMAG, REDEFINED }
+tokens { IMAG, REDEFINED, Callable }
 
 start
-  : IMAG {assert current.last_child.name == 'IMAG' and current.last_child.src == ''} REDEFINED {assert current.last_child.src == 'redefined'}
+  : IMAG {assert current.last_child.name == 'IMAG' and current.last_child.src == ''} REDEFINED {assert current.last_child.src == 'redefined'} Callable
   ;
