@@ -75,13 +75,18 @@ class FilePopulation(Population):
             else:
                 f.write(self._codec.encode(root))
 
-    def _load(self, name: str) -> tuple[Rule, Annotations | None]:
-        with open(join(self._directory, f'{name}.{self._extension}'), 'rb') as f:
-            if isinstance(self._codec, AnnotatedTreeCodec):
-                root, annot = self._codec.decode_annotated(f.read())
-            else:
-                root, annot = self._codec.decode(f.read()), None
-            assert isinstance(root, Rule), root
+    def _load(self, name: str) -> tuple[Rule | None, Annotations | None]:
+        # A file may disappear after selection or fail during decoding.
+        try:
+            with open(join(self._directory, f'{name}.{self._extension}'), 'rb') as f:
+                if isinstance(self._codec, AnnotatedTreeCodec):
+                    root, annot = self._codec.decode_annotated(f.read())
+                else:
+                    root, annot = self._codec.decode(f.read()), None
+            if not isinstance(root, Rule):
+                root, annot = None, None
+        except (OSError, EOFError, ValueError, KeyError, IndexError, TypeError):
+            root, annot = None, None
         return root, annot
 
 
@@ -112,7 +117,7 @@ class FileIndividual(Individual):
         return self._name
 
     @property
-    def root(self) -> Rule:
+    def root(self) -> Rule | None:
         """
         Get the root of the tree. Return the root if it is already loaded,
         otherwise load it immediately.
@@ -122,5 +127,7 @@ class FileIndividual(Individual):
         if not self._root:
             self._root, self._annot = self._population._load(self._name)
             if not self._root:
-                logger.warning("Failed to load individual from %r", self._name)
+                logger.warning('Failed to load individual from %r', self._name)
+                if self._name in self._population._names:
+                    self._population._names.remove(self._name)
         return self._root

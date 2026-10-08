@@ -212,8 +212,10 @@ public:
       creators.insert(this->recombiners.begin(), this->recombiners.end());
     }
     auto root = this->create_tree(creators, individual1, individual2);
-    if (individual1 && root && individual1->root() == root) {
-      root = root->clone();  // FIXME: this is expensive
+    // Mutation and recombination have loaded individual1 and may return its root.
+    // Clone that root before deleting individual1; generation needs no such check.
+    if (individual1 && root && !this->generators.contains(this->last_mutator) && individual1->root() == root) {
+      root = root->clone();
     }
     delete individual1;
     delete individual2;

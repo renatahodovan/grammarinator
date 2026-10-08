@@ -76,7 +76,7 @@ class Individual:
         self._annot: Annotations | None = None
 
     @property
-    def root(self) -> Rule:
+    def root(self) -> Rule | None:
         """
         Return the root node of the tree of the individual.
 

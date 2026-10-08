@@ -358,7 +358,14 @@ class GeneratorTool:
         # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
         while creators:
             creator = self._select_creator(creators, individual1, individual2)
-            if individual1 is not None:
+            if creator not in self._generators:
+                # Load individuals only when the selected creator needs them, and remove creators that cannot use them.
+                if individual1 is None or individual1.root is None:
+                    creators[:] = [candidate for candidate in creators if candidate in self._generators]
+                    continue
+                if creator in self._recombiners and (individual2 is None or individual2.root is None):
+                    creators[:] = [candidate for candidate in creators if candidate not in self._recombiners]
+                    continue
                 logger.trace("Original test: '%s'", self._serializer(individual1.root))
             root = creator(individual1, individual2)
             if root:
@@ -383,10 +390,11 @@ class GeneratorTool:
 
         :return: The root of the created tree.
         """
-        individual1, individual2 = (self._ensure_individuals(None, None)) if self._population else (None, None)
+        has_population = self._population is not None and not self._population.empty()
+        individual1, individual2 = self._ensure_individuals(None, None) if has_population else (None, None)
         creators = []
         creators.extend(self._generators)
-        if self._population:
+        if has_population:
             creators.extend(self._mutators)
             creators.extend(self._recombiners)
         return self._create_tree(creators, individual1, individual2)
@@ -411,9 +419,12 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if mutation is disabled.
         # If individual is None, population MUST exist.
         individual = self._ensure_individual(individual)
-        if not individual.root.children:  # type: ignore[attr-defined]
-            logger.debug('Mutate empty tree. Regenerate %s', individual.root.name)
-            root = self.generate(rule=individual.root.name)
+        root = individual.root
+        if root is None:
+            return None
+        if not root.children:  # type: ignore[attr-defined]
+            logger.debug('Mutate empty tree. Regenerate %s', root.name)
+            root = self.generate(rule=root.name)
             for transformer in self._transformers:
                 root = transformer(root)  # type: ignore[assignment]
             return root
