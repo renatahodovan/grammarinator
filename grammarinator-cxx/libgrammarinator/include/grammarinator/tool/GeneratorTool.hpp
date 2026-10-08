@@ -136,7 +136,8 @@ public:
       creators.insert(this->recombiners.begin(), this->recombiners.end());
     }
     auto root = this->create_tree(creators, individual1, individual2);
-    if (individual1 && root && individual1->root() == root) {
+    // Note: Individual::root() is called non-virtually not to trigger the lazy loading of individual1 just for this check.
+    if (individual1 && root && individual1->runtime::Individual::root() == root) {
       root = root->clone();  // FIXME: this is expensive
     }
     delete individual1;

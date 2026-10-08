@@ -133,7 +133,17 @@ protected:
 
     while (!creators.empty()) {
       auto creatorit = select_creator(creators, individual1, individual2);
-      if (individual1) {
+      if (!generators.contains(creatorit->first)) {
+        // Individuals may be loaded lazily, so check them only when the selected creator needs them,
+        // and drop all creators that depend on an individual that could not be loaded.
+        if (!individual1->root()) {
+          std::erase_if(creators, [this](const auto& creator) { return !generators.contains(creator.first); });
+          continue;
+        }
+        if (recombiners.contains(creatorit->first) && !individual2->root()) {
+          std::erase_if(creators, [this](const auto& creator) { return recombiners.contains(creator.first); });
+          continue;
+        }
         GRAMMARINATOR_LOG_TRACE("Original test: '{}'", serializer(individual1->root()));
       }
       last_mutator = creatorit->first;
@@ -184,6 +194,9 @@ public:
     // Regenerate root if it has no children.
     individual = ensure_individual(individual);
     auto real_root = static_cast<runtime::ParentRule*>(individual->root());
+    if (!real_root) {
+      return nullptr;
+    }
 
     if (real_root->children.empty()) {
       GRAMMARINATOR_LOG_DEBUG("Mutate empty tree. Regenerate {}", real_root->name);

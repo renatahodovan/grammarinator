@@ -141,6 +141,8 @@ inline runtime::Rule* FileIndividual::root() {
   r = population_->load(name_);
   if (!r) {
     GRAMMARINATOR_LOG_WARN("Failed to load individual from '{}'.", name_);
+    // Drop the undecodable file from the population, so that it is not selected again.
+    std::erase(population_->files_, name_);
     return nullptr;
   }
   root_->add_child(r);
