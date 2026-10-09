@@ -87,8 +87,9 @@ public:
     }
     fn = (std::filesystem::path(directory_) / (fn + "." + extension_)).string();
 
-    save(fn, root);
-    files_.push_back(fn);
+    if (save(fn, root)) {
+      files_.push_back(fn);
+    }
   }
 
   FileIndividual* select_individual(runtime::Individual* recipient = nullptr) override {
@@ -96,12 +97,17 @@ public:
   }
 
 private:
-  void save(const std::string& fn, runtime::Rule* root) {
+  bool save(const std::string& fn, runtime::Rule* root) {
     std::vector<uint8_t> buffer = codec_.encode(root);
+    if (buffer.empty()) {
+      GRAMMARINATOR_LOG_WARN("Failed to encode population file '{}'.", fn);
+      return false;
+    }
 
     std::ofstream outfile(fn, std::ios::binary | std::ios::out);
     outfile.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
     outfile.close();
+    return true;
   }
 
   runtime::Rule* load(const std::string& fn) {
