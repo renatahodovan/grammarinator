@@ -311,7 +311,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
 
   std::vector<uint8_t> out = st->tool->encode(st->mutated_tree);
   size_t n = out.size();
-  if (n > max_size) {
+  if (n == 0 || n > max_size) {
     return 0;
   }
 
