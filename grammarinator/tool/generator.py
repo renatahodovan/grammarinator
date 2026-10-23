@@ -490,7 +490,7 @@ class GeneratorTool:
         # within the current maximum depth and token limit (except immutable nodes).
         root_tokens = annot.node_tokens[root]
         options = []
-        for rule_name, nodes in annot.rules_by_name.items():
+        for (rule_name,), nodes in annot.rules_by_name.items():
             rule_size = self._generator_factory._rule_sizes.get(rule_name)
             if rule_size is None:
                 logger.error('Unknown rule name in generation: %s.', rule_name)
@@ -529,8 +529,8 @@ class GeneratorTool:
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
         donor_annot = donor_individual.annotations
 
-        recipient_lookup: dict[str, Sequence[Rule]] = dict(recipient_annot.nodes_by_name)
-        donor_lookup: dict[str, Sequence[Rule]] = dict(donor_annot.nodes_by_name)
+        recipient_lookup: dict[tuple[str | int, ...], Sequence[Rule]] = dict(recipient_annot.nodes_by_name)
+        donor_lookup: dict[tuple[str | int, ...], Sequence[Rule]] = dict(donor_annot.nodes_by_name)
         common_types = sorted(set(recipient_lookup.keys()) & set(donor_lookup.keys()))
 
         recipient_options = [(rule_name, node) for rule_name in common_types for node in recipient_lookup[rule_name] if node.parent]
@@ -726,7 +726,7 @@ class GeneratorTool:
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
 
-        options: dict[str, Sequence[Rule]] = dict(annot.nodes_by_name)
+        options: dict[tuple[str | int, ...], Sequence[Rule]] = dict(annot.nodes_by_name)
         for _, nodes in random.sample(list(options.items()), k=len(options)):
             # Skip node types without two instances.
             if len(nodes) < 2:

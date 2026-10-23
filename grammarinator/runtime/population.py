@@ -156,9 +156,9 @@ class Annotations:
                     self.node_tokens[current] += self.node_tokens[child] if isinstance(child, ParentRule) else child.size.tokens + 1
 
         current_rule_name = None
-        self.nodes_by_name: dict[str, list[Rule]] = {}
-        self.rules_by_name: dict[str, list[UnlexerRule | UnparserRule]] = {}
-        self.quants_by_name: dict[str, list[UnparserRuleQuantifier]] = {}
+        self.nodes_by_name: dict[tuple[str | int, ...], list[Rule]] = {}
+        self.rules_by_name: dict[tuple[str], list[UnlexerRule | UnparserRule]] = {}
+        self.quants_by_name: dict[tuple[str | int, ...], list[UnparserRuleQuantifier]] = {}
         self.node_levels: dict[Rule, int] = {}
         self.node_depths: dict[Rule, int] = {}
         self.node_tokens: dict[Rule, int] = {}
