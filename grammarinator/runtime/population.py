@@ -116,8 +116,7 @@ class Annotations:
         """
         :param root: Root of the tree to be annotated.
         """
-        def _annotate(current, level):
-            nonlocal current_rule_name
+        def _annotate(current, level, current_rule_name):
             self.node_levels[current] = level
             node_name = None
 
@@ -152,20 +151,19 @@ class Annotations:
             if isinstance(current, ParentRule):
                 child_level = level + 1 if isinstance(current, UnparserRule) else level
                 for child in current.children:
-                    _annotate(child, child_level)
+                    _annotate(child, child_level, current_rule_name)
                     self.node_depths[current] = max(self.node_depths[current], self.node_depths[child])
                     self.node_tokens[current] += self.node_tokens[child]
                 if isinstance(current, UnparserRule):
                     self.node_depths[current] += 1
 
-        current_rule_name = None
         self.nodes_by_name: dict[tuple[str | int, ...], list[Rule]] = {}
         self.rules_by_name: dict[tuple[str], list[UnlexerRule | UnparserRule]] = {}
         self.quants_by_name: dict[tuple[str | int, ...], list[UnparserRuleQuantifier]] = {}
         self.node_levels: dict[Rule, int] = {}
         self.node_depths: dict[Rule, int] = {}
         self.node_tokens: dict[Rule, int] = {}
-        _annotate(root, 0)
+        _annotate(root, 0, None)
 
     @property
     def nodes(self) -> list[Rule]:
