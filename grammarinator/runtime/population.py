@@ -147,13 +147,16 @@ class Annotations:
                     self.nodes_by_name[node_name] = []
                 self.nodes_by_name[node_name].append(current)
 
-            self.node_depths[current] = 0
-            self.node_tokens[current] = 0
+            self.node_depths[current] = current.size.depth if isinstance(current, UnlexerRule) else 0
+            self.node_tokens[current] = current.size.tokens if isinstance(current, UnlexerRule) else 0
             if isinstance(current, ParentRule):
+                child_level = level + 1 if isinstance(current, UnparserRule) else level
                 for child in current.children:
-                    _annotate(child, level + 1)
-                    self.node_depths[current] = max(self.node_depths[current], self.node_depths[child] + 1)
-                    self.node_tokens[current] += self.node_tokens[child] if isinstance(child, ParentRule) else child.size.tokens + 1
+                    _annotate(child, child_level)
+                    self.node_depths[current] = max(self.node_depths[current], self.node_depths[child])
+                    self.node_tokens[current] += self.node_tokens[child]
+                if isinstance(current, UnparserRule):
+                    self.node_depths[current] += 1
 
         current_rule_name = None
         self.nodes_by_name: dict[tuple[str | int, ...], list[Rule]] = {}
