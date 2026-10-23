@@ -110,7 +110,9 @@ public:
     std::shuffle(options.begin(), options.end(), util::random_engine);
     for (auto& [rule_name, node] : options) {
       int node_level = node_info.at(node).level;
-      auto indiv = static_cast<tool::SubTreePopulation*>(this->population)->select_by_type(rule_name,
+      // Insert a quantified node (i.e., a child of a compatible quantifier) from the pool.
+      runtime::Annotations::NodeKey quantified_key(rule_name.name, runtime::Annotations::NodeKey::QuantifiedKey, rule_name.idx);
+      auto indiv = static_cast<tool::SubTreePopulation*>(this->population)->select_by_type(quantified_key,
                                                                                           this->limit.depth - node_level,
                                                                                           this->limit.tokens - root_tokens);
       if (indiv) {
@@ -120,7 +122,7 @@ public:
           this->print_mutator("[{}]", __func__);
           return root;
       } else {
-        GRAMMARINATOR_LOG_TRACE("{} not found in tree pool", rule_name.format());
+        GRAMMARINATOR_LOG_TRACE("{} not found in tree pool", quantified_key.format());
         continue;
       }
     }
