@@ -579,7 +579,7 @@ public:
           int second_node_depth = node_info.at(second_node).depth;
 
           if (first_node_level + second_node_depth > limit.depth
-              && second_node_level + first_node_depth > limit.depth) {
+              || second_node_level + first_node_depth > limit.depth) {
             continue;
           }
 

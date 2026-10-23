@@ -740,7 +740,7 @@ class GeneratorTool:
                     second_node_level = annot.node_levels[second_node]
                     second_node_depth = annot.node_depths[second_node]
                     if (first_node_level + second_node_depth > self._limit.depth
-                            and second_node_level + first_node_depth > self._limit.depth):
+                            or second_node_level + first_node_depth > self._limit.depth):
                         continue
 
                     # Avoid swapping two identical nodes with each other.
