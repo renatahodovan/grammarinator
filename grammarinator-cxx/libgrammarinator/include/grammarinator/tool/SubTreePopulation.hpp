@@ -10,16 +10,19 @@
 
 #include "../runtime/Population.hpp"
 #include "../runtime/Rule.hpp"
+#include "../runtime/WeightedModel.hpp"
 #include "../util/random.hpp"
 
 #include <xxhash.h>
 
+#include <algorithm>
 #include <cassert>
 #include <climits>
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -34,12 +37,16 @@ private:
     runtime::Annotations::NodeKey key{""};
     runtime::RuleSize size{};
     int refcount{0};
+    bool self_embedding{false};  // the node has a descendant of the same rule
+    int uses{0};  // number of emitted mutations that used the node
+    int successes{0};  // number of those mutations that produced a new queue entry
   };
 
   std::unordered_map<const runtime::Rule*, RuleData> rule_data_;
   std::vector<runtime::Rule*> nodes_;
   std::unordered_map<XXH64_hash_t, runtime::Rule*> node_by_hash_;
   std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> nodes_by_name_;
+  std::map<runtime::WeightedModel::AltMapKey, int> alt_counts_;
 
   static char encode_kind(runtime::Rule::RuleType t) {
     switch (t) {
@@ -128,6 +135,45 @@ private:
     dfs(root);
   }
 
+  // Key of an alternative node in the alternative counts.
+  static runtime::WeightedModel::AltMapKey alt_key(const runtime::Rule* node, const runtime::Annotations::NodeKey& key) {
+    const auto* alt = static_cast<const runtime::UnparserRuleAlternative*>(node);
+    return {key.name, alt->alt_idx, alt->idx};
+  }
+
+  // Compute the keys, hashes, sizes and self-embedding flags of the nodes of
+  // a new tree. The key of the root has to be given, as it cannot be computed
+  // from the tree itself (and if the root is not a rule node, its descendants
+  // inherit its rule name).
+  void annotate(runtime::Rule* root, const runtime::Annotations::NodeKey& root_key = runtime::Annotations::NodeKey("")) {
+    // Keys are needed by the hashes.
+    runtime::Annotations annot(root, root_key.name);
+    rule_data_[root].key = root_key;
+    for (auto& [key, nodes] : annot.nodes_by_name()) {
+      for (auto node : nodes)
+        rule_data_[node].key = key;
+    }
+    collect_hashes(root);
+    for (auto& [node, info] : annot.node_info()) {
+      rule_data_.at(node).size.depth = info.depth;
+      rule_data_.at(node).size.tokens = info.tokens;
+      if (node->type == runtime::Rule::UnparserRuleType) {
+        for (runtime::Rule* parent = node->parent; parent; parent = parent->parent) {
+          if (parent->name == node->name) {
+            rule_data_.at(parent).self_embedding = true;
+          }
+        }
+      }
+    }
+  }
+
+  // Selection weight of a node: the expected success rate of the node
+  // (estimated with a uniform prior, so that unused nodes are also tried),
+  // preferring the nodes that are shared by fewer trees.
+  double weight(const RuleData& data) const {
+    return (data.successes + 1.0) / (data.uses + 2.0) / double(data.refcount);
+  }
+
   runtime::Rule* intern_node(runtime::Rule* node) {
     const XXH64_hash_t hash = rule_data_.at(node).hash;
 
@@ -144,6 +190,9 @@ private:
     nodes_.push_back(node);
     node_by_hash_[hash] = node;
     nodes_by_name_[rule_data_.at(node).key].push_back(node);
+    if (node->type == runtime::Rule::UnparserRuleAlternativeType) {
+      alt_counts_[alt_key(node, rule_data_.at(node).key)]++;
+    }
 
     if (node->type != runtime::Rule::UnlexerRuleType) {
       auto* parent = static_cast<runtime::ParentRule*>(node);
@@ -176,19 +225,7 @@ public:
     if (!root) return;
 
     root = root->clone();
-
-    // Keys are needed by the hashes.
-    runtime::Annotations annot(root);
-    for (auto& [key, nodes] : annot.nodes_by_name()) {
-      for (auto node : nodes)
-        rule_data_[node].key = key;
-    }
-    collect_hashes(root);
-    for (auto& [node, info] : annot.node_info()) {
-      rule_data_.at(node).size.depth = info.depth;
-      rule_data_.at(node).size.tokens = info.tokens;
-    }
-
+    annotate(root);
     intern_node(root);
   }
 
@@ -197,32 +234,97 @@ public:
     return new runtime::Individual(nodes_[util::random_int<size_t>(0, nodes_.size() - 1)]->clone());
   }
 
-  runtime::Individual* select_by_type(runtime::Annotations::NodeKey type_name, size_t max_depth, size_t max_tokens) {
+  // Add a subtree with known usage statistics (e.g., loaded from a previous
+  // fuzz session) to the pool.
+  void add_subtree(runtime::Rule* node, const runtime::Annotations::NodeKey& key, int successes, int uses) {
+    annotate(node, key);
+    node = intern_node(node);
+    auto& data = rule_data_.at(node);
+    data.successes += successes;
+    data.uses += uses;
+  }
+
+  // The subtrees that were used most successfully, with their keys and usage
+  // statistics.
+  std::vector<std::tuple<runtime::Rule*, runtime::Annotations::NodeKey, int, int>> best_subtrees(size_t n) const {
+    std::vector<std::tuple<runtime::Rule*, runtime::Annotations::NodeKey, int, int>> best;
+    for (const auto& [node, data] : rule_data_) {
+      if (data.successes > 0 && !data.key.name.empty()) {
+        best.emplace_back(const_cast<runtime::Rule*>(node), data.key, data.successes, data.uses);
+      }
+    }
+    std::sort(best.begin(), best.end(), [](const auto& a, const auto& b) {
+      return std::get<2>(a) != std::get<2>(b) ? std::get<2>(a) > std::get<2>(b) : std::get<3>(a) < std::get<3>(b);
+    });
+    if (best.size() > n) {
+      best.erase(best.begin() + n, best.end());
+    }
+    return best;
+  }
+
+  // Count a use for each of the subtrees with the given hashes.
+  void record_uses(const std::vector<XXH64_hash_t>& hashes) {
+    for (auto hash : hashes) {
+      auto it = node_by_hash_.find(hash);
+      if (it != node_by_hash_.end())
+        rule_data_.at(it->second).uses++;
+    }
+  }
+
+  // Count a success for each of the subtrees with the given hashes.
+  void record_successes(const std::vector<XXH64_hash_t>& hashes) {
+    for (auto hash : hashes) {
+      auto it = node_by_hash_.find(hash);
+      if (it != node_by_hash_.end())
+        rule_data_.at(it->second).successes++;
+    }
+  }
+
+  // Number of distinct subtrees in the pool per (rule name, alternation index, alternative index).
+  const std::map<runtime::WeightedModel::AltMapKey, int>& alt_counts() const { return alt_counts_; }
+
+  // Select a subtree of the given type within the size limits (and
+  // optionally, only from those that embed their own rule). The hash of the
+  // selected subtree is stored in hash, if given, so that its usage can be
+  // recorded.
+  runtime::Individual* select_by_type(runtime::Annotations::NodeKey type_name, size_t max_depth, size_t max_tokens, bool self_embedding_only = false,
+                                      XXH64_hash_t* hash = nullptr) {
     auto it = nodes_by_name_.find(type_name);
     if (it == nodes_by_name_.end())
       return nullptr;
     const auto& candidate_nodes = it->second;
 
+    auto fits = [&](runtime::Rule* node) {
+      const auto& data = rule_data_.at(node);
+      return data.size.depth <= max_depth && data.size.tokens <= max_tokens && (!self_embedding_only || data.self_embedding);
+    };
+
+    auto select = [&](runtime::Rule* node) {
+      if (hash)
+        *hash = rule_data_.at(node).hash;
+      return new runtime::Individual(node->clone());
+    };
+
     double total_w = 0.0;
     for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.depth <= max_depth && rule_data_.at(node).size.tokens <= max_tokens)
-        total_w += 1.0 / double(rule_data_.at(node).refcount);
+      if (fits(node))
+        total_w += weight(rule_data_.at(node));
     if (total_w <= 0.0)
       return nullptr;
 
     double r = util::random_real(0.0, total_w);
     double acc = 0.0;
     for (auto* node : candidate_nodes) {
-      if (rule_data_.at(node).size.depth > max_depth || rule_data_.at(node).size.tokens > max_tokens)
+      if (!fits(node))
         continue;
-      acc += 1.0 / double(rule_data_.at(node).refcount);
+      acc += weight(rule_data_.at(node));
       if (acc >= r)
-        return new runtime::Individual(node->clone());
+        return select(node);
     }
 
     for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.tokens <= max_tokens)
-        return new runtime::Individual(node->clone());
+      if (rule_data_.at(node).size.tokens <= max_tokens && (!self_embedding_only || rule_data_.at(node).self_embedding))
+        return select(node);
 
     return nullptr;
   }

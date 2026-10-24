@@ -29,22 +29,42 @@ The available creators are listed below.
      - Generate a new tree from scratch.
    * - :meth:`~grammarinator.tool.GeneratorTool.regenerate_rule`
      - Regenerate a randomly selected subtree of an existing test case.
+   * - :meth:`~grammarinator.tool.GeneratorTool.switch_alternative_keep_children`
+     - Regenerate a rule node so that a different alternative is chosen at a
+       randomly selected alternation, while reusing the old subtrees of the
+       rule node in place of the newly generated ones of the same rule (e.g.,
+       ``a + b`` may become ``a * b``).
    * - :meth:`~grammarinator.tool.GeneratorTool.delete_quantified`
      - Randomly remove an optional quantified subtree.
    * - :meth:`~grammarinator.tool.GeneratorTool.replicate_quantified`
      - Replicate a repeatable subtree multiple times at random sibling
        positions.
+   * - :meth:`~grammarinator.tool.GeneratorTool.replicate_with_variation`
+     - Replicate a repeatable subtree multiple times at random sibling
+       positions, and regenerate a random rule node in each copy.
    * - :meth:`~grammarinator.tool.GeneratorTool.shuffle_quantifieds`
      - Shuffle the subtrees of a randomly chosen quantifier node.
    * - :meth:`~grammarinator.tool.GeneratorTool.hoist_rule`
      - Select two nodes with the same name in an ancestor-descendant
        relationship and replace the ancestor with the descendant.
+   * - :meth:`~grammarinator.tool.GeneratorTool.pump_recursion`
+     - Select two nodes with the same name in an ancestor-descendant
+       relationship and repeat the part of the tree between them a random
+       number of times, nested into each other (the inverse of
+       ``hoist_rule``).
    * - :meth:`~grammarinator.tool.GeneratorTool.swap_local_nodes`
      - Randomly swap two compatible, non-overlapping subtrees within a single
        test case.
+   * - :meth:`~grammarinator.tool.GeneratorTool.copy_local_node`
+     - Replace a random subtree with a copy of another compatible subtree of
+       the same test case.
    * - :meth:`~grammarinator.tool.GeneratorTool.insert_local_node`
      - Insert a randomly chosen quantified subtree into another compatible
        quantifier node, while preserving quantifier limits.
+   * - :meth:`~grammarinator.tool.GeneratorTool.merge_names`
+     - Rewrite all tokens of a lexer rule that share a text to another text
+       of the same lexer rule from the same test case (e.g., rename an
+       identifier to another one already in use).
    * - :meth:`~grammarinator.tool.GeneratorTool.unrestricted_delete`
      - Randomly delete a subtree rooted at any rule node, without additional
        constraints.
@@ -72,6 +92,19 @@ The available creators are listed below.
      - AFL++ integration-only mutator that inserts a compatible subtree into
        a quantifier node, selecting it from a subtree pool built from
        previously generated trees.
+   * - ``replace_quantifier_from_pool()``
+     - AFL++ integration-only mutator that replaces a whole quantifier node
+       (i.e., all its repeated subtrees at once) with a compatible one chosen
+       from the subtree pool.
+   * - ``wrap_from_pool()``
+     - AFL++ integration-only mutator that selects a subtree from the subtree
+       pool that has the same rule as a random node of the test case and also
+       contains that rule again, puts it in place of the node, and puts the
+       node in place of the inner occurrence.
+   * - ``regenerate_rare()``
+     - AFL++ integration-only mutator that regenerates a random subtree like
+       ``regenerate_rule()``, but prefers the alternatives that are the least
+       represented in the subtree pool.
 
 
 ----------------

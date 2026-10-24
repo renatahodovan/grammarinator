@@ -11,6 +11,7 @@ import re
 
 from contextlib import nullcontext
 from copy import deepcopy
+from functools import partial
 from os.path import abspath, dirname, join, split
 from shutil import rmtree
 from string import Formatter
@@ -20,7 +21,7 @@ import xxhash
 
 from inators import log as logging
 
-from ..runtime import Generator, DefaultModel, Individual, Listener, Model, Population, Rule, RuleSize, UnlexerRule, UnparserRule, WeightedModel
+from ..runtime import Annotations, Generator, DefaultModel, Individual, Listener, Model, ParentRule, Population, Rule, RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantifier, WeightedModel
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,59 @@ class DefaultGeneratorFactory(GeneratorFactory):
         generator = self._generator_class(model=model, listeners=listeners, limit=limit)
 
         return generator
+
+
+class SwitchAlternativeModel(Model):
+    """
+    Decision model wrapper that, in the root rule of the generation, forces
+    the given alternatives of some alternations (if they are possible) and
+    avoids an alternative of another alternation (if any other alternative is
+    possible there).
+    """
+
+    def __init__(self, model: Model, *, rule: str, forced_choices: dict[int, int], avoided_alt_idx: int, avoided_choice: int) -> None:
+        """
+        :param model: The underlying model.
+        :param rule: Name of the root rule of the generation.
+        :param forced_choices: Indices of the alternatives to choose, keyed by
+            the indices of their alternations within the rule.
+        :param avoided_alt_idx: Index of the alternation within the rule, where
+            an alternative has to be avoided.
+        :param avoided_choice: Index of the alternative to avoid.
+        """
+        self._model = model
+        self._rule = rule
+        self._forced_choices = forced_choices
+        self._avoided_alt_idx = avoided_alt_idx
+        self._avoided_choice = avoided_choice
+
+    def choice(self, node: Rule, idx: int, weights: list[float]) -> int:
+        """
+        Apply the forced and avoided choices in the root rule, otherwise call
+        the ``choice`` method of the underlying model.
+        """
+        if node.parent is None and node.name == self._rule:
+            forced_choice = self._forced_choices.get(idx)
+            if forced_choice is not None and forced_choice < len(weights) and weights[forced_choice] > 0:
+                return forced_choice
+            if idx == self._avoided_alt_idx and self._avoided_choice < len(weights):
+                avoiding_weights = list(weights)
+                avoiding_weights[self._avoided_choice] = 0
+                if sum(avoiding_weights) > 0:
+                    return self._model.choice(node, idx, avoiding_weights)
+        return self._model.choice(node, idx, weights)
+
+    def quantify(self, node: Rule, idx: int, cnt: int, start: int, stop: int | float, prob: float = 0.5) -> bool:
+        """
+        Trampoline to the ``quantify`` method of the underlying model.
+        """
+        return self._model.quantify(node, idx, cnt, start, stop, prob)
+
+    def charset(self, node: Rule, idx: int, chars: tuple[int, ...]) -> str:
+        """
+        Trampoline to the ``charset`` method of the underlying model.
+        """
+        return self._model.charset(node, idx, chars)
 
 
 class GeneratorTool:
@@ -259,12 +313,17 @@ class GeneratorTool:
 
         if mutate:
             self._allow_creator(self._mutators, "regenerate_rule", self.regenerate_rule)
+            self._allow_creator(self._mutators, "switch_alternative_keep_children", self.switch_alternative_keep_children)
             self._allow_creator(self._mutators, "delete_quantified", self.delete_quantified)
             self._allow_creator(self._mutators, "replicate_quantified", self.replicate_quantified)
+            self._allow_creator(self._mutators, "replicate_with_variation", self.replicate_with_variation)
             self._allow_creator(self._mutators, "shuffle_quantifieds", self.shuffle_quantifieds)
             self._allow_creator(self._mutators, "hoist_rule", self.hoist_rule)
+            self._allow_creator(self._mutators, "pump_recursion", self.pump_recursion)
             self._allow_creator(self._mutators, "swap_local_nodes", self.swap_local_nodes)
+            self._allow_creator(self._mutators, "copy_local_node", self.copy_local_node)
             self._allow_creator(self._mutators, "insert_local_node", self.insert_local_node)
+            self._allow_creator(self._mutators, "merge_names", self.merge_names)
             if unrestricted:
                 self._allow_creator(self._mutators, "unrestricted_delete", self.unrestricted_delete)
                 self._allow_creator(self._mutators, "unrestricted_hoist_rule", self.unrestricted_hoist_rule)
@@ -441,7 +500,8 @@ class GeneratorTool:
         individual1, individual2 = self._ensure_individuals(individual1, individual2)
         return self._create_tree(self._recombiners[:], individual1, individual2)
 
-    def generate(self, _individual1: Individual | None = None, _individual2: Individual | None = None, *, rule: str | None = None, reserve: RuleSize | None = None) -> UnlexerRule | UnparserRule:
+    def generate(self, _individual1: Individual | None = None, _individual2: Individual | None = None, *, rule: str | None = None, reserve: RuleSize | None = None,
+                 wrap_model: Callable[[Model], Model] | None = None) -> UnlexerRule | UnparserRule:
         """
         Instantiate a new generator and generate a new tree from scratch.
 
@@ -449,12 +509,16 @@ class GeneratorTool:
         :param reserve: Size budget that needs to be put in reserve before
             generating the tree. Practically, deduced from the initially
             specified limit. (default values: 0, 0)
+        :param wrap_model: Function to wrap the decision model of the
+            generator into another model (optional).
         :return: The root of the generated tree.
         """
         # NOTE: Intentionally does not check self._enable_generation!
         # If you call this explicitly, then so be it, even if generation is disabled.
         reserve = reserve if reserve is not None else RuleSize()
         generator = self._generator_factory(limit=self._limit - reserve)
+        if wrap_model:
+            generator._model = wrap_model(generator._model)
         rule = rule or self._rule or generator._default_rule.__name__
         if not hasattr(generator, rule):
             logger.error('Rule %s not found.', rule)
@@ -509,6 +573,99 @@ class GeneratorTool:
             return mutated_node.root
 
         logger.trace('%s failed.', self.regenerate_rule.__name__)
+        return None
+
+    def switch_alternative_keep_children(self, individual: Individual | None = None, _=None) -> Rule | None:
+        """
+        Select an alternative node directly below a rule node, and regenerate
+        the rule node so that a different alternative is chosen there. Then,
+        put the old rule children of the node (i.e., the rule nodes below it
+        but not below another rule node) in place of the newly generated ones
+        of the same rule, in order. E.g., ``a + b`` may become ``a * b`` or
+        ``( a )``.
+
+        :param individual: The population item to be mutated.
+        :return: The root of the mutated tree.
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+
+        # Only alternatives are considered that are below their rule node only
+        # via other alternatives (and not via quantifiers). So, if the choices
+        # of these ancestor alternatives are kept when the rule is regenerated,
+        # the alternation of the selected alternative is reached exactly once.
+        root_tokens = annot.node_tokens[root]
+        options = []
+        for nodes in annot.nodes_by_name.values():
+            for node in nodes:
+                if not isinstance(node, UnparserRuleAlternative):
+                    continue
+                forced_choices = {}
+                rule_node = node.parent
+                while isinstance(rule_node, UnparserRuleAlternative):
+                    forced_choices[rule_node.alt_idx] = rule_node.idx
+                    rule_node = rule_node.parent
+                if not isinstance(rule_node, UnparserRule) or rule_node is root:
+                    continue
+                rule_size = self._generator_factory._rule_sizes.get(rule_node.name)
+                if (rule_size is not None
+                        and annot.node_levels[rule_node] + rule_size.depth < self._limit.depth
+                        and root_tokens - annot.node_tokens[rule_node] + rule_size.tokens < self._limit.tokens):
+                    options.append((node, rule_node, forced_choices))
+
+        def rule_children(node: ParentRule) -> list[Rule]:
+            # Rule nodes below a rule node that are not below another rule node.
+            children: list[Rule] = []
+            for child in node.children:
+                if isinstance(child, (UnparserRule, UnlexerRule)):
+                    if not isinstance(child, UnlexerRule) or not child.immutable:
+                        children.append(child)
+                else:
+                    children.extend(rule_children(child))  # type: ignore[arg-type]
+            return children
+
+        def find_alternative(node: ParentRule, alt_idx: int) -> UnparserRuleAlternative | None:
+            # The alternative node of the given alternation below a rule node,
+            # if it is not below another rule node.
+            for child in node.children:
+                if isinstance(child, UnparserRuleAlternative) and child.alt_idx == alt_idx:
+                    return child
+                if isinstance(child, ParentRule) and not isinstance(child, UnparserRule):
+                    found = find_alternative(child, alt_idx)
+                    if found:
+                        return found
+            return None
+
+        for alt_node, rule_node, forced_choices in random.sample(options, k=len(options)):
+            reserve = RuleSize(depth=annot.node_levels[rule_node], tokens=root_tokens - annot.node_tokens[rule_node])
+            new_rule_node = self.generate(rule=rule_node.name, reserve=reserve,
+                                          wrap_model=partial(SwitchAlternativeModel, rule=rule_node.name, forced_choices=forced_choices, avoided_alt_idx=alt_node.alt_idx, avoided_choice=alt_node.idx))
+            new_alt_node = find_alternative(new_rule_node, alt_node.alt_idx)  # type: ignore[arg-type]
+            if new_alt_node is None or new_alt_node.idx == alt_node.idx:
+                continue
+
+            # Put the old rule children in place of the new ones of the same
+            # rule, in order, as long as the token limit allows.
+            old_children_by_name: dict[str, list[Rule]] = {}
+            for old_child in rule_children(rule_node):
+                old_children_by_name.setdefault(old_child.name, []).append(old_child)
+
+            new_annot = Annotations(new_rule_node)
+            tokens = root_tokens - annot.node_tokens[rule_node] + new_annot.node_tokens[new_rule_node]
+            for new_child in rule_children(new_rule_node):  # type: ignore[arg-type]
+                candidates = old_children_by_name.get(new_child.name)
+                if not candidates:
+                    continue
+                new_tokens = tokens - new_annot.node_tokens[new_child] + annot.node_tokens[candidates[0]]
+                if new_tokens > self._limit.tokens:
+                    continue
+                new_child.replace(candidates.pop(0))
+                tokens = new_tokens
+
+            self.print_mutator('{}: {}, {}, {}', self.switch_alternative_keep_children.__name__, rule_node.name, alt_node.alt_idx, alt_node.idx)
+            rule_node.replace(new_rule_node)
+            return root
+        logger.trace('%s failed.', self.switch_alternative_keep_children.__name__)
         return None
 
     def replace_node(self, recipient_individual: Individual | None = None, donor_individual: Individual | None = None) -> Rule | None:
@@ -646,6 +803,76 @@ class GeneratorTool:
         logger.trace('%s failed.', self.replicate_quantified.__name__)
         return None
 
+    def replicate_with_variation(self, individual: Individual | None = None, _=None) -> Rule | None:
+        """
+        Select a quantified sub-tree randomly and insert copies of it if the
+        maximum quantification count is not reached yet, similarly to
+        :meth:`replicate_quantified`. However, a randomly selected rule node is
+        re-generated in each copy, so that the copies differ from each other.
+
+        :param individual: The population item to be mutated.
+        :return: The root of the modified tree.
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+        root_options = [node for node in annot.quants if node.stop > len(node.children)]
+        root_tokens = annot.node_tokens[root]
+        node_options = [child for root in root_options for child in root.children if
+                        root_tokens < root_tokens + annot.node_tokens[child] <= self._limit.tokens]
+        if not node_options:
+            logger.trace('%s failed.', self.replicate_with_variation.__name__)
+            return None
+
+        node_to_repeat = random.choice(node_options)
+        parent = node_to_repeat.parent
+        assert isinstance(parent, UnparserRuleQuantifier)
+        node_level = annot.node_levels[node_to_repeat]
+        node_tokens = annot.node_tokens[node_to_repeat]
+        max_repeat = (self._limit.tokens - root_tokens) // node_tokens if self._limit.tokens != RuleSize.max.tokens else 1
+        repeat = random.randint(1, int(max_repeat)) if max_repeat > 1 else 1
+        inserted = 0
+        for _ in range(repeat):
+            if root_tokens + node_tokens > self._limit.tokens:
+                break
+            copy = deepcopy(node_to_repeat)
+
+            # Regenerate a random rule node in each copy to make the copies
+            # differ. As regeneration may give back the same tokens (e.g., for
+            # literals), a few rule nodes are tried. If none of them changes,
+            # no more copies are inserted.
+            copy_annot = Annotations(copy)
+            variants = []
+            for (rule_name,), nodes in copy_annot.rules_by_name.items():
+                rule_size = self._generator_factory._rule_sizes.get(rule_name)
+                if rule_size is None:
+                    continue
+                for node in nodes:
+                    if (node_level + copy_annot.node_levels[node] + rule_size.depth < self._limit.depth
+                            and root_tokens + node_tokens - copy_annot.node_tokens[node] + rule_size.tokens < self._limit.tokens):
+                        variants.append(node)
+            varied = False
+            for varied_node in random.sample(variants, k=min(len(variants), 3)):
+                varied_tokens = copy_annot.node_tokens[varied_node]
+                reserve = RuleSize(depth=node_level + copy_annot.node_levels[varied_node],
+                                   tokens=root_tokens + node_tokens - varied_tokens)
+                new_node = self.generate(rule=varied_node.name, reserve=reserve)
+                if new_node.equalTokens(varied_node):
+                    continue
+                varied_node.replace(new_node)
+                root_tokens += node_tokens + Annotations(new_node).node_tokens[new_node] - varied_tokens
+                varied = True
+                break
+            if not varied:
+                break
+
+            parent.insert_child(idx=random.randint(0, len(parent.children)), node=copy)
+            inserted += 1
+        if not inserted:
+            logger.trace('%s failed.', self.replicate_with_variation.__name__)
+            return None
+        self.print_mutator('{}: {}, {}, {}', self.replicate_with_variation.__name__, node_to_repeat.rule_name, parent.idx, inserted)
+        return root
+
     def shuffle_quantifieds(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select a quantifier node and shuffle its quantified sub-trees.
@@ -685,6 +912,71 @@ class GeneratorTool:
                     return root
                 parent = parent.parent
         logger.trace('%s failed.', self.hoist_rule.__name__)
+        return None
+
+    def pump_recursion(self, individual: Individual | None = None, _=None) -> Rule | None:
+        """
+        Select two rule nodes from the input individual which share the same
+        rule name and are in ancestor-descendant relationship, and repeat the
+        part of the ancestor's sub-tree that is not covered by the descendant
+        (i.e., the ring between them) a random number of times, nesting the
+        copies into each other. The descendant gets into the innermost copy.
+        This is the inverse of :meth:`hoist_rule`.
+
+        :param individual: The population item to be mutated.
+        :return: The root of the pumped tree.
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+        root_tokens = annot.node_tokens[root]
+        for rule in random.sample(annot.rules, k=len(annot.rules)):
+            if not isinstance(rule, UnparserRule):
+                continue
+
+            ancestors = []
+            parent = rule.parent
+            while parent:
+                if parent.name == rule.name:
+                    ancestors.append(parent)
+                parent = parent.parent
+
+            for ancestor in random.sample(ancestors, k=len(ancestors)):
+                ring_levels = annot.node_levels[rule] - annot.node_levels[ancestor]
+                ring_tokens = annot.node_tokens[ancestor] - annot.node_tokens[rule]
+                depth_budget = self._limit.depth - annot.node_levels[rule] - annot.node_depths[ancestor]
+                if ring_tokens <= 0 or depth_budget < 0 or root_tokens + ring_tokens > self._limit.tokens:
+                    continue
+                max_pump = 0
+                if self._limit.depth != RuleSize.max.depth:
+                    max_pump = int(depth_budget // ring_levels) + 1
+                if self._limit.tokens != RuleSize.max.tokens:
+                    token_pump = int((self._limit.tokens - root_tokens) // ring_tokens)
+                    max_pump = min(max_pump, token_pump) if max_pump > 0 else token_pump
+                pump = random.randint(1, max_pump) if max_pump > 1 else 1
+
+                path = []
+                node = rule
+                while node is not ancestor:
+                    path.append(node.parent.children.index(node))  # type: ignore[union-attr]
+                    node = node.parent  # type: ignore[assignment]
+                path.reverse()
+
+                outer_ring, hole = None, None
+                for _ in range(pump):
+                    ring = deepcopy(ancestor)
+                    ring_hole: Rule = ring
+                    for idx in path:
+                        ring_hole = ring_hole.children[idx]  # type: ignore[attr-defined]
+                    if outer_ring is None:
+                        outer_ring = ring
+                    else:
+                        hole.replace(ring)  # type: ignore[union-attr]
+                    hole = ring_hole
+                rule.replace(outer_ring)  # type: ignore[arg-type]
+                hole.replace(rule)  # type: ignore[union-attr]
+                self.print_mutator('{}: {}, {}', self.pump_recursion.__name__, rule.name, pump)
+                return root
+        logger.trace('%s failed.', self.pump_recursion.__name__)
         return None
 
     def unrestricted_hoist_rule(self, individual: Individual | None = None, _=None) -> Rule | None:
@@ -770,6 +1062,44 @@ class GeneratorTool:
         logger.trace('%s failed.', self.swap_local_nodes.__name__)
         return None
 
+    def copy_local_node(self, individual: Individual | None = None, _=None) -> Rule | None:
+        """
+        Replace a subtree at a random position in a single test with a copy of
+        another compatible subtree (i.e., one that shares the same node name)
+        of the same test.
+
+        :param individual: The population item to be mutated
+        :return: The root of the mutated tree.
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+        root_tokens = annot.node_tokens[root]
+
+        options: dict[tuple[str | int, ...], Sequence[Rule]] = dict(annot.nodes_by_name)
+        for _, nodes in random.sample(list(options.items()), k=len(options)):
+            # Skip node types without two instances.
+            if len(nodes) < 2:
+                continue
+
+            shuffled = random.sample(nodes, k=len(nodes))
+            for recipient_node in shuffled:
+                recipient_node_level = annot.node_levels[recipient_node]
+                recipient_node_tokens = annot.node_tokens[recipient_node]
+                for donor_node in shuffled:
+                    if (donor_node is recipient_node
+                            or recipient_node_level + annot.node_depths[donor_node] > self._limit.depth
+                            or root_tokens - recipient_node_tokens + annot.node_tokens[donor_node] > self._limit.tokens
+                            or recipient_node.equalTokens(donor_node)):
+                        continue
+
+                    # The donor is copied before the replacement, so it may be
+                    # an ancestor or a descendant of the recipient.
+                    self.print_mutator('{}: {}', self.copy_local_node.__name__, recipient_node.rule_name)
+                    recipient_node.replace(deepcopy(donor_node))
+                    return root
+        logger.trace('%s failed.', self.copy_local_node.__name__)
+        return None
+
     def insert_local_node(self, individual: Individual | None = None, _=None) -> Rule | None:
         """
         Select two compatible quantifier nodes from a single test and insert a
@@ -804,3 +1134,41 @@ class GeneratorTool:
                             return root
         logger.trace('%s failed.', self.insert_local_node.__name__)
         return None
+
+    def merge_names(self, individual: Individual | None = None, _=None) -> Rule | None:
+        """
+        Select a lexer rule that has tokens with at least two different texts
+        in a single test, and rewrite all the tokens having one of the texts to
+        another text of the same lexer rule from the same test. E.g., all
+        occurrences of an identifier are renamed to another identifier already
+        used in the test.
+
+        :param individual: The population item to be mutated
+        :return: The root of the mutated tree.
+        """
+        individual = self._ensure_individual(individual)
+        root, annot = individual.root, individual.annotations
+
+        # Group the tokens of each lexer rule by their text and keep the lexer
+        # rules that have at least two different texts in the tree.
+        options = []
+        for (rule_name,), nodes in annot.rules_by_name.items():
+            if not rule_name or not isinstance(nodes[0], UnlexerRule):
+                continue
+            tokens_by_src: dict[str, list[UnlexerRule]] = {}
+            for node in nodes:
+                if node.src:  # type: ignore[union-attr]
+                    tokens_by_src.setdefault(node.src, []).append(node)  # type: ignore[union-attr, arg-type]
+            if len(tokens_by_src) > 1:
+                options.append(tokens_by_src)
+        if not options:
+            logger.trace('%s failed.', self.merge_names.__name__)
+            return None
+
+        tokens_by_src = random.choice(options)
+        from_src, to_src = random.sample(list(tokens_by_src.keys()), k=2)
+        from_tokens = tokens_by_src[from_src]
+        self.print_mutator('{}: {}, {} -> {}', self.merge_names.__name__, from_tokens[0].name, from_src, to_src)
+        for token in from_tokens:
+            token.src = to_src
+        return root

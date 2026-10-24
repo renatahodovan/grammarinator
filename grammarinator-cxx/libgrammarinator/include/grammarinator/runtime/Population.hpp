@@ -86,13 +86,17 @@ public:
 
 private:
   Rule* root_;
+  std::string root_rule_name_;
   std::map<NodeKey, std::vector<Rule*>> nodes_by_name_{};
   std::map<NodeKey, std::vector<Rule*>> rules_by_name_{};
   std::map<NodeKey, std::vector<Rule*>> quants_by_name_{};
   std::unordered_map<Rule*, NodeInfo> node_info_{};
 
 public:
-  explicit Annotations(Rule* root) : root_(root) { }
+  // If the root is not a rule node (e.g., a detached alternative or quantifier
+  // subtree), rule_name can give the name of the rule it belongs to, so that
+  // its descendants get keyed (the root itself is never keyed).
+  explicit Annotations(Rule* root, const std::string& rule_name = "") : root_(root), root_rule_name_(rule_name) { }
   Annotations(const Annotations& other) = delete;
   Annotations& operator=(const Annotations& other) = delete;
   Annotations(Annotations&& other) = delete;
@@ -101,7 +105,7 @@ public:
 
   auto& nodes_by_name() {
     if (nodes_by_name_.empty()) {
-      collect_nodes(root_, nullptr);
+      collect_nodes(root_, !root_rule_name_.empty() ? &root_rule_name_ : nullptr);
     }
     return nodes_by_name_;
   }
@@ -115,7 +119,7 @@ public:
 
   auto& quants_by_name() {
     if (quants_by_name_.empty()) {
-      collect_quants(root_, nullptr);
+      collect_quants(root_, !root_rule_name_.empty() ? &root_rule_name_ : nullptr);
     }
     return quants_by_name_;
   }
@@ -175,7 +179,7 @@ private:
     } else if ((current->type == Rule::UnparserRuleAlternativeType ||
                 current->type == Rule::UnparserRuleQuantifierType ||
                 current->type == Rule::UnparserRuleQuantifiedType) &&
-               current_rule_name) {
+               current != root_ && current_rule_name) {
       nodes_by_name_[NodeKey(current, *current_rule_name)].push_back(current);
     }
 

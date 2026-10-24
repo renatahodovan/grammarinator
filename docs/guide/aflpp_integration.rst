@@ -86,6 +86,19 @@ The following options are currently supported:
 * **GRAFL_WEIGHTS**: Equivalent to ``--weights`` (path to a JSON file)
 * **GRAFL_MAX_TRIM_STEPS**: Maximum number of mutation steps performed during
   trimming of a single test input (integer)
+* **GRAFL_SUBTREE_POOL_FILE**: Path of a file to save the most successfully
+  used subtrees of the pool to at the end of the fuzz session, and to load
+  them from at the start of the next one (path; by default, nothing is saved
+  or loaded). Parallel fuzzer instances should use separate files.
+* **GRAFL_SUBTREE_POOL_SAVE_SIZE**: Maximum number of subtrees saved to
+  ``GRAFL_SUBTREE_POOL_FILE`` (integer; defaults to ``100``)
+
+The pool-based mutators select subtrees from the pool weighted by their
+expected success rate, i.e., by the ratio of the mutations using them that
+produced new queue entries, estimated as ``(successes + 1) / (uses + 2)``, so
+that not yet used subtrees are tried as well. The saved subtrees keep their
+statistics across fuzz sessions, but halved, so that the new session can
+revise them sooner.
 
 Verifying the Setup
 -------------------

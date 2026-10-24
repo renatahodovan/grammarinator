@@ -70,6 +70,14 @@ struct grafl_state {
   // Fuzz loop planning
   unsigned int fuzz_cnt;
 
+  // Hash of the last emitted mutation result, to recognize it when it becomes
+  // a new queue entry.
+  XXH64_hash_t fuzz_hash;
+
+  // Subtree pool persistence
+  std::string subtree_pool_file;
+  size_t subtree_pool_save_size;
+
   // Trimming
   ContentTrimmer<Rule*, std::string, XXH64_hash_t> trimmer;
   size_t trim_step, trim_max_steps;
@@ -93,6 +101,19 @@ static unsigned int env_u32(const char* k, unsigned int dflt) {
       return dflt;
     }
     return x ? static_cast<unsigned int>(x) : dflt;
+  }
+  return dflt;
+}
+
+static size_t env_size(const char* k, size_t dflt) {
+  if (const char* v = std::getenv(k)) {
+    char* endptr = nullptr;
+    errno = 0;
+    unsigned long long x = std::strtoull(v, &endptr, 10);
+    if (endptr == v || *endptr != '\0' || errno != 0 || std::strchr(v, '-')) {
+      return dflt;
+    }
+    return static_cast<size_t>(x);
   }
   return dflt;
 }
@@ -152,6 +173,7 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   st->afl = afl;
   st->afl->afl_env.afl_post_process_keep_original = 1;
   st->fuzz_cnt = 0;
+  st->fuzz_hash = 0;
   st->trim_step = 0;
   st->current_tree = nullptr;
   st->mutated_tree = nullptr;
@@ -166,6 +188,10 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   const bool random_mut = env_bool("GRAFL_RANDOM_MUTATORS", true);
   const std::unordered_set<std::string> allowlist = env_str_set("GRAFL_ALLOWLIST");
   const std::unordered_set<std::string> blocklist = env_str_set("GRAFL_BLOCKLIST");
+  if (const char* subtree_pool_file = std::getenv("GRAFL_SUBTREE_POOL_FILE")) {
+    st->subtree_pool_file = subtree_pool_file;
+  }
+  st->subtree_pool_save_size = env_size("GRAFL_SUBTREE_POOL_SAVE_SIZE", 100);
   st->trim_max_steps = env_u32("GRAFL_MAX_TRIM_STEPS", 200);
 
   WeightedModel::AltMap weights;
@@ -191,6 +217,10 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
     memo_size, treeCodec
   );
 
+  if (!st->subtree_pool_file.empty() && std::filesystem::exists(st->subtree_pool_file)) {
+    st->tool->load_pool(st->subtree_pool_file);
+  }
+
   return st;
 }
 
@@ -202,6 +232,9 @@ void afl_custom_deinit(void* data) {
   auto* st = static_cast<grafl_state*>(data);
   if (!st) {
     return;
+  }
+  if (!st->subtree_pool_file.empty()) {
+    st->tool->save_pool(st->subtree_pool_file, st->subtree_pool_save_size);
   }
   delete st->current_tree;
   delete st->mutated_tree;
@@ -270,6 +303,23 @@ unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
 }
 
 /**
+ * This method is called after adding a new test case to the queue. If the
+ * contents of the file was changed, return True, False otherwise.
+ */
+// If the new queue entry is the last emitted mutation result, credit the pool
+// subtrees used by that mutation.
+extern "C"
+unsigned char afl_custom_queue_new_entry(void* data, const unsigned char* filename_new_queue, const unsigned char*) {
+  auto* st = static_cast<grafl_state*>(data);
+  std::ifstream file(reinterpret_cast<const char*>(filename_new_queue), std::ios::binary);
+  std::vector<char> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  if (!content.empty() && XXH3_64bits(content.data(), content.size()) == st->fuzz_hash) {
+    st->tool->record_pool_successes();
+  }
+  return 0;
+}
+
+/**
  * If this function is present, no splicing target is passed to the fuzz
  * function. This saves time if splicing data is not needed by the custom
  * fuzzing function. This function is never called, just needs to be
@@ -323,6 +373,8 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   }
 
   st->fuzz_cnt++;
+  st->fuzz_hash = XXH3_64bits(out.data(), out.size());
+  st->tool->record_pool_uses();
   assign_and_shrink_buffer_if_needed(st->fuzz_buf, out.begin(), out.end());
   *out_buf = st->fuzz_buf.data();
   return n;
