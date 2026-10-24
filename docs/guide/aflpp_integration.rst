@@ -92,6 +92,17 @@ The following options are currently supported:
   or loaded). Parallel fuzzer instances should use separate files.
 * **GRAFL_SUBTREE_POOL_SAVE_SIZE**: Maximum number of subtrees saved to
   ``GRAFL_SUBTREE_POOL_FILE`` (integer; defaults to ``100``)
+* **GRAFL_STATS_INTERVAL**: Interval of appending per-mutator statistics to
+  ``grafl_stats.csv`` in the output directory of the fuzzer instance (integer,
+  in seconds; defaults to ``60``, ``0`` disables the statistics). Every write
+  adds a row per mutator with the time elapsed since the start of fuzzing (in
+  ms, as in the names of the queue entries), the total number of executions,
+  and the cumulative number of test cases the mutator created that were
+  executed (``emitted``), dropped as too large or as duplicates
+  (``discarded``), added to the queue (``new_entries``), and added to the queue
+  with new coverage (``cov_entries``, i.e., marked with ``+cov`` by AFL++).
+  A final row set is written at exit. If a fuzzing session is resumed, the
+  counters restart from zero.
 
 The pool-based mutators select subtrees from the pool weighted by their
 expected success rate, i.e., by the ratio of the mutations using them that

@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -46,6 +47,14 @@ using namespace grammarinator::runtime;
 // ---- State ------------------------------------------------------------------
 
 namespace {
+
+// Counters of the test cases created by a mutator.
+struct mutator_stats {
+  size_t emitted{0};  // passed to AFL++ for execution
+  size_t discarded{0};  // dropped as too large or as a duplicate
+  size_t new_entries{0};  // added to the queue by AFL++
+  size_t cov_entries{0};  // added to the queue with new coverage (+cov)
+};
 
 struct grafl_state {
   afl_state_t* afl;
@@ -77,6 +86,13 @@ struct grafl_state {
   // Subtree pool persistence
   std::string subtree_pool_file;
   size_t subtree_pool_save_size;
+
+  // Per-mutator statistics
+  std::map<std::string, mutator_stats> stats;
+  std::string fuzz_mutator;  // the mutator that created the last emitted test case
+  std::string stats_file;
+  uint64_t stats_interval;  // ms, 0: no statistics
+  uint64_t stats_last_write;
 
   // Trimming
   ContentTrimmer<Rule*, std::string, XXH64_hash_t> trimmer;
@@ -149,6 +165,31 @@ static std::unordered_set<std::string> env_str_set(const char* k) {
   return set;
 }
 
+// Time elapsed since the start of fuzzing (in ms, as in the names of the
+// queue entries).
+static uint64_t run_time(const grafl_state* st) {
+  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  return st->afl->start_time ? now + st->afl->prev_run_time - st->afl->start_time : 0;
+}
+
+// Append the current counters of every mutator to the statistics file.
+static void write_stats(grafl_state* st) {
+  if (st->stats_interval == 0) {
+    return;
+  }
+  bool new_file = !std::filesystem::exists(st->stats_file);
+  std::ofstream file(st->stats_file, std::ios::app);
+  if (new_file) {
+    file << "time,total_execs,mutator,emitted,discarded,new_entries,cov_entries\n";
+  }
+  uint64_t time = run_time(st);
+  for (const auto& [mutator, stats] : st->stats) {
+    file << time << ',' << st->afl->fsrv.total_execs << ',' << mutator << ',' << stats.emitted << ',' << stats.discarded << ','
+         << stats.new_entries << ',' << stats.cov_entries << '\n';
+  }
+  st->stats_last_write = time;
+}
+
 template <typename T>
 static void assign_and_shrink_buffer_if_needed(std::vector<uint8_t>& buffer, T first, T last) {
   buffer.assign(first, last);
@@ -192,6 +233,9 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
     st->subtree_pool_file = subtree_pool_file;
   }
   st->subtree_pool_save_size = env_size("GRAFL_SUBTREE_POOL_SAVE_SIZE", 100);
+  st->stats_interval = env_size("GRAFL_STATS_INTERVAL", 60) * 1000;  // 0: no statistics
+  st->stats_file = std::string(reinterpret_cast<const char*>(afl->out_dir)) + "/grafl_stats.csv";
+  st->stats_last_write = 0;
   st->trim_max_steps = env_u32("GRAFL_MAX_TRIM_STEPS", 200);
 
   WeightedModel::AltMap weights;
@@ -236,6 +280,7 @@ void afl_custom_deinit(void* data) {
   if (!st->subtree_pool_file.empty()) {
     st->tool->save_pool(st->subtree_pool_file, st->subtree_pool_save_size);
   }
+  write_stats(st);
   delete st->current_tree;
   delete st->mutated_tree;
   delete st;
@@ -307,7 +352,7 @@ unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
  * contents of the file was changed, return True, False otherwise.
  */
 // If the new queue entry is the last emitted mutation result, credit the pool
-// subtrees used by that mutation.
+// subtrees used by that mutation, and count it for the mutator.
 extern "C"
 unsigned char afl_custom_queue_new_entry(void* data, const unsigned char* filename_new_queue, const unsigned char*) {
   auto* st = static_cast<grafl_state*>(data);
@@ -315,6 +360,11 @@ unsigned char afl_custom_queue_new_entry(void* data, const unsigned char* filena
   std::vector<char> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
   if (!content.empty() && XXH3_64bits(content.data(), content.size()) == st->fuzz_hash) {
     st->tool->record_pool_successes();
+    auto& stats = st->stats[st->fuzz_mutator];
+    stats.new_entries++;
+    if (std::strstr(reinterpret_cast<const char*>(filename_new_queue), ",+cov")) {
+      stats.cov_entries++;
+    }
   }
   return 0;
 }
@@ -350,6 +400,10 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
     return 0;
   }
 
+  if (st->stats_interval && run_time(st) >= st->stats_last_write + st->stats_interval) {
+    write_stats(st);
+  }
+
   delete st->mutated_tree;
   st->mutated_tree = st->current_tree->clone();
   Individual individual(st->mutated_tree, false);
@@ -362,10 +416,12 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   std::vector<uint8_t> out = st->tool->encode(st->mutated_tree);
   size_t n = out.size();
   if (n == 0 || n > max_size) {
+    st->stats[st->tool->last_mutator].discarded++;
     return 0;
   }
 
   if (!st->tool->memoize_test(out.data(), out.size())) {
+    st->stats[st->tool->last_mutator].discarded++;
     // TODO: memo size is missing from the next message but it's only available from Tool.
     GRAMMARINATOR_LOG_DEBUG("Mutation attempt: already generated among the last N unique test cases");
     GRAMMARINATOR_LOG_TRACE("Duplicate test case: {}", st->tool->serializer(st->mutated_tree));
@@ -374,6 +430,8 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
 
   st->fuzz_cnt++;
   st->fuzz_hash = XXH3_64bits(out.data(), out.size());
+  st->fuzz_mutator = st->tool->last_mutator;
+  st->stats[st->fuzz_mutator].emitted++;
   st->tool->record_pool_uses();
   assign_and_shrink_buffer_if_needed(st->fuzz_buf, out.begin(), out.end());
   *out_buf = st->fuzz_buf.data();
