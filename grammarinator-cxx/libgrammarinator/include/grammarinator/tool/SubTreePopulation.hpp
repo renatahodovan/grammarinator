@@ -80,6 +80,15 @@ private:
         int stop_enc = (q->stop == INT_MAX ? -1 : q->stop);
         XXH64_update(&st, &stop_enc, sizeof(stop_enc));
       }
+      if (node->type != runtime::Rule::UnparserRuleType) {
+        // Alternative, quantifier and quantified nodes do not store the rule
+        // (and quantified nodes not even the quantifier) they belong to, so
+        // their key is hashed to keep structurally identical nodes of
+        // different contexts apart.
+        const auto& key = rule_data_[node].key;
+        XXH64_update(&st, key.name.data(), key.name.size());
+        XXH64_update(&st, &key.idx, sizeof(key.idx));
+      }
 
       const char open = '(', comma = ',', close = ')';
       XXH64_update(&st, &open, 1);
@@ -168,12 +177,13 @@ public:
 
     root = root->clone();
 
-    collect_hashes(root);
+    // Keys are needed by the hashes.
     runtime::Annotations annot(root);
     for (auto& [key, nodes] : annot.nodes_by_name()) {
       for (auto node : nodes)
-        rule_data_.at(node).key = key;
+        rule_data_[node].key = key;
     }
+    collect_hashes(root);
     for (auto& [node, info] : annot.node_info()) {
       rule_data_.at(node).size.depth = info.depth;
       rule_data_.at(node).size.tokens = info.tokens;
