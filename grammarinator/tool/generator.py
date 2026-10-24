@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import math
 import os
 import random
 import re
@@ -795,7 +796,8 @@ class GeneratorTool:
         if node_options:
             node_to_repeat = random.choice(node_options)
             max_repeat = (self._limit.tokens - recipient_root_tokens) // annot.node_tokens[node_to_repeat] if self._limit.tokens != RuleSize.max.tokens else 1
-            repeat = random.randint(1, int(max_repeat)) if max_repeat > 1 else 1
+            # Draw the number of copies log-uniformly: small numbers are likely, but large ones remain possible.
+            repeat = min(int(max_repeat), int(math.exp(random.uniform(0, math.log(max_repeat + 1))))) if max_repeat > 1 else 1
             for _ in range(repeat):
                 node_to_repeat.parent.insert_child(idx=random.randint(0, len(node_to_repeat.parent.children)), node=deepcopy(node_to_repeat))  # type: ignore[union-attr]
             self.print_mutator('{}: {}, {}', self.replicate_quantified.__name__, node_to_repeat.rule_name, node_to_repeat.parent.idx)  # type: ignore[union-attr]
@@ -829,7 +831,8 @@ class GeneratorTool:
         node_level = annot.node_levels[node_to_repeat]
         node_tokens = annot.node_tokens[node_to_repeat]
         max_repeat = (self._limit.tokens - root_tokens) // node_tokens if self._limit.tokens != RuleSize.max.tokens else 1
-        repeat = random.randint(1, int(max_repeat)) if max_repeat > 1 else 1
+        # Draw the number of copies log-uniformly: small numbers are likely, but large ones remain possible.
+        repeat = min(int(max_repeat), int(math.exp(random.uniform(0, math.log(max_repeat + 1))))) if max_repeat > 1 else 1
         inserted = 0
         for _ in range(repeat):
             if root_tokens + node_tokens > self._limit.tokens:
