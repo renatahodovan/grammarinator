@@ -12,7 +12,7 @@ import logging
 import os
 import random
 
-from os.path import basename, join
+from os.path import basename, join, splitext
 
 from ..runtime import Annotations, Individual, Population, Rule
 from .tree_codec import AnnotatedTreeCodec, PickleTreeCodec, TreeCodec
@@ -38,13 +38,13 @@ class FilePopulation(Population):
         self._codec: TreeCodec = codec or PickleTreeCodec()
 
         os.makedirs(directory, exist_ok=True)
-        self._files = glob.glob(join(self._directory, f'*.{self._extension}'))
+        self._names = [splitext(fn)[0] for fn in glob.glob(f'*.{self._extension}', root_dir=directory)]
 
     def empty(self) -> bool:
         """
         Check whether the population contains no individuals.
         """
-        return len(self._files) == 0
+        return len(self._names) == 0
 
     def add_individual(self, root: Rule, path: str | None = None) -> None:
         """
@@ -53,10 +53,9 @@ class FilePopulation(Population):
         if none is provided. The output file is saved with the appropriate
         extension defined by the current tree codec.
         """
-        path = basename(path) if path else type(self).__name__
-        fn = join(self._directory, f'{path}.{self._extension}')
-        self._save(fn, root)
-        self._files.append(fn)
+        name = basename(path) if path else type(self).__name__
+        self._save(name, root)
+        self._names.append(name)
 
     def select_individual(self, recipient: Individual | None = None) -> Individual:
         """
@@ -67,17 +66,17 @@ class FilePopulation(Population):
         :return: FileIndividual instance created from a randomly selected
             population item.
         """
-        return FileIndividual(self, random.sample(self._files, k=1)[0])
+        return FileIndividual(self, random.sample(self._names, k=1)[0])
 
-    def _save(self, fn: str, root: Rule) -> None:
-        with open(fn, 'wb') as f:
+    def _save(self, name: str, root: Rule) -> None:
+        with open(join(self._directory, f'{name}.{self._extension}'), 'wb') as f:
             if isinstance(self._codec, AnnotatedTreeCodec):
                 f.write(self._codec.encode_annotated(root, Annotations(root)))
             else:
                 f.write(self._codec.encode(root))
 
-    def _load(self, fn: str) -> tuple[Rule, Annotations | None]:
-        with open(fn, 'rb') as f:
+    def _load(self, name: str) -> tuple[Rule, Annotations | None]:
+        with open(join(self._directory, f'{name}.{self._extension}'), 'rb') as f:
             if isinstance(self._codec, AnnotatedTreeCodec):
                 root, annot = self._codec.decode_annotated(f.read())
             else:
@@ -97,11 +96,20 @@ class FileIndividual(Individual):
     def __init__(self, population: FilePopulation, name: str) -> None:
         """
         :param population: The population this individual belongs to.
-        :param name: Path to the encoded tree file.
+        :param name: Name of the encoded tree file (without directory and
+            extension).
         """
         super().__init__()
         self._population: FilePopulation = population
         self._name: str = name
+
+    @property
+    def name(self) -> str:
+        """
+        Return the name of the encoded tree file (without directory and
+        extension).
+        """
+        return self._name
 
     @property
     def root(self) -> Rule:
