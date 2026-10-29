@@ -180,7 +180,7 @@ public:
         std::string op = !this->last_mutator.empty() ? this->last_mutator : "-";
         test_fn = (out_dir / std::vformat(out_name, std::make_format_args(index, src, op))).string();
 
-        std::ofstream file(test_fn);
+        std::ofstream file(test_fn, std::ios::binary);
         file << test;
         file.close();
       } else {
