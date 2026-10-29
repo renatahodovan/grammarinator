@@ -23,6 +23,11 @@ namespace tool {
 
 class FlatBuffersTreeCodec : public TreeCodec {
 public:
+  // Limits of the trees that are encoded and decoded. The same limits apply
+  // in both directions to ensure that every encoded tree is decodable.
+  static constexpr flatbuffers::uoffset_t max_depth = 4096;
+  static constexpr flatbuffers::uoffset_t max_nodes = 1000000;
+
   FlatBuffersTreeCodec() = default;
   FlatBuffersTreeCodec(const FlatBuffersTreeCodec& other) = delete;
   FlatBuffersTreeCodec& operator=(const FlatBuffersTreeCodec& other) = delete;
@@ -32,7 +37,12 @@ public:
 
   std::vector<uint8_t> encode(runtime::Rule* root) const override {
     flatbuffers::FlatBufferBuilder builder;
-    builder.Finish(buildFBRule(builder, root));
+    flatbuffers::uoffset_t nodes = 0;
+    auto fbrule = buildFBRule(builder, root, 1, nodes);
+    if (fbrule.IsNull()) {
+      return {};
+    }
+    builder.Finish(fbrule);
 
     const uint8_t* buf = builder.GetBufferPointer();
     size_t size = builder.GetSize();
@@ -41,7 +51,12 @@ public:
 
   size_t encode(runtime::Rule* root, uint8_t* buffer, size_t maxsize) const override {
     flatbuffers::FlatBufferBuilder builder;
-    builder.Finish(buildFBRule(builder, root));
+    flatbuffers::uoffset_t nodes = 0;
+    auto fbrule = buildFBRule(builder, root, 1, nodes);
+    if (fbrule.IsNull()) {
+      return 0;
+    }
+    builder.Finish(fbrule);
 
     const uint8_t* buf = builder.GetBufferPointer();
     size_t size = builder.GetSize();
@@ -59,7 +74,7 @@ public:
       return nullptr;
     }
 
-    flatbuffers::Verifier verifier(buffer, size, {512, 1000000, false, false, FLATBUFFERS_MAX_BUFFER_SIZE, true});
+    flatbuffers::Verifier verifier(buffer, size, {max_depth, max_nodes, false, false, FLATBUFFERS_MAX_BUFFER_SIZE, true});
     if (fbs::VerifyFBRuleBuffer(verifier)) {
       return readFBRule(fbs::GetFBRule(buffer));
     }
@@ -68,7 +83,13 @@ public:
   }
 
 private:
-  flatbuffers::Offset<fbs::FBRule> buildFBRule(flatbuffers::FlatBufferBuilder& builder, const runtime::Rule* rule) const {
+  flatbuffers::Offset<fbs::FBRule> buildFBRule(flatbuffers::FlatBufferBuilder& builder, const runtime::Rule* rule,
+                                               flatbuffers::uoffset_t depth, flatbuffers::uoffset_t& nodes) const {
+    if (depth > max_depth || ++nodes > max_nodes) {
+      GRAMMARINATOR_LOG_WARN("Tree exceeds the encoding limits (max depth: {}, max nodes: {}).", max_depth, max_nodes);
+      return {};
+    }
+
     if (rule->type == runtime::Rule::UnlexerRuleType) {
       auto fbName = builder.CreateString(rule->name.c_str(), rule->name.size());
       const auto* unlexer_rule = static_cast<const runtime::UnlexerRule*>(rule);
@@ -87,7 +108,11 @@ private:
     std::vector<flatbuffers::Offset<fbs::FBRule>> children;
     children.reserve(parent_rule->children.size());
     for (const auto* child : parent_rule->children) {
-      children.push_back(buildFBRule(builder, child));
+      auto fbchild = buildFBRule(builder, child, depth + 1, nodes);
+      if (fbchild.IsNull()) {
+        return {};
+      }
+      children.push_back(fbchild);
     }
     auto fbchildren = builder.CreateVector(children);
     flatbuffers::Offset<flatbuffers::String> fbName;

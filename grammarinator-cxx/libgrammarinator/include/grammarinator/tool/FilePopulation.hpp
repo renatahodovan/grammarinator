@@ -89,8 +89,9 @@ public:
       name = "FilePopulation";
     }
 
-    save(name, root);
-    names_.push_back(name);
+    if (save(name, root)) {
+      names_.push_back(name);
+    }
   }
 
   FileIndividual* select_individual(runtime::Individual* recipient = nullptr) override {
@@ -98,16 +99,21 @@ public:
   }
 
 private:
-  void save(const std::filesystem::path& name, runtime::Rule* root) {
-    std::vector<uint8_t> buffer = codec_.encode(root);
-
+  bool save(const std::filesystem::path& name, runtime::Rule* root) {
     std::filesystem::path path{directory_};
     path /= name;
     path += "." + extension_;
 
+    std::vector<uint8_t> buffer = codec_.encode(root);
+    if (buffer.empty()) {
+      GRAMMARINATOR_LOG_WARN("Failed to encode population file '{}'.", path.string());
+      return false;
+    }
+
     std::ofstream outfile(path, std::ios::binary | std::ios::trunc);
     outfile.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
     outfile.close();
+    return true;
   }
 
   runtime::Rule* load(const std::filesystem::path& name) {
