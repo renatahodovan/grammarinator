@@ -999,7 +999,6 @@ class ProcessorTool:
                 graph.add_edge(frm=out_id, to=node.id, args=edge.args)
                 out_node.out_edges[0].reserve = edge.reserve
                 edge.dst = out_node
-                graph.outlined.append(out_node)
                 return 0
 
             return node_depth

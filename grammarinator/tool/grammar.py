@@ -321,7 +321,6 @@ class GrammarGraph:
         self.vertices: OrderedDict = OrderedDict()
         self.options: dict[str, str] = {}
         self.charsets: list[list[tuple[int, int]]] = []
-        self.outlined: list[OutlinedNode] = []
         self.alt_conds: list[AlternationNode] = []
         self.alt_sizes: list[list[NodeSize]] = []
         self.quant_sizes: list[NodeSize] = []
@@ -345,6 +344,10 @@ class GrammarGraph:
     @property
     def imag_rules(self) -> Generator[ImagRuleNode, None, None]:
         return (vertex for vertex in self.vertices.values() if isinstance(vertex, ImagRuleNode))
+
+    @property
+    def outlined(self) -> Generator[OutlinedNode, None, None]:
+        return (vertex for vertex in self.vertices.values() if isinstance(vertex, OutlinedNode))
 
     def print_tree(self, root: Node | None = None) -> None:
         if not root and not self.default_rule:
