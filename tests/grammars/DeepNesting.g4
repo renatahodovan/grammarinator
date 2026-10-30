@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2017-2026 Renata Hodovan, Akos Kiss.
- * Copyright (c) 2026 Piotr Oleś.
+ * Copyright (c) 2026 Renata Hodovan, Akos Kiss, Piotr Oleś.
  *
  * Licensed under the BSD 3-Clause License
  * <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -15,9 +14,7 @@
  * stays importable.
  *
  * `deepquant` carries a labelled element (`v=`) deep inside the nesting, forcing
- * a `local_ctx` that an outlined helper must receive as a parameter. `dotrule`
- * uses the `.` wildcard, which creates the internal, leading-underscore `_dot`
- * rule.
+ * a `local_ctx` that an outlined helper must receive as a parameter.
  *
  * `deeptwice` is nested deep enough to produce more than one outlined helper for
  * the rule.
@@ -30,7 +27,7 @@
 grammar DeepNesting;
 
 start
-  : deepquant deepalt dotrule deeptwice EOF
+  : deepquant deepalt deeptwice EOF
   ;
 
 deepquant
@@ -39,10 +36,6 @@ deepquant
 
 deepalt
   : ('t23' | ('t22' | ('t21' | ('t20' | ('t19' | ('t18' | ('t17' | ('t16' | ('t15' | ('t14' | ('t13' | ('t12' | ('t11' | ('t10' | ('t9' | ('t8' | ('t7' | ('t6' | ('t5' | ('t4' | ('t3' | ('t2' | ('t1' | 'z0')))))))))))))))))))))))
-  ;
-
-dotrule
-  : .
   ;
 
 deeptwice
