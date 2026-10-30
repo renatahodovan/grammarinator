@@ -974,7 +974,7 @@ class ProcessorTool:
     @staticmethod
     def _outline_deep_rules(graph: GrammarGraph) -> None:
 
-        def _outline(edge: Edge) -> int:
+        def _outline(edge: Edge, above: int) -> int:
             node = edge.dst
 
             # Keep in sync with GeneratorTemplate.py.jinja: quantifiers render three
@@ -991,9 +991,9 @@ class ProcessorTool:
             else:
                 return 0
 
-            node_depth += max((_outline(child_edge) for child_edge in node.out_edges), default=0)
+            node_depth += max((_outline(child_edge, above + node_depth) for child_edge in node.out_edges), default=0)
 
-            if node_type is not None and node_depth > MAX_BLOCKS - 3:
+            if node_type is not None and node_depth > MAX_BLOCKS - 3 and above + node_depth > MAX_BLOCKS:
                 out_id = graph.add_node(OutlinedNode(rule_id=rule.id, type=node_type, idx=node.idx, has_local_ctx=rule.has_local_ctx))  # type: ignore[arg-type]
                 out_node = graph.vertices[out_id]
                 graph.add_edge(frm=out_id, to=node.id, args=edge.args)
@@ -1005,4 +1005,4 @@ class ProcessorTool:
 
         for rule in list(graph.rules):
             for edge in rule.out_edges:
-                _outline(edge)
+                _outline(edge, 1)
