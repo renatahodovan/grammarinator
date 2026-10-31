@@ -1,5 +1,6 @@
 {#
  # Copyright (c) 2020-2025 Renata Hodovan, Akos Kiss.
+ # Copyright (c) 2026 Piotr Oleś.
  #
  # Licensed under the BSD 3-Clause License
  # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -105,6 +106,12 @@ current = rule.current
 {% endmacro %}
 
 
+{% macro processOutlinedNode(node, inedge) %}
+self.{{ node.name }}(rule{% if node.has_local_ctx %}, local_ctx{% endif %})
+current = rule.current
+{% endmacro %}
+
+
 {% macro processNode(node, inedge) %}
 {% set processors = {
     'QuantifierNode': processQuantifierNode,
@@ -118,6 +125,7 @@ current = rule.current
     'ActionNode': processActionNode,
     'LambdaNode': processLambdaNode,
     'VariableNode': processVariableNode,
+    'OutlinedNode': processOutlinedNode,
     }
 %}
 {{ processors[node.__class__.__name__](node, inedge) -}}
@@ -159,7 +167,7 @@ class {{ graph.name }}({{ graph.superclass }}):
 
     {% for rule in graph.rules %}
     def {{ py_escape(rule.id | join('_')) }}(self, {% for t, k, v in rule.args %}{{ k }}{% if t %}: {{ t }}{% endif %}{% if v %} = {{ resolveVarRefs(v) }}{% endif %}, {% endfor %}parent: ParentRule | None = None) -> Rule:
-        {% if rule.labels or rule.args or rule.locals or rule.returns %}
+        {% if rule.has_local_ctx %}
         local_ctx = {
             {%- for _, k, _ in rule.args -%}
             '{{ k }}': {{ k }}{% if not loop.last %}, {% endif %}
@@ -195,6 +203,13 @@ class {{ graph.name }}({{ graph.superclass }}):
         {% endif %}
         return current
 
+    {% endfor %}
+    {% for outlined in graph.outlined %}
+    def {{ outlined.name }}(self, rule{% if outlined.has_local_ctx %}, local_ctx{% endif %}) -> None:
+        current = rule.current
+        {% for edge in outlined.out_edges %}
+        {{ processNode(edge.dst, edge) | indent | indent }}
+        {% endfor %}
     {% endfor %}
 
     _default_rule: ClassVar[Callable[['{{ graph.name }}', ParentRule | None], Rule]] = {{ py_escape(graph.default_rule) }}
