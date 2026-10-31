@@ -21,8 +21,7 @@
  */
 
 // TEST-PROCESS: {grammar}.g4 -o {tmpdir}
-// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -n 5 -o {tmpdir}/{grammar}%d.txt
-// TEST-PROCESS-CXX: {grammar}.g4 -o {tmpdir}
+// TEST-GENERATE: {grammar}Generator.{grammar}Generator -r start -j 1 -n 5 -o {tmpdir}/{grammar}%d.txt
 
 grammar DeepNesting;
 
