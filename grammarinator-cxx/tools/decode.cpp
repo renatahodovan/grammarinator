@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
       std::string test_src = GRAMMARINATOR_SERIALIZER(root);
       if (!out_dir.empty()) {
         fs::path out_file = out_dir / in_file.stem();
-        std::ofstream ofs(out_file);
+        std::ofstream ofs(out_file, std::ios::binary);
         ofs << test_src;
         ofs.close();
       } else {
