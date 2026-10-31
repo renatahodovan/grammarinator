@@ -117,9 +117,16 @@ separately, but they are too strict together, then the limits will be
 automatically updated to the minimal value that makes the generation possible.
 
 The output test cases can be written to the file system using the ``--out``
-argument, which allows the definition of the output file path. The ``%d``
-wildcard can be used as a placeholder for the test case index, which will be
-substituted by the generator. Alternatively, if the ``--stdout`` argument is
+argument, which allows the definition of the output file path. The filename
+part of the path can contain the ``{id}``, ``{src}``, and ``{op}``
+placeholders (using the syntax of Python's :meth:`str.format`), which will be
+substituted by the generator with the index of the test case, the index of the
+test case it was created from (or ``-`` if it was generated from scratch), and
+the name of the generator, mutator, or recombiner that created it. (For
+backward compatibility, ``%d`` is also accepted as an alias for ``{id}``.) If
+the path ends with a directory separator, ``id={id},src={src},op={op}`` is
+appended to it, which is also the default, with the ``tests`` subdirectory of
+the current working directory. Alternatively, if the ``--stdout`` argument is
 provided, the test cases will be printed to the standard output.
 
 The behavior of the generator can be customized using :doc:`models <models>`
