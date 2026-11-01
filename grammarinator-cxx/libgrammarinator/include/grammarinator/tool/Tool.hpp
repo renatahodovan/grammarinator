@@ -134,7 +134,16 @@ protected:
 
     while (!creators.empty()) {
       auto creatorit = select_creator(creators, individual1, individual2);
-      if (individual1) {
+      if (!generators.contains(creatorit->first)) {
+        // Individuals are loaded lazily: drop the creators that depend on an individual which has no root.
+        if (!individual1 || !individual1->root()) {
+          std::erase_if(creators, [this](const auto& c) { return !generators.contains(c.first); });
+          continue;
+        }
+        if (recombiners.contains(creatorit->first) && (!individual2 || !individual2->root())) {
+          std::erase_if(creators, [this](const auto& c) { return recombiners.contains(c.first); });
+          continue;
+        }
         GRAMMARINATOR_LOG_TRACE("Original test: '{}'", serializer(individual1->root()));
       }
       root = creatorit->second(individual1, individual2);
