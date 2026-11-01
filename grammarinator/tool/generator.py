@@ -358,7 +358,7 @@ class GeneratorTool:
         # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
         while creators:
             creator = self._select_creator(creators, individual1, individual2)
-            if logger.isEnabledFor(logging.TRACE) and individual1 is not None:
+            if logger.isEnabledFor(logging.TRACE) and individual1 is not None and individual1.root is not None:
                 logger.trace("Original test: '%s'", self._serializer(individual1.root))
             root = creator(individual1, individual2)
             if root:
@@ -411,9 +411,12 @@ class GeneratorTool:
         # If you call this explicitly, then so be it, even if mutation is disabled.
         # If individual is None, population MUST exist.
         individual = self._ensure_individual(individual)
-        if not individual.root.children:  # type: ignore[attr-defined]
-            logger.debug('Mutate empty tree. Regenerate %s', individual.root.name)
-            root = self.generate(rule=individual.root.name)
+        root = individual.root
+        if root is None:
+            return None
+        if not root.children:  # type: ignore[attr-defined]
+            logger.debug('Mutate empty tree. Regenerate %s', root.name)
+            root = self.generate(rule=root.name)
             for transformer in self._transformers:
                 root = transformer(root)  # type: ignore[assignment]
             return root
@@ -485,6 +488,7 @@ class GeneratorTool:
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
+        assert root is not None
 
         # Filter items from the nodes of the selected tree that can be regenerated
         # within the current maximum depth and token limit (except immutable nodes).
@@ -527,6 +531,7 @@ class GeneratorTool:
         """
         recipient_individual, donor_individual = self._ensure_individuals(recipient_individual, donor_individual)
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
+        assert recipient_root is not None
         donor_annot = donor_individual.annotations
 
         recipient_lookup: dict[tuple[str | int, ...], Sequence[Rule]] = dict(recipient_annot.nodes_by_name)
@@ -566,6 +571,7 @@ class GeneratorTool:
         """
         recipient_individual, donor_individual = self._ensure_individuals(recipient_individual, donor_individual)
         recipient_root, recipient_annot = recipient_individual.root, recipient_individual.annotations
+        assert recipient_root is not None
         donor_annot = donor_individual.annotations
 
         common_types = sorted(set(recipient_annot.quants_by_name.keys()) & set(donor_annot.quants_by_name.keys()))
@@ -631,6 +637,7 @@ class GeneratorTool:
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
+        assert root is not None
         root_options = [node for node in annot.quants if node.stop > len(node.children)]
         recipient_root_tokens = annot.node_tokens[root]
         node_options = [child for root in root_options for child in root.children if
@@ -781,6 +788,7 @@ class GeneratorTool:
         """
         individual = self._ensure_individual(individual)
         root, annot = individual.root, individual.annotations
+        assert root is not None
         options = [quantifiers for quantifiers in annot.quants_by_name.values() if len(quantifiers) > 1]
         if not options:
             logger.trace('%s failed.', self.insert_local_node.__name__)

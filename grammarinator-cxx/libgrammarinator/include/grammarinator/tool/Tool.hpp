@@ -186,6 +186,9 @@ public:
     // Regenerate root if it has no children.
     individual = ensure_individual(individual);
     auto real_root = static_cast<runtime::ParentRule*>(individual->root());
+    if (!real_root) {
+      return nullptr;
+    }
 
     if (real_root->children.empty()) {
       GRAMMARINATOR_LOG_DEBUG("Mutate empty tree. Regenerate {}", real_root->name);
