@@ -8,7 +8,6 @@
 import json
 import logging
 import pickle
-import struct
 
 from math import inf
 from typing import Any
@@ -115,7 +114,7 @@ class PickleTreeCodec(AnnotatedTreeCodec):
         try:
             root, annotations = pickle.loads(data)
             return root, annotations
-        except pickle.UnpicklingError:
+        except Exception:
             return None, None
 
 
@@ -177,7 +176,7 @@ class JsonTreeCodec(TreeCodec):
 
         try:
             return json.loads(data.decode(encoding=self._encoding, errors=self._encoding_errors), object_hook=_dict_to_rule)
-        except json.JSONDecodeError:
+        except Exception:
             logger.warning('Invalid JSON input.')
             return None
 
@@ -268,5 +267,5 @@ class FlatBuffersTreeCodec(TreeCodec):
 
         try:
             return readFBRule(FBRule.GetRootAs(bytearray(data)))
-        except struct.error:
+        except Exception:
             return None
