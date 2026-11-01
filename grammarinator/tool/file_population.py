@@ -75,13 +75,17 @@ class FilePopulation(Population):
             else:
                 f.write(self._codec.encode(root))
 
-    def _load(self, name: str) -> tuple[Rule, Annotations | None]:
-        with open(join(self._directory, f'{name}.{self._extension}'), 'rb') as f:
-            if isinstance(self._codec, AnnotatedTreeCodec):
-                root, annot = self._codec.decode_annotated(f.read())
-            else:
-                root, annot = self._codec.decode(f.read()), None
-            assert isinstance(root, Rule), root
+    def _load(self, name: str) -> tuple[Rule | None, Annotations | None]:
+        try:
+            with open(join(self._directory, f'{name}.{self._extension}'), 'rb') as f:
+                if isinstance(self._codec, AnnotatedTreeCodec):
+                    root, annot = self._codec.decode_annotated(f.read())
+                else:
+                    root, annot = self._codec.decode(f.read()), None
+            if not isinstance(root, Rule):
+                root, annot = None, None
+        except (OSError, EOFError, ValueError, KeyError, IndexError, TypeError):
+            root, annot = None, None
         return root, annot
 
 
@@ -123,4 +127,6 @@ class FileIndividual(Individual):
             self._root, self._annot = self._population._load(self._name)
             if not self._root:
                 logger.warning("Failed to load individual from %r", self._name)
+                # Drop the individual from the population so that it is not selected again.
+                self._population._names = [name for name in self._population._names if name != self._name]
         return self._root
