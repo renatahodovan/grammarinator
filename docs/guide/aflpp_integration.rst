@@ -86,6 +86,19 @@ The following options are currently supported:
 * **GRAFL_WEIGHTS**: Equivalent to ``--weights`` (path to a JSON file)
 * **GRAFL_MAX_TRIM_STEPS**: Maximum number of mutation steps performed during
   trimming of a single test input (integer)
+* **GRAFL_STATS_INTERVAL**: Interval of appending per-mutator statistics to
+  ``grafl_stats.csv`` in the output directory of the fuzzer instance (integer,
+  in seconds; defaults to ``60``, ``0`` disables the statistics). Every write
+  adds a row per mutator with the time elapsed since the start of fuzzing (in
+  ms, as in the names of the queue entries), the total number of executions,
+  and the cumulative number of test cases the mutator created that were
+  executed (``emitted``), dropped as too large or as duplicates
+  (``discarded``), added to the queue (``new_entries``), and added to the queue
+  with new coverage (``cov_entries``, i.e., marked with ``+cov`` by AFL++),
+  as well as the number of attempts of the mutator that created no test case,
+  so that another mutator was tried instead (``failed``). A final row set is
+  written at exit. If a fuzzing session is resumed, the counters restart from
+  zero.
 
 Verifying the Setup
 -------------------

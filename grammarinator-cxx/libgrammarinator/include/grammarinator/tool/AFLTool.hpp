@@ -18,6 +18,7 @@
 #include "TreeCodec.hpp"
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,6 +36,11 @@ private:
   const TreeCodec& codec;
 
 public:
+  // Number of failed attempts of each mutator (that created no tree, so
+  // another mutator was tried instead), accumulated until the caller collects
+  // and clears it.
+  std::map<std::string, size_t> mutator_failures;
+
   explicit AFLTool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
                    const runtime::RuleSize& limit = runtime::RuleSize::max(),
                    bool unrestricted = true, std::unordered_set<std::string> allowList = {}, std::unordered_set<std::string> blockList = {},
@@ -45,6 +51,17 @@ public:
         codec(codec) {
     this->allow_creator(this->mutators, "replace_from_pool", [this](auto i1, auto i2) { return replace_from_pool(i1); });
     this->allow_creator(this->mutators, "insert_quantified_from_pool", [this](auto i1, auto i2) { return insert_quantified_from_pool(i1); });
+
+    // Count the failed attempts of every mutator.
+    for (auto& [name, creator] : this->mutators) {
+      creator = [this, name = name, creator = creator](auto i1, auto i2) {
+        auto root = creator(i1, i2);
+        if (!root) {
+          mutator_failures[name]++;
+        }
+        return root;
+      };
+    }
   }
 
   AFLTool(const AFLTool& other) = delete;
