@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <format>
 #include <functional>
 #include <list>
@@ -451,7 +452,8 @@ public:
     if (!options.empty()) {
       auto node_to_repeat = options[util::random_int<size_t>(0, options.size() - 1)];
       int max_repeat = limit.tokens != runtime::RuleSize::max().tokens ? (limit.tokens - root_tokens) / node_info.at(node_to_repeat).tokens : 1;
-      int repeat = max_repeat > 1 ? util::random_int<int>(1, max_repeat) : 1;
+      // Draw the number of copies log-uniformly: small numbers are likely, but large ones remain possible.
+      int repeat = max_repeat > 1 ? std::min(max_repeat, static_cast<int>(std::exp(util::random_real(0.0, std::log(max_repeat + 1.0))))) : 1;
       for (int i = 0; i < repeat; ++i) {
         node_to_repeat->parent->insert_child(util::random_int<size_t>(0, node_to_repeat->parent->children.size() - 1),
                                              node_to_repeat->clone());
