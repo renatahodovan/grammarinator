@@ -358,6 +358,14 @@ class GeneratorTool:
         # Note: creators is potentially modified (creators that return None are removed). Always ensure it is a copy when calling this method.
         while creators:
             creator = self._select_creator(creators, individual1, individual2)
+            if creator not in self._generators:
+                # Individuals are loaded lazily: drop the creators that depend on an individual which has no root.
+                if individual1 is None or individual1.root is None:
+                    creators[:] = [c for c in creators if c in self._generators]
+                    continue
+                if creator in self._recombiners and (individual2 is None or individual2.root is None):
+                    creators[:] = [c for c in creators if c not in self._recombiners]
+                    continue
             if logger.isEnabledFor(logging.TRACE) and individual1 is not None and individual1.root is not None:
                 logger.trace("Original test: '%s'", self._serializer(individual1.root))
             root = creator(individual1, individual2)
