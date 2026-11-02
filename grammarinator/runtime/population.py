@@ -76,13 +76,12 @@ class Individual:
         self._annot: Annotations | None = None
 
     @property
-    def root(self) -> Rule:
+    def root(self) -> Rule | None:
         """
         Return the root node of the tree of the individual.
 
-        :return: Root of the tree.
+        :return: Root of the tree, or ``None`` if the individual has no tree.
         """
-        assert self._root is not None
         return self._root
 
     @property
@@ -101,7 +100,9 @@ class Individual:
         :return: The annotations associated with the tree.
         """
         if not self._annot:
-            self._annot = Annotations(self.root)
+            root = self.root
+            assert root is not None
+            self._annot = Annotations(root)
         return self._annot
 
 

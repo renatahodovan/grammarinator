@@ -112,12 +112,12 @@ class FileIndividual(Individual):
         return self._name
 
     @property
-    def root(self) -> Rule:
+    def root(self) -> Rule | None:
         """
         Get the root of the tree. Return the root if it is already loaded,
         otherwise load it immediately.
 
-        :return: The root of the tree.
+        :return: The root of the tree, or ``None`` if it could not be loaded.
         """
         if not self._root:
             self._root, self._annot = self._population._load(self._name)
