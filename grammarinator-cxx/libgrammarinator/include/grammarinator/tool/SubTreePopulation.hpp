@@ -199,7 +199,10 @@ public:
     return new runtime::Individual(nodes_[util::random_int<size_t>(0, nodes_.size() - 1)]->clone());
   }
 
-  runtime::Individual* select_by_type(runtime::Annotations::NodeKey type_name, size_t max_depth, size_t max_tokens) {
+  runtime::Individual* select_by_type(runtime::Annotations::NodeKey type_name, int max_depth, int max_tokens) {
+    // The budgets are negative if the recipient tree is already over the limits.
+    if (max_depth < 0 || max_tokens < 0)
+      return nullptr;
     auto it = nodes_by_name_.find(type_name);
     if (it == nodes_by_name_.end())
       return nullptr;
@@ -223,7 +226,7 @@ public:
     }
 
     for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.tokens <= max_tokens)
+      if (rule_data_.at(node).size.depth <= max_depth && rule_data_.at(node).size.tokens <= max_tokens)
         return new runtime::Individual(node->clone());
 
     return nullptr;
