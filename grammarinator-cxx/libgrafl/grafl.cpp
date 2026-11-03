@@ -63,6 +63,9 @@ struct grafl_state {
 
   // Fuzz buffer
   std::vector<uint8_t> fuzz_buf;
+  // Whether fuzz_buf holds the encoding of mutated_tree (i.e., of the last
+  // emitted test case), so that post-processing need not decode it.
+  bool mutated_tree_emitted;
 
   // Post-process buffer
   std::vector<uint8_t> post_process_buf;
@@ -155,6 +158,7 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   st->trim_step = 0;
   st->current_tree = nullptr;
   st->mutated_tree = nullptr;
+  st->mutated_tree_emitted = false;
 
   // Buffers
   st->fuzz_buf.resize(default_buffer_size);
@@ -300,6 +304,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
     return 0;
   }
 
+  st->mutated_tree_emitted = false;
   delete st->mutated_tree;
   st->mutated_tree = st->current_tree->clone();
   Individual individual(st->mutated_tree, false);
@@ -325,6 +330,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   st->fuzz_cnt++;
   assign_and_shrink_buffer_if_needed(st->fuzz_buf, out.begin(), out.end());
   *out_buf = st->fuzz_buf.data();
+  st->mutated_tree_emitted = true;
   return n;
 }
 
@@ -488,11 +494,17 @@ extern "C"
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf) {
   auto* st = static_cast<grafl_state*>(data);
 
-  Rule* root = st->tool->decode(buf, buf_size);
+  // The last emitted test case is still at hand as a tree, any other buffer
+  // (e.g., a seed, or a synced or trimmed entry) is decoded.
+  bool emitted = st->mutated_tree_emitted && buf_size == st->fuzz_buf.size()
+                 && std::memcmp(buf, st->fuzz_buf.data(), buf_size) == 0;
+  Rule* root = emitted ? st->mutated_tree : st->tool->decode(buf, buf_size);
   if (root) {
     std::string out = st->tool->serializer(root);
     GRAMMARINATOR_LOG_TRACE("# {}. test:\n{}\n----------------------\n", st->fuzz_cnt, out);
-    delete root;
+    if (!emitted) {
+      delete root;
+    }
 
     if (out.size() > st->afl->max_length) {
       GRAMMARINATOR_LOG_WARN("Post-processed test case is larger than max_length ({} > {}). Skipping it.", out.size(), st->afl->max_length);
