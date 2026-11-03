@@ -70,15 +70,26 @@ private:
       if (node->type == runtime::Rule::UnparserRuleType) {
         XXH64_update(&st, node->name.data(), node->name.size());
       } else if (node->type == runtime::Rule::UnparserRuleAlternativeType) {
+        // Alternatives do not store the rule they belong to, so take it from their key.
+        const auto& key = rule_data_[node].key;
+        XXH64_update(&st, key.name.data(), key.name.size());
         const auto* a = static_cast<const runtime::UnparserRuleAlternative*>(node);
         XXH64_update(&st, &a->alt_idx, sizeof(a->alt_idx));
         XXH64_update(&st, &a->idx, sizeof(a->idx));
       } else if (node->type == runtime::Rule::UnparserRuleQuantifierType) {
+        // Quantifiers do not store the rule they belong to, so take it from their key.
+        const auto& key = rule_data_[node].key;
+        XXH64_update(&st, key.name.data(), key.name.size());
         const auto* q = static_cast<const runtime::UnparserRuleQuantifier*>(node);
         XXH64_update(&st, &q->idx, sizeof(q->idx));
         XXH64_update(&st, &q->start, sizeof(q->start));
         int stop_enc = (q->stop == INT_MAX ? -1 : q->stop);
         XXH64_update(&st, &stop_enc, sizeof(stop_enc));
+      } else if (node->type == runtime::Rule::UnparserRuleQuantifiedType) {
+        // Quantified nodes store neither the rule nor the quantifier they belong to, so take both from their key.
+        const auto& key = rule_data_[node].key;
+        XXH64_update(&st, key.name.data(), key.name.size());
+        XXH64_update(&st, &key.idx, sizeof(key.idx));
       }
 
       const char open = '(', comma = ',', close = ')';
@@ -168,12 +179,13 @@ public:
 
     root = root->clone();
 
-    collect_hashes(root);
+    // Keys are needed by the hashes.
     runtime::Annotations annot(root);
     for (auto& [key, nodes] : annot.nodes_by_name()) {
       for (auto node : nodes)
-        rule_data_.at(node).key = key;
+        rule_data_[node].key = key;
     }
+    collect_hashes(root);
     for (auto& [node, info] : annot.node_info()) {
       rule_data_.at(node).size.depth = info.depth;
       rule_data_.at(node).size.tokens = info.tokens;
