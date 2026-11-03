@@ -56,6 +56,8 @@ struct mutator_stats {
   size_t new_entries{0};  // added to the queue by AFL++
   size_t cov_entries{0};  // added to the queue with new coverage (+cov)
   size_t failed{0};  // attempts that created no test case (another mutator was tried instead)
+  std::chrono::steady_clock::duration time{};  // spent on creating the test cases (including failed attempts)
+  std::chrono::steady_clock::duration exec_time{};  // spent by AFL++ on the emitted test cases
 };
 
 struct grafl_state {
@@ -94,6 +96,7 @@ struct grafl_state {
   // Per-mutator statistics
   std::map<std::string, mutator_stats> stats;
   std::string fuzz_mutator;  // the mutator that created the last emitted test case
+  std::chrono::steady_clock::time_point fuzz_end;  // when the last test case was emitted (if not yet settled)
   std::string stats_file;
   uint64_t stats_interval;  // ms, 0: no statistics
   uint64_t stats_last_write;
@@ -181,6 +184,16 @@ static uint64_t run_time(const grafl_state* st) {
   return st->afl->start_time ? now + st->afl->prev_run_time - st->afl->start_time : 0;
 }
 
+// Charge the time elapsed since the last test case was emitted to its mutator:
+// AFL++ spent it on executing the test case (and on saving it, if it became a
+// new queue entry).
+static void settle_exec_time(grafl_state* st) {
+  if (st->fuzz_end != std::chrono::steady_clock::time_point{}) {
+    st->stats[st->fuzz_mutator].exec_time += std::chrono::steady_clock::now() - st->fuzz_end;
+    st->fuzz_end = {};
+  }
+}
+
 // Append the current counters of every mutator to the statistics file.
 static void write_stats(grafl_state* st) {
   if (st->stats_interval == 0) {
@@ -189,12 +202,14 @@ static void write_stats(grafl_state* st) {
   bool new_file = !std::filesystem::exists(st->stats_file);
   std::ofstream file(st->stats_file, std::ios::app);
   if (new_file) {
-    file << "time,total_execs,mutator,emitted,discarded,new_entries,cov_entries,failed\n";
+    file << "time,total_execs,mutator,emitted,discarded,new_entries,cov_entries,failed,time_ms,exec_ms\n";
   }
   uint64_t time = run_time(st);
   for (const auto& [mutator, stats] : st->stats) {
     file << time << ',' << st->afl->fsrv.total_execs << ',' << mutator << ',' << stats.emitted << ',' << stats.discarded << ','
-         << stats.new_entries << ',' << stats.cov_entries << ',' << stats.failed << '\n';
+         << stats.new_entries << ',' << stats.cov_entries << ',' << stats.failed << ','
+         << std::chrono::duration_cast<std::chrono::milliseconds>(stats.time).count() << ','
+         << std::chrono::duration_cast<std::chrono::milliseconds>(stats.exec_time).count() << '\n';
   }
   st->stats_last_write = time;
 }
@@ -279,6 +294,7 @@ void afl_custom_deinit(void* data) {
   if (!st) {
     return;
   }
+  settle_exec_time(st);
   write_stats(st);
   delete st->current_tree;
   delete st->mutated_tree;
@@ -306,6 +322,7 @@ unsigned int afl_custom_fuzz_count(void* data, const unsigned char*, size_t) {
 extern "C"
 unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
   auto* st = static_cast<grafl_state*>(data);
+  settle_exec_time(st);
   if (!filename) {
     return 0;
   }
@@ -394,6 +411,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
                        unsigned char** out_buf, unsigned char* add_buf,
                        size_t add_buf_size, size_t max_size) {
   auto* st = static_cast<grafl_state*>(data);
+  settle_exec_time(st);
   if (!st->current_tree) {
     *out_buf = nullptr;
     return 0;
@@ -403,6 +421,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
     write_stats(st);
   }
 
+  auto start = std::chrono::steady_clock::now();
   st->mutated_tree_emitted = false;
   delete st->mutated_tree;
   st->mutated_tree = st->current_tree->clone();
@@ -415,20 +434,32 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
     st->stats[mutator].failed += failures;
   }
   st->tool->mutator_failures.clear();
+
+  // Charge every attempted mutator with its own time, and the mutator of the
+  // result also with the rest (cloning the input, encoding the result).
+  auto attempts_time = std::chrono::steady_clock::duration::zero();
+  for (const auto& [mutator, time] : st->tool->mutator_time) {
+    st->stats[mutator].time += time;
+    attempts_time += time;
+  }
+  st->tool->mutator_time.clear();
   if (!mutated_tree) {
     return 0;
   }
   st->mutated_tree = mutated_tree;
+  auto charge_rest = [&] { st->stats[st->tool->last_mutator].time += std::chrono::steady_clock::now() - start - attempts_time; };
 
   std::vector<uint8_t> out = st->tool->encode(st->mutated_tree);
   size_t n = out.size();
   if (n == 0 || n > max_size) {
     st->stats[st->tool->last_mutator].discarded++;
+    charge_rest();
     return 0;
   }
 
   if (!st->tool->memoize_test(out.data(), out.size())) {
     st->stats[st->tool->last_mutator].discarded++;
+    charge_rest();
     // TODO: memo size is missing from the next message but it's only available from Tool.
     GRAMMARINATOR_LOG_DEBUG("Mutation attempt: already generated among the last N unique test cases");
     GRAMMARINATOR_LOG_TRACE("Duplicate test case: {}", st->tool->serializer(st->mutated_tree));
@@ -442,6 +473,8 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   st->fuzz_buf = std::move(out);
   *out_buf = st->fuzz_buf.data();
   st->mutated_tree_emitted = true;
+  charge_rest();
+  st->fuzz_end = std::chrono::steady_clock::now();
   return n;
 }
 

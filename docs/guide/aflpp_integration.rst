@@ -96,9 +96,12 @@ The following options are currently supported:
   (``discarded``), added to the queue (``new_entries``), and added to the queue
   with new coverage (``cov_entries``, i.e., marked with ``+cov`` by AFL++),
   as well as the number of attempts of the mutator that created no test case,
-  so that another mutator was tried instead (``failed``). A final row set is
-  written at exit. If a fuzzing session is resumed, the counters restart from
-  zero.
+  so that another mutator was tried instead (``failed``), the time spent on
+  creating its test cases, including the failed attempts of the mutator
+  (``time_ms``), and the time AFL++ spent on the emitted test cases until the
+  next mutation (``exec_ms``, i.e., serializing, executing, and, if they became
+  new queue entries, saving them). A final row set is written at exit. If a
+  fuzzing session is resumed, the counters restart from zero.
 
 Verifying the Setup
 -------------------

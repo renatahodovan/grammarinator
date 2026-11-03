@@ -18,6 +18,7 @@
 #include "TreeCodec.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
@@ -40,6 +41,9 @@ public:
   // another mutator was tried instead), accumulated until the caller collects
   // and clears it.
   std::map<std::string, size_t> mutator_failures;
+  // Time spent in each mutator (including its failed attempts), accumulated
+  // until the caller collects and clears it.
+  std::map<std::string, std::chrono::steady_clock::duration> mutator_time;
 
   explicit AFLTool(const GeneratorFactoryClass& generator_factory, const std::string& rule = "",
                    const runtime::RuleSize& limit = runtime::RuleSize::max(),
@@ -52,10 +56,13 @@ public:
     this->allow_creator(this->mutators, "replace_from_pool", [this](auto i1, auto i2) { return replace_from_pool(i1); });
     this->allow_creator(this->mutators, "insert_quantified_from_pool", [this](auto i1, auto i2) { return insert_quantified_from_pool(i1); });
 
-    // Count the failed attempts of every mutator.
+    // Count the failed attempts of every mutator, and measure its time,
+    // including its failed attempts.
     for (auto& [name, creator] : this->mutators) {
       creator = [this, name = name, creator = creator](auto i1, auto i2) {
+        auto start = std::chrono::steady_clock::now();
         auto root = creator(i1, i2);
+        mutator_time[name] += std::chrono::steady_clock::now() - start;
         if (!root) {
           mutator_failures[name]++;
         }
