@@ -14,6 +14,8 @@
 
 #include <xxhash.h>
 
+#include <algorithm>
+#include <bit>
 #include <cassert>
 #include <climits>
 #include <cstdint>
@@ -29,17 +31,58 @@ namespace tool {
 
 class SubTreePopulation : public runtime::Population {
 private:
+  // The nodes of a type, with a Fenwick tree of their selection weights, so
+  // that a node can be drawn by weight in logarithmic time.
+  struct Candidates {
+    std::vector<runtime::Rule*> nodes;
+    std::vector<double> sums{0.0};  // 1-based
+
+    void add(runtime::Rule* node, double w) {
+      nodes.push_back(node);
+      size_t i = nodes.size();
+      for (size_t j = 1; j < (i & -i); j <<= 1)
+        w += sums[i - j];
+      sums.push_back(w);
+    }
+
+    void update(size_t pos, double delta) {
+      for (size_t i = pos + 1; i < sums.size(); i += i & -i)
+        sums[i] += delta;
+    }
+
+    double total() const {
+      double s = 0.0;
+      for (size_t i = nodes.size(); i > 0; i -= i & -i)
+        s += sums[i];
+      return s;
+    }
+
+    // The first node at which the cumulated weight reaches w.
+    runtime::Rule* find(double w) const {
+      size_t pos = 0;
+      for (size_t step = std::bit_floor(nodes.size()); step > 0; step >>= 1) {
+        if (pos + step < sums.size() && sums[pos + step] < w) {
+          pos += step;
+          w -= sums[pos];
+        }
+      }
+      return nodes[std::min(pos, nodes.size() - 1)];
+    }
+  };
+
   struct RuleData {
     XXH64_hash_t hash{};
     runtime::Annotations::NodeKey key{""};
     runtime::RuleSize size{};
     int refcount{0};
+    Candidates* candidates{nullptr};  // the candidates of the node's type (if interned)
+    size_t pos{0};  // the position of the node among them
   };
 
   std::unordered_map<const runtime::Rule*, RuleData> rule_data_;
   std::vector<runtime::Rule*> nodes_;
   std::unordered_map<XXH64_hash_t, runtime::Rule*> node_by_hash_;
-  std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> nodes_by_name_;
+  std::map<runtime::Annotations::NodeKey, Candidates> nodes_by_name_;
 
   static char encode_kind(runtime::Rule::RuleType t) {
     switch (t) {
@@ -121,13 +164,28 @@ private:
     std::function<void(runtime::Rule*)> dfs = [&](runtime::Rule* node) {
       if (!node) return;
       if (!seen.insert(node).second) return;
-      rule_data_.at(node).refcount++;
+      auto& data = rule_data_.at(node);
+      double old_weight = weight(data);
+      data.refcount++;
+      reweigh(data, old_weight);
 
       if (node->type != runtime::Rule::UnlexerRuleType)
         for (auto* child : static_cast<const runtime::ParentRule*>(node)->children)
           dfs(child);
     };
     dfs(root);
+  }
+
+  // Selection weight of a node, preferring the nodes that are shared by fewer
+  // trees.
+  double weight(const RuleData& data) const {
+    return 1.0 / double(data.refcount);
+  }
+
+  // Propagate the change of the weight of an interned node to its candidates.
+  void reweigh(RuleData& data, double old_weight) {
+    double delta = weight(data) - old_weight;
+    data.candidates->update(data.pos, delta);
   }
 
   runtime::Rule* intern_node(runtime::Rule* node) {
@@ -142,10 +200,13 @@ private:
       return it->second;  // return the ptr to the "identical" node found among the previously interned nodes
     }
 
-    rule_data_.at(node).refcount = 1;
+    auto& data = rule_data_.at(node);
+    data.refcount = 1;
     nodes_.push_back(node);
     node_by_hash_[hash] = node;
-    nodes_by_name_[rule_data_.at(node).key].push_back(node);
+    data.candidates = &nodes_by_name_[data.key];
+    data.pos = data.candidates->nodes.size();
+    data.candidates->add(node, weight(data));
 
     if (node->type != runtime::Rule::UnlexerRuleType) {
       auto* parent = static_cast<runtime::ParentRule*>(node);
@@ -206,27 +267,44 @@ public:
     auto it = nodes_by_name_.find(type_name);
     if (it == nodes_by_name_.end())
       return nullptr;
-    const auto& candidate_nodes = it->second;
+    const auto& candidates = it->second;
 
+    auto fits = [&](runtime::Rule* node) {
+      const auto& data = rule_data_.at(node);
+      return data.size.depth <= max_depth && data.size.tokens <= max_tokens;
+    };
+
+    // Draw a candidate by weight and accept it if it fits. This draws from the
+    // fitting candidates with the same distribution as drawing from them only
+    // (rejection sampling), but without scanning all the candidates. If none
+    // of a few draws fit, draw from the fitting candidates only.
+    double total = candidates.total();
+    for (int i = 0; i < 8; ++i) {
+      auto* node = candidates.find(util::random_real(0.0, total));
+      if (fits(node))
+        return new runtime::Individual(node->clone());
+    }
+
+    const auto& candidate_nodes = candidates.nodes;
     double total_w = 0.0;
     for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.depth <= max_depth && rule_data_.at(node).size.tokens <= max_tokens)
-        total_w += 1.0 / double(rule_data_.at(node).refcount);
+      if (fits(node))
+        total_w += weight(rule_data_.at(node));
     if (total_w <= 0.0)
       return nullptr;
 
     double r = util::random_real(0.0, total_w);
     double acc = 0.0;
     for (auto* node : candidate_nodes) {
-      if (rule_data_.at(node).size.depth > max_depth || rule_data_.at(node).size.tokens > max_tokens)
+      if (!fits(node))
         continue;
-      acc += 1.0 / double(rule_data_.at(node).refcount);
+      acc += weight(rule_data_.at(node));
       if (acc >= r)
         return new runtime::Individual(node->clone());
     }
 
     for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.depth <= max_depth && rule_data_.at(node).size.tokens <= max_tokens)
+      if (fits(node))
         return new runtime::Individual(node->clone());
 
     return nullptr;
