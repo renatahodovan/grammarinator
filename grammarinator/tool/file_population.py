@@ -40,6 +40,13 @@ class FilePopulation(Population):
         os.makedirs(directory, exist_ok=True)
         self._names = [splitext(fn)[0] for fn in glob.glob(f'*.{self._extension}', root_dir=directory)]
 
+    @property
+    def codec(self) -> TreeCodec:
+        """
+        Codec used to save trees into files.
+        """
+        return self._codec
+
     def empty(self) -> bool:
         """
         Check whether the population contains no individuals.

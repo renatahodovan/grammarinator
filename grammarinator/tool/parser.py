@@ -22,6 +22,7 @@ from antlr4 import CommonTokenStream, error, FileStream, InputStream, Lexer, Par
 
 from ..runtime import Population, Rule, RuleSize, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantified, UnparserRuleQuantifier
 from .grammar import AlternationNode, AlternativeNode, LambdaNode, QuantifierNode, UnlexerRuleNode, UnparserRuleNode
+from .parser_stats import collect_tree_stats
 from .processor import ProcessorTool
 
 
@@ -60,7 +61,8 @@ class ParserTool:
                  rule: str | None = None, hidden: list[str] | None = None, transformers: list[Callable[[Rule], Rule]] | None = None,
                  max_depth: int | float = RuleSize.max.depth, max_tokens: int | float = RuleSize.max.tokens,
                  strict: bool = False,
-                 lib_dir: str | None = None, cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict'):
+                 lib_dir: str | None = None, cleanup: bool = True, encoding: str = 'utf-8', errors: str = 'strict',
+                 stats: bool = False):
         """
         :param grammars: List of resources (grammars and additional sources)
             needed to parse the input.
@@ -84,6 +86,7 @@ class ParserTool:
             resources after processing the inputs.
         :param encoding: Encoding of the input file.
         :param errors: Encoding error handling scheme.
+        :param stats: Collect a picklable per-file summary for corpus statistics.
         """
         self._population = population
         self._hidden = hidden or []
@@ -94,6 +97,7 @@ class ParserTool:
         self._cleanup = cleanup
         self._encoding = encoding
         self._errors = errors
+        self._stats = stats
 
         self._parser_dir = parser_dir
         os.makedirs(self._parser_dir, exist_ok=True)
@@ -115,6 +119,13 @@ class ParserTool:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._cleanup:
             shutil.rmtree(self._parser_dir, ignore_errors=True)
+
+    @property
+    def graph(self):
+        """
+        Graph of the parsed grammar (e.g., to compute corpus statistics).
+        """
+        return self._graph
 
     @staticmethod
     def _build_grammars(in_files: list[str], out: str, antlr: str, lib_dir: str | None = None) -> tuple[type[Lexer], type[Parser], type[ParseTreeListener]]:
@@ -266,7 +277,7 @@ class ParserTool:
     # to every tree node a grammar rule that produced it, it is sufficient to perform the
     # matching - and hence the reconstruction - on a single rule level. In other words, there is
     # no need to recursively match the entire tree.
-    def _adjust_tree_to_generator(self, rules: Iterable[UnlexerRule | UnparserRule]) -> None:
+    def _adjust_tree_to_generator(self, rules: Iterable[UnlexerRule | UnparserRule], summary: dict | None = None) -> None:
 
         def _adjust_rule(rule):
             def _match_seq(grammar_vertices, tree_node_pos):
@@ -371,6 +382,8 @@ class ParserTool:
             rule_children, rule_tree_node_pos = _match_seq(self._graph.vertices[rule.name].out_neighbours + [None], 0)
             if rule_children is None:
                 logger.warning('Failed to match %s tree node to the related grammar rule at %d.', rule.name, rule_tree_node_pos)
+                if summary is not None:
+                    summary['match_failures'] += 1
                 return
 
             # Detach all children from the tree node so that they can be reattached
@@ -427,36 +440,57 @@ class ParserTool:
             rule.name = '_'.join(rule.name)
 
     # Create an ANTLR tree from the input stream and convert it to Grammarinator tree.
-    def _create_tree(self, input_stream: InputStream, fn: str | None) -> Rule | None:
+    def _create_tree(self, input_stream: InputStream, fn: str | None, summary: dict | None = None) -> Rule | None:
+        strict_rejected = False
         try:
             lexer = self._lexer_cls(input_stream)
             lexer.addErrorListener(ExtendedErrorListener())
             parser = self._parser_cls(CommonTokenStream(lexer))
             parse_tree_root = getattr(parser, self._rule)()
+            if summary is not None:
+                summary['syntax_errors'] = parser._syntaxErrors
             if parser._syntaxErrors:
                 if self._strict:
                     logger.warning('%s syntax errors detected in %s. Skipping.', parser._syntaxErrors, fn)
-                    return None
-                logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
+                    # With statistics, the tree is still converted to measure it.
+                    if summary is None:
+                        return None
+                    strict_rejected = True
+                else:
+                    logger.warning('%s syntax errors detected in %s.', parser._syntaxErrors, fn)
 
             root, depth, tokens, rules = self._antlr_to_grammarinator_tree(parse_tree_root, parser)
             assert root and isinstance(root, UnparserRule), 'The root of the converted tree is None or not a parser rule.'
+            if summary is not None:
+                summary.update(depth=depth, tokens=tokens, over_depth=depth > self._max_depth, over_tokens=tokens > self._max_tokens)
+                if strict_rejected:
+                    summary['status'] = 'strict_rejected'
+                    return None
             if depth > self._max_depth or tokens > self._max_tokens:
+                if summary is not None:
+                    summary['status'] = 'too_deep' if depth > self._max_depth else 'too_many_tokens'
                 logger.warning('The tree representation of %s exceeds the limits (depth: %s, max: %s; tokens: %s, max: %s). Skipping.',
                                fn, depth, self._max_depth, tokens, self._max_tokens)
                 return None
 
-            self._adjust_tree_to_generator(rules)
+            self._adjust_tree_to_generator(rules, summary)
             for transformer in self._transformers:
                 root = transformer(root)
 
+            if summary is not None:
+                summary['status'] = 'kept'
             return root
 
         except Exception as e:
             logger.warning('Exception while parsing %s.', fn or '', exc_info=e)
+            if summary is not None:
+                summary['status'] = 'strict_rejected' if strict_rejected else 'exception'
+                if not strict_rejected:
+                    summary.pop('depth', None)
+                    summary.pop('tokens', None)
         return None
 
-    def parse(self, fn: str) -> None:
+    def parse(self, fn: str) -> dict | None:
         """
         Load content from file, parse it to an ANTLR tree, convert it to
         Grammarinator tree, and save it to population.
@@ -464,9 +498,30 @@ class ParserTool:
         :param fn: Path to the input file.
         """
         logger.info('Process file %s.', fn)
+        summary = {'file': fn, 'syntax_errors': 0, 'match_failures': 0, 'over_depth': False, 'over_tokens': False} if self._stats else None
         try:
-            root = self._create_tree(FileStream(fn, encoding=self._encoding, errors=self._errors), fn)
+            root = self._create_tree(FileStream(fn, encoding=self._encoding, errors=self._errors), fn, summary)
             if root is not None and self._population is not None:
                 self._population.add_individual(root, path=fn)
+            if root is not None and summary is not None:
+                # A failure of the statistics is recorded separately, as the
+                # tree itself has been processed successfully.
+                try:
+                    stats = collect_tree_stats(root, getattr(self._population, 'codec', None))
+                except Exception as e:
+                    logger.warning('Exception while collecting the statistics of %s.', fn, exc_info=e)
+                    summary['stats_error'] = True
+                else:
+                    final_depth, final_tokens = stats.pop('_final_depth'), stats.pop('_final_tokens')
+                    summary.update(stats)
+                    if self._transformers:
+                        summary.update(final_depth=final_depth, final_tokens=final_tokens)
+                        if (summary['depth'], summary['tokens']) != (final_depth, final_tokens):
+                            logger.warning('Transformer changed the depth or token count of %s.', fn)
         except Exception as e:
             logger.warning('Exception while processing %s.', fn, exc_info=e)
+            if summary is not None:
+                summary['status'] = 'exception'
+                summary.pop('depth', None)
+                summary.pop('tokens', None)
+        return summary

@@ -5,6 +5,7 @@
 # This file may not be copied, modified, or distributed except
 # according to those terms.
 
+import json
 import os
 
 from argparse import ArgumentParser
@@ -20,6 +21,7 @@ from .cli import add_disable_cleanup_argument, add_encoding_argument, add_encodi
 from .pkgdata import __version__
 from .runtime import RuleSize
 from .tool import FilePopulation, ParserTool
+from .tool.parser_stats import CorpusStats, log_summary, write_weights
 
 
 def process_args(args):
@@ -56,6 +58,8 @@ def execute():
                         help='maximum tree depth, counting parser rules, labeled alternatives and lexer tokens (default: %(default)f).')
     parser.add_argument('--max-tokens', type=int, default=RuleSize.max.tokens,
                         help='maximum number of lexer tokens in a tree (default: %(default)f).')
+    parser.add_argument('--stats', metavar='FILE', help='write corpus statistics as JSON and log a short summary.')
+    parser.add_argument('--stats-weights', metavar='FILE', help='write observed alternative weights and quantifier probabilities for generate.')
     parser.add_argument('--strict', action='store_true',
                         help='discard tests that contain syntax errors.')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
@@ -93,15 +97,29 @@ def execute():
 
         with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
                         population=FilePopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, max_tokens=args.max_tokens, strict=args.strict,
-                        lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
+                        stats=bool(args.stats or args.stats_weights), lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
+            stats = CorpusStats() if args.stats or args.stats_weights else None
             if args.jobs > 1:
                 with Pool(args.jobs) as pool:
-                    for _ in pool.imap_unordered(parser_tool.parse, files):
+                    for result in pool.imap_unordered(parser_tool.parse, files):
+                        if stats is not None:
+                            stats.add(result)
                         progress_bar.update()
             else:
                 for fn in files:
-                    parser_tool.parse(fn)
+                    result = parser_tool.parse(fn)
+                    if stats is not None:
+                        stats.add(result)
                     progress_bar.update()
+            if stats is not None:
+                report, weights = stats.report(parser_tool.graph, args.max_depth, args.max_tokens)
+                if args.stats:
+                    with open(args.stats, 'w', encoding='utf-8') as f:
+                        json.dump(report, f, indent=2, sort_keys=True)
+                        f.write('\n')
+                    log_summary(report, logger)
+                if args.stats_weights:
+                    write_weights(args.stats_weights, weights)
 
 
 if __name__ == '__main__':

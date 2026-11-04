@@ -100,6 +100,18 @@ There are two settings that may require further explanation:
   - ``--max-tokens``: Discard inputs with more lexer tokens than the specified
     limit, including tokens listed with ``--hidden``. The default is unlimited.
 
+  - ``--stats``: Write corpus statistics as JSON after parsing and log a short
+    summary. The JSON contains per-file statuses and sizes, aggregate counts,
+    distributions, histograms, rule and decision coverage, pool diversity,
+    nesting, and lexer values. Detailed tree measurements apply only to kept
+    trees; final depth and token counts appear when a transformer is used.
+
+  - ``--stats-weights``: Write smoothed alternative weights and quantifier
+    continuation probabilities from kept trees in the JSON format accepted by
+    ``grammarinator-generate --weights``. The quantifiers that never occur in
+    the kept trees are left out, so that the default of the generator applies
+    to them.
+
 .. _`ANTLR`: http://antlr.org/
 
 ----------------------------------------
