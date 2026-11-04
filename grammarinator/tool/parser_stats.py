@@ -15,12 +15,12 @@ from statistics import median
 import xxhash
 
 from ..runtime import Annotations, UnlexerRule, UnparserRule, UnparserRuleAlternative, UnparserRuleQuantifier
-from .grammar import AlternationNode, AlternativeNode, QuantifierNode, RuleNode
+from .grammar import AlternationNode, AlternativeNode, QuantifierNode, RuleNode, UnparserRuleNode
 from .tree_codec import AnnotatedTreeCodec
 
 # Detailed per-file measurements that are merged into the corpus statistics
 # instead of being kept for every file.
-_MERGED_FIELDS = ('rules', 'alternatives', 'quantifiers', 'pool', 'self_embedding', 'self_nesting', 'lexer_values')
+_MERGED_FIELDS = ('rules', 'alternatives', 'quantifiers', 'pool', 'self_embedding', 'self_nesting', 'lexer_values', 'k_paths')
 
 
 # Gather tree measurements and subtree hashes (for deduplication) in one postorder walk.
@@ -31,14 +31,19 @@ def collect_tree_stats(root, codec):
     result = {'_final_depth': annotations.node_depths[root], '_final_tokens': annotations.node_tokens[root],
               'nodes': 0, 'rules': Counter(), 'alternatives': Counter(), 'quantifiers': defaultdict(list),
               'pool': defaultdict(set), 'self_embedding': {}, 'self_nesting': {}, 'lexer_values': defaultdict(Counter)}
+    result['k_paths'] = {2: set(), 3: set()}
     wrappers = {}
     path = Counter()
 
     # Hash each node after its children, while tracking rule paths and unit chains.
-    def walk(node, owner, ancestors):
+    def walk(node, owner, ancestors, rule_path=()):
         result['nodes'] += 1
         if isinstance(node, (UnparserRule, UnlexerRule)):
             owner = node.name
+            rule_path += (owner,)
+            for size in (2, 3):
+                if len(rule_path) >= size:
+                    result['k_paths'][size].add(rule_path[-size:])
             result['rules'][owner] += 1
             path[owner] += 1
             result['self_nesting'][owner] = max(result['self_nesting'].get(owner, 0), path[owner])
@@ -79,7 +84,7 @@ def collect_tree_stats(root, codec):
             child_nesting = []
             next_ancestors = ancestors + (node,) if isinstance(node, UnparserRule) else ancestors
             for child in node.children:
-                child_hash, child_depth = walk(child, owner, next_ancestors)
+                child_hash, child_depth = walk(child, owner, next_ancestors, rule_path)
                 digest.update(struct.pack('=Q', child_hash))
                 digest.update(b',')
                 child_nesting.append(child_depth)
@@ -113,6 +118,7 @@ def collect_tree_stats(root, codec):
     if codec is not None:
         result['encoded_bytes'] = len(codec.encode_annotated(root, annotations) if isinstance(codec, AnnotatedTreeCodec) else codec.encode(root))
     result['pool'] = {key: sorted(hashes) for key, hashes in result['pool'].items()}
+    result['k_paths'] = {size: sorted(paths) for size, paths in result['k_paths'].items()}
     result['quantifiers'] = dict(result['quantifiers'])
     result['lexer_values'] = {key: dict(values) for key, values in result['lexer_values'].items()}
     return result
@@ -170,6 +176,36 @@ def _grammar_inventory(graph):
     return rules, alts, quants
 
 
+# Enumerate the direct rule references of the parser rules, then the bounded
+# two- and three-symbol paths. Lexer rules are leaves in the trees (their
+# fragments never appear), so they can only end paths.
+def _grammar_paths(graph, limit=1000000):
+    neighbours = defaultdict(set)
+    for rule in graph.rules:
+        if not isinstance(rule, UnparserRuleNode):
+            continue
+        pending = list(rule.out_neighbours)
+        seen = set()
+        while pending:
+            node = pending.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            if isinstance(node, RuleNode):
+                neighbours[rule.name].add(node.name)
+            else:
+                pending.extend(node.out_neighbours)
+    edges = {(source, target) for source, targets in neighbours.items() for target in targets} if sum(map(len, neighbours.values())) <= limit else None
+    triples = set()
+    for source, middles in neighbours.items():
+        for middle in middles:
+            for target in neighbours.get(middle, ()):
+                triples.add((source, middle, target))
+                if len(triples) > limit:
+                    return {2: edges, 3: None}
+    return {2: edges, 3: triples}
+
+
 class CorpusStats:
     """
     Corpus statistics merged from the picklable per-file summaries of
@@ -188,6 +224,7 @@ class CorpusStats:
         self._nesting = defaultdict(list)
         self._lexer_values = defaultdict(Counter)
         self._lexer_repeats = defaultdict(list)
+        self._k_paths = {2: set(), 3: set()}
 
     # Merge the detailed measurements of a file (if any) and keep its light fields.
     def add(self, item):
@@ -206,12 +243,15 @@ class CorpusStats:
             for key, values in item['lexer_values'].items():
                 self._lexer_values[key].update(values)
                 self._lexer_repeats[key].extend(values.values())
+            for size in (2, 3):
+                self._k_paths[size].update(tuple(path) for path in item['k_paths'][size])
         self._files.append({key: value for key, value in item.items() if key not in _MERGED_FIELDS})
 
     # Build the deterministic corpus report and the generator weights.
     def report(self, graph, max_depth=math.inf, max_tokens=math.inf):
         files = sorted(self._files, key=lambda item: item['file'])
         rules, grammar_alts, grammar_quants = _grammar_inventory(graph)
+        grammar_paths = _grammar_paths(graph)
         kept = [item for item in files if item['status'] == 'kept']
         detailed = [item for item in kept if not item.get('stats_error')]
         measured = [item for item in files if 'depth' in item]
@@ -250,6 +290,18 @@ class CorpusStats:
                    'nesting_depth': [item['nesting_depth'] for item in detailed], 'nodes': [item['nodes'] for item in detailed],
                    'encoded_bytes': [item['encoded_bytes'] for item in detailed if 'encoded_bytes' in item],
                    'depth_to_nesting_depth': [item['depth'] / item['nesting_depth'] for item in detailed if item['nesting_depth']]}
+        # Observed paths missing from the grammar point to a naming mismatch
+        # between the trees and the grammar graph (or to hidden tokens).
+        k_paths = {}
+        for size in (2, 3):
+            observed, known = self._k_paths[size], grammar_paths[size]
+            covered = observed if known is None else observed & known
+            k_paths[str(size)] = {'denominator': len(known) if known is not None else None,
+                                  'covered': len(covered), 'covered_paths': [list(path) for path in sorted(covered)],
+                                  'never_covered_count': len(known - observed) if known is not None else None,
+                                  'never_covered': [list(path) for path in sorted(known - observed)[:1000]] if known is not None else [],
+                                  'observed_outside_grammar': len(observed - known) if known is not None else None,
+                                  'outside_grammar_examples': [list(path) for path in sorted(observed - known)[:20]] if known is not None else []}
         embedding_report = {}
         for rule in rules:
             rings = [values for (name, _), values in self._embeddings.items() if name == rule]
@@ -289,7 +341,8 @@ class CorpusStats:
                                      'zero_or_one': sorted(key for key in pool_keys | self._pool.keys() if len(self._pool[key]) <= 1)},
                   'self_embedding': embedding_report,
                   'self_nesting': {rule: {'max': max(values), 'median': median(values)} for rule, values in sorted(self._nesting.items())},
-                  'lexer_values': lexer_report}
+                  'lexer_values': lexer_report,
+                  'k_paths': k_paths}
         return report, {'alts': alt_weights, 'quants': quant_weights}
 
 
@@ -310,6 +363,18 @@ def log_summary(report, logger):
     logger.info('Rule coverage: %d/%d', sum(bool(count) for count in report['rules']['counts'].values()), len(report['rules']['counts']))
     medians = [report['distributions'][key]['median'] if report['distributions'][key] else None for key in ('depth', 'tokens', 'nesting_depth')]
     logger.info('Median depth=%s, tokens=%s, nesting=%s', *medians)
+    for size, coverage in report['k_paths'].items():
+        denominator, covered = coverage['denominator'], coverage['covered']
+        if denominator is None:
+            text = f'{covered} observed; denominator exceeds 1000000'
+        elif denominator:
+            text = f'{covered}/{denominator} ({covered / denominator:.1%})'
+        else:
+            text = '0/0 (no grammar paths)'
+        logger.info('%s-path coverage: %s', size, text)
+        if coverage['observed_outside_grammar']:
+            logger.warning('%d observed %s-paths are not in the grammar, e.g., %s.', coverage['observed_outside_grammar'], size,
+                           coverage['outside_grammar_examples'][0])
     for metric, histogram in report['histograms'].items():
         logger.info('%s histogram:', metric)
         entries = list(histogram.items())

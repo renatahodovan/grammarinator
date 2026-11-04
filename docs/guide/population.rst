@@ -103,8 +103,10 @@ There are two settings that may require further explanation:
   - ``--stats``: Write corpus statistics as JSON after parsing and log a short
     summary. The JSON contains per-file statuses and sizes, aggregate counts,
     distributions, histograms, rule and decision coverage, pool diversity,
-    nesting, and lexer values. Detailed tree measurements apply only to kept
-    trees; final depth and token counts appear when a transformer is used.
+    nesting, lexer values, and 2-path and 3-path rule coverage (paths are
+    counted between parser rules, and may end in a lexer rule). Detailed tree
+    measurements apply only to kept trees; final depth and token counts appear
+    when a transformer is used.
 
   - ``--stats-weights``: Write smoothed alternative weights and quantifier
     continuation probabilities from kept trees in the JSON format accepted by

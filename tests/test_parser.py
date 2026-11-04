@@ -22,7 +22,7 @@ from grammarinator.parse import ParserTool
 from grammarinator.runtime import Annotations
 from grammarinator.tool import JsonTreeCodec
 from grammarinator.tool import parser as parser_module
-from grammarinator.tool.parser_stats import _bar, _distribution, _histogram, collect_tree_stats
+from grammarinator.tool.parser_stats import _bar, _distribution, _grammar_paths, _histogram, collect_tree_stats, CorpusStats
 
 parser_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parser')
 
@@ -203,3 +203,40 @@ def test_parser_stats_error(tmpdir, monkeypatch):
     assert summary['status'] == 'kept'
     assert summary['stats_error']
     assert summary['depth'] == 4
+
+
+# Check the grammar-graph denominator against a three-rule chain.
+def test_parser_k_paths(tmpdir):
+    grammar = tmpdir.join('Paths.g4')
+    grammar.write('grammar Paths;\nstart: middle;\nmiddle: LEAF;\nLEAF: \'x\';\n')
+    source = tmpdir.join('source.txt')
+    source.write('x')
+    stats = tmpdir.join('paths.json')
+    subprocess.run([sys.executable, '-m', 'grammarinator.parse', str(source), '-g', str(grammar), '-o', str(tmpdir.mkdir('paths-out')),
+                    '--parser-dir', str(tmpdir.join('paths-parser')), '--stats', str(stats), '-j', '1'], check=True)
+    paths = json.loads(stats.read())['k_paths']
+    assert paths['2']['denominator'] == 2
+    assert paths['2']['covered'] == 2
+    assert paths['2']['observed_outside_grammar'] == 0
+    assert paths['3']['denominator'] == 1
+    assert paths['3']['covered_paths'] == [['start', 'middle', 'LEAF']]
+    tool = ParserTool(grammars=[str(grammar)], parser_dir=str(tmpdir.mkdir('paths-graph')), antlr=default_antlr_jar_path(), population=None)
+    assert _grammar_paths(tool.graph, limit=1) == {2: None, 3: {('start', 'middle', 'LEAF')}}
+    item = collect_tree_stats(tool._create_tree(InputStream('x'), None), None)
+    item.update(file='source.txt', status='kept', depth=3, tokens=1, over_depth=False, over_tokens=False)
+    item['k_paths'][2].append(('start', '<INVALID>'))
+    corpus = CorpusStats()
+    corpus.add(item)
+    report, _ = corpus.report(tool.graph)
+    assert report['k_paths']['2']['covered'] == 2
+    assert report['k_paths']['2']['observed_outside_grammar'] == 1
+
+
+# Do not count paths from lexer rules to their fragments, which never appear in trees.
+def test_parser_k_paths_fragments(tmpdir):
+    grammar = tmpdir.join('Fragments.g4')
+    grammar.write('grammar Fragments;\nstart: WORD;\nWORD: LETTER+;\nfragment LETTER: [a-z];\n')
+    tool = ParserTool(grammars=[str(grammar)], parser_dir=str(tmpdir.mkdir('fragments-graph')), antlr=default_antlr_jar_path(), population=None)
+    paths = _grammar_paths(tool.graph)
+    assert ('start', 'WORD') in paths[2]
+    assert not any(path[0] in ('WORD', 'LETTER') for path in paths[2] | paths[3])
