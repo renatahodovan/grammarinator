@@ -97,6 +97,9 @@ There are two settings that may require further explanation:
     has a corresponding setting to guide the generator and avoid generating
     excessively deep trees.
 
+  - ``--max-tokens``: Discard inputs with more lexer tokens than the specified
+    limit, including tokens listed with ``--hidden``. The default is unlimited.
+
 .. _`ANTLR`: http://antlr.org/
 
 ----------------------------------------

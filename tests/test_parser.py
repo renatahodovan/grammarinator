@@ -49,7 +49,19 @@ def test_parser_depth(tmpdir):
     tool = ParserTool(grammars=[os.path.join(parser_dir, 'Parse.g4')], rule='start', parser_dir=str(tmpdir), antlr=default_antlr_jar_path(), population=None)
     lexer = tool._lexer_cls(InputStream('pass?'))
     parser = tool._parser_cls(CommonTokenStream(lexer))
-    root, depth, rules = tool._antlr_to_grammarinator_tree(parser.start(), parser)
+    root, depth, tokens, rules = tool._antlr_to_grammarinator_tree(parser.start(), parser)
     tool._adjust_tree_to_generator(rules)
-    assert depth == Annotations(root).node_depths[root]
+    annotations = Annotations(root)
+    assert depth == annotations.node_depths[root]
+    assert tokens == annotations.node_tokens[root]
     assert depth == 4
+    assert tokens == 2
+
+
+# Reject parsed trees when their converted token count exceeds the limit, but
+# keep those that reach it exactly.
+@pytest.mark.parametrize('max_tokens, kept', [(1, False), (2, True)])
+def test_parser_max_tokens(max_tokens, kept, tmpdir):
+    tool = ParserTool(grammars=[os.path.join(parser_dir, 'Parse.g4')], rule='start', parser_dir=str(tmpdir), antlr=default_antlr_jar_path(),
+                      population=None, max_tokens=max_tokens)
+    assert (tool._create_tree(InputStream('pass?'), None) is not None) == kept
