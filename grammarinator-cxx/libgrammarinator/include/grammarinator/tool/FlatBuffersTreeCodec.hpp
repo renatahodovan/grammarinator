@@ -28,6 +28,14 @@ public:
   static constexpr flatbuffers::uoffset_t max_depth = 4096;
   static constexpr flatbuffers::uoffset_t max_nodes = 1000000;
 
+private:
+  // The builder and the stack of the offsets of the children of the nodes
+  // being built are reused across encodings, so that their memory need not be
+  // reallocated (and grown again) for every tree.
+  mutable flatbuffers::FlatBufferBuilder builder_;
+  mutable std::vector<flatbuffers::Offset<fbs::FBRule>> children_;
+
+public:
   FlatBuffersTreeCodec() = default;
   FlatBuffersTreeCodec(const FlatBuffersTreeCodec& other) = delete;
   FlatBuffersTreeCodec& operator=(const FlatBuffersTreeCodec& other) = delete;
@@ -36,30 +44,22 @@ public:
   ~FlatBuffersTreeCodec() override = default;
 
   std::vector<uint8_t> encode(runtime::Rule* root) const override {
-    flatbuffers::FlatBufferBuilder builder;
-    flatbuffers::uoffset_t nodes = 0;
-    auto fbrule = buildFBRule(builder, root, 1, nodes);
-    if (fbrule.IsNull()) {
+    if (!build(root)) {
       return {};
     }
-    builder.Finish(fbrule);
 
-    const uint8_t* buf = builder.GetBufferPointer();
-    size_t size = builder.GetSize();
+    const uint8_t* buf = builder_.GetBufferPointer();
+    size_t size = builder_.GetSize();
     return std::vector<uint8_t>(buf, buf + size);
   }
 
   size_t encode(runtime::Rule* root, uint8_t* buffer, size_t maxsize) const override {
-    flatbuffers::FlatBufferBuilder builder;
-    flatbuffers::uoffset_t nodes = 0;
-    auto fbrule = buildFBRule(builder, root, 1, nodes);
-    if (fbrule.IsNull()) {
+    if (!build(root)) {
       return 0;
     }
-    builder.Finish(fbrule);
 
-    const uint8_t* buf = builder.GetBufferPointer();
-    size_t size = builder.GetSize();
+    const uint8_t* buf = builder_.GetBufferPointer();
+    size_t size = builder_.GetSize();
     if (size <= maxsize) {
       std::memcpy(buffer, buf, size);
       return size;
@@ -83,18 +83,29 @@ public:
   }
 
 private:
-  flatbuffers::Offset<fbs::FBRule> buildFBRule(flatbuffers::FlatBufferBuilder& builder, const runtime::Rule* rule,
-                                               flatbuffers::uoffset_t depth, flatbuffers::uoffset_t& nodes) const {
+  bool build(const runtime::Rule* root) const {
+    builder_.Clear();
+    children_.clear();
+    flatbuffers::uoffset_t nodes = 0;
+    auto fbrule = buildFBRule(root, 1, nodes);
+    if (fbrule.IsNull()) {
+      return false;
+    }
+    builder_.Finish(fbrule);
+    return true;
+  }
+
+  flatbuffers::Offset<fbs::FBRule> buildFBRule(const runtime::Rule* rule, flatbuffers::uoffset_t depth, flatbuffers::uoffset_t& nodes) const {
     if (depth > max_depth || ++nodes > max_nodes) {
       GRAMMARINATOR_LOG_WARN("Tree exceeds the encoding limits (max depth: {}, max nodes: {}).", max_depth, max_nodes);
       return {};
     }
 
     if (rule->type == runtime::Rule::UnlexerRuleType) {
-      auto fbName = builder.CreateString(rule->name.c_str(), rule->name.size());
+      auto fbName = builder_.CreateString(rule->name.c_str(), rule->name.size());
       const auto* unlexer_rule = static_cast<const runtime::UnlexerRule*>(rule);
-      auto fbSrc = builder.CreateString(unlexer_rule->src.c_str(), unlexer_rule->src.size());
-      fbs::FBRuleBuilder fbrule_builder(builder);
+      auto fbSrc = builder_.CreateString(unlexer_rule->src.c_str(), unlexer_rule->src.size());
+      fbs::FBRuleBuilder fbrule_builder(builder_);
       fbrule_builder.add_type(fbs::FBRuleType_UnlexerRuleType);
       fbrule_builder.add_name(fbName);
       fbrule_builder.add_src(fbSrc);
@@ -105,20 +116,20 @@ private:
     }
 
     const auto* parent_rule = static_cast<const runtime::ParentRule*>(rule);
-    std::vector<flatbuffers::Offset<fbs::FBRule>> children;
-    children.reserve(parent_rule->children.size());
+    size_t first_child = children_.size();
     for (const auto* child : parent_rule->children) {
-      auto fbchild = buildFBRule(builder, child, depth + 1, nodes);
+      auto fbchild = buildFBRule(child, depth + 1, nodes);
       if (fbchild.IsNull()) {
         return {};
       }
-      children.push_back(fbchild);
+      children_.push_back(fbchild);
     }
-    auto fbchildren = builder.CreateVector(children);
+    auto fbchildren = builder_.CreateVector(children_.data() + first_child, children_.size() - first_child);
+    children_.resize(first_child);
     flatbuffers::Offset<flatbuffers::String> fbName;
     if (rule->type == runtime::Rule::UnparserRuleType)
-      fbName = builder.CreateString(rule->name.c_str(), rule->name.size());
-    fbs::FBRuleBuilder fbrule_builder(builder);
+      fbName = builder_.CreateString(rule->name.c_str(), rule->name.size());
+    fbs::FBRuleBuilder fbrule_builder(builder_);
     fbrule_builder.add_children(fbchildren);
 
     if (rule->type == runtime::Rule::UnparserRuleType) {
