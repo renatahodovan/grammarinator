@@ -81,6 +81,11 @@ struct grafl_state {
   std::map<ParentRule*, std::vector<Rule*>> trim_saved_children;
   std::set<Rule*> trim_succ_config;
   std::vector<uint8_t> trim_buffer;
+  // The test case of the tree encoded in trim_buffer, so that
+  // post-processing need not decode it.
+  std::string trim_test;
+  // The test case of the configuration that the trimmer returns next.
+  std::string trim_next_test;
 };
 
 // ---- Helpers ------------------------------------------------------------
@@ -405,6 +410,12 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
     auto out_vec = st->tool->encode(st->current_tree);
     // TODO: is this string conversion correct/appropriate?
     std::string s(reinterpret_cast<const char*>(out_vec.data()), out_vec.size());
+    // The trimmer calls this serializer in advance, while preparing its next
+    // step (in init and post), possibly for several configurations, skipping
+    // those whose buffer has already been tried. The last call is always for
+    // the configuration whose buffer trim() returns next, so the test case of
+    // that buffer is the one that remains.
+    st->trim_next_test = st->tool->serializer(st->current_tree);
     for (auto removed_parent : removed_parents) {
       // DANGER: another black magic, we reset the children to a saved state
       removed_parent->children = st->trim_saved_children.at(removed_parent);
@@ -440,6 +451,9 @@ size_t afl_custom_trim(void* data, unsigned char** out_buf) {
     st->trim_buffer.resize(1);
   }
   *out_buf = st->trim_buffer.data();
+  // post_trim already serializes the next configuration, while AFL++ may still
+  // post-process this buffer after it (when it saves it as a new queue entry).
+  st->trim_test = st->trim_next_test;
   return len;
 }
 
@@ -494,13 +508,16 @@ extern "C"
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf) {
   auto* st = static_cast<grafl_state*>(data);
 
-  // The last emitted test case is still at hand as a tree, any other buffer
-  // (e.g., a seed, or a synced or trimmed entry) is decoded.
+  // The last emitted test case is still at hand as a tree, and the test case
+  // of the last trimmed buffer has been serialized while trimming, any other
+  // buffer (e.g., a seed, or a synced entry) is decoded.
   bool emitted = st->mutated_tree_emitted && buf_size == st->fuzz_buf.size()
                  && std::memcmp(buf, st->fuzz_buf.data(), buf_size) == 0;
-  Rule* root = emitted ? st->mutated_tree : st->tool->decode(buf, buf_size);
-  if (root) {
-    std::string out = st->tool->serializer(root);
+  bool trimmed = !emitted && buf_size > 0 && buf_size == st->trim_buffer.size()
+                 && std::memcmp(buf, st->trim_buffer.data(), buf_size) == 0;
+  Rule* root = emitted ? st->mutated_tree : trimmed ? nullptr : st->tool->decode(buf, buf_size);
+  if (root || trimmed) {
+    std::string out = trimmed ? st->trim_test : st->tool->serializer(root);
     GRAMMARINATOR_LOG_TRACE("# {}. test:\n{}\n----------------------\n", st->fuzz_cnt, out);
     if (!emitted) {
       delete root;
