@@ -91,6 +91,8 @@ There are two settings that may require further explanation:
     the size of the serialized test, is important for both generation and
     execution performance. This argument allows to set the maximum depth of
     the tree. Any inputs that exceeds this depth limit will be discarded.
+    The depth is measured as by the generator, i.e., parser rules, labeled
+    alternatives, and lexer tokens all count as levels.
     The :ref:`grammarinator-generate <grammarinator-generate>` utility also
     has a corresponding setting to guide the generator and avoid generating
     excessively deep trees.

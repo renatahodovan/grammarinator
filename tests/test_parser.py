@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2024-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -10,9 +10,10 @@ import os
 import pytest
 
 from antlerinator import default_antlr_jar_path
-from antlr4 import InputStream
+from antlr4 import CommonTokenStream, InputStream
 
 from grammarinator.parse import ParserTool
+from grammarinator.runtime import Annotations
 from grammarinator.tool import JsonTreeCodec
 
 parser_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parser')
@@ -41,3 +42,14 @@ def test_parser(inp, expected, tmpdir):
     assert expected_root, f'Loading of {expected} failed.'
 
     assert root.equals(expected_root), f'{root:|} != {expected_root:|}'
+
+
+# Compare conversion depth with the generator's annotation of the adjusted tree.
+def test_parser_depth(tmpdir):
+    tool = ParserTool(grammars=[os.path.join(parser_dir, 'Parse.g4')], rule='start', parser_dir=str(tmpdir), antlr=default_antlr_jar_path(), population=None)
+    lexer = tool._lexer_cls(InputStream('pass?'))
+    parser = tool._parser_cls(CommonTokenStream(lexer))
+    root, depth, rules = tool._antlr_to_grammarinator_tree(parser.start(), parser)
+    tool._adjust_tree_to_generator(rules)
+    assert depth == Annotations(root).node_depths[root]
+    assert depth == 4
