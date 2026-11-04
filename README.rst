@@ -288,8 +288,8 @@ Compatibility
 
 *Grammarinator* was tested on:
 
-* Linux (Ubuntu 16.04 ... 24.04)
-* OS X / macOS (10.12 ... 26.5)
+* Linux (Ubuntu 16.04 ... 26.04)
+* OS X / macOS (10.12 ... 26.6)
 * Windows (Server 2012 ... 2025)
 
 
