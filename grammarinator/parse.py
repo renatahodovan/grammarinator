@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2025 Renata Hodovan, Akos Kiss.
+# Copyright (c) 2018-2026 Renata Hodovan, Akos Kiss.
 #
 # Licensed under the BSD 3-Clause License
 # <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -54,6 +54,8 @@ def execute():
                         help='list of hidden tokens to be built into the parsed tree.')
     parser.add_argument('--max-depth', type=int, default=RuleSize.max.depth,
                         help='maximum expected tree depth (deeper tests will be discarded (default: %(default)f)).')
+    parser.add_argument('--max-tokens', type=int, default=RuleSize.max.tokens,
+                        help='maximum expected token count (tests with more tokens will be discarded (default: %(default)f)).')
     parser.add_argument('--strict', action='store_true',
                         help='discard tests that contain syntax errors.')
     parser.add_argument('-o', '--out', metavar='DIR', default=os.getcwd(),
@@ -90,7 +92,7 @@ def execute():
         progress_bar = progress_manager.counter(total=len(files), desc='Parsing', unit='file')
 
         with ParserTool(grammars=args.grammar, hidden=args.hidden, transformers=args.transformer, parser_dir=args.parser_dir, antlr=args.antlr, rule=args.rule,
-                        population=FilePopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, strict=args.strict,
+                        population=FilePopulation(args.out, args.tree_extension, codec=args.tree_codec), max_depth=args.max_depth, max_tokens=args.max_tokens, strict=args.strict,
                         lib_dir=args.lib, cleanup=args.cleanup, encoding=args.encoding, errors=args.encoding_errors) as parser_tool:
             if args.jobs > 1:
                 with Pool(args.jobs) as pool:

@@ -75,7 +75,7 @@ completed and the tree is created, various :doc:`transformers <transformers>`
 (``--transformer``) can be applied to modify the tree before saving it to the
 file system using the ``--out`` option.
 
-There are two settings that may require further explanation:
+There are three settings that may require further explanation:
 
   - ``--hidden``: When using `ANTLR`_ to tokenize an input, tokens are sorted
     into various channels. The hidden channel typically contains tokens that
@@ -87,13 +87,19 @@ There are two settings that may require further explanation:
     the names of the corresponding rules need to be listed using the
     ``--hidden`` argument.
 
-  - ``--max-depth``: Controlling the depth of the generated tree, and therefore
-    the size of the serialized test, is important for both generation and
-    execution performance. This argument allows to set the maximum depth of
-    the tree. Any inputs that exceeds this depth limit will be discarded.
-    The :ref:`grammarinator-generate <grammarinator-generate>` utility also
-    has a corresponding setting to guide the generator and avoid generating
-    excessively deep trees.
+  - ``--max-depth``: The maximum depth of the tree. Inputs whose tree is
+    deeper than this limit are discarded.
+
+  - ``--max-tokens``: The maximum number of lexer tokens in the tree,
+    including the tokens listed with ``--hidden``. Inputs whose tree has more
+    tokens than this limit are discarded.
+
+  Limiting the size of the trees, and therefore the size of the serialized
+  tests, is important for both generation and execution performance. The
+  :ref:`grammarinator-generate <grammarinator-generate>` utility has
+  corresponding settings to avoid generating excessively deep or large trees,
+  so using the same limits for parsing keeps the population within the
+  limits of the generator.
 
 .. _`ANTLR`: http://antlr.org/
 
