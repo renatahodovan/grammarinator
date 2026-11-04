@@ -36,30 +36,22 @@ public:
   ~FlatBuffersTreeCodec() override = default;
 
   std::vector<uint8_t> encode(runtime::Rule* root) const override {
-    flatbuffers::FlatBufferBuilder builder;
-    flatbuffers::uoffset_t nodes = 0;
-    auto fbrule = buildFBRule(builder, root, 1, nodes);
-    if (fbrule.IsNull()) {
+    if (!build(root)) {
       return {};
     }
-    builder.Finish(fbrule);
 
-    const uint8_t* buf = builder.GetBufferPointer();
-    size_t size = builder.GetSize();
+    const uint8_t* buf = builder_.GetBufferPointer();
+    size_t size = builder_.GetSize();
     return std::vector<uint8_t>(buf, buf + size);
   }
 
   size_t encode(runtime::Rule* root, uint8_t* buffer, size_t maxsize) const override {
-    flatbuffers::FlatBufferBuilder builder;
-    flatbuffers::uoffset_t nodes = 0;
-    auto fbrule = buildFBRule(builder, root, 1, nodes);
-    if (fbrule.IsNull()) {
+    if (!build(root)) {
       return 0;
     }
-    builder.Finish(fbrule);
 
-    const uint8_t* buf = builder.GetBufferPointer();
-    size_t size = builder.GetSize();
+    const uint8_t* buf = builder_.GetBufferPointer();
+    size_t size = builder_.GetSize();
     if (size <= maxsize) {
       std::memcpy(buffer, buf, size);
       return size;
@@ -83,6 +75,24 @@ public:
   }
 
 private:
+  // The builder and the stack of the offsets of the children of the nodes
+  // being built are reused across encodings, so that their memory need not be
+  // reallocated (and grown again) for every tree.
+  mutable flatbuffers::FlatBufferBuilder builder_;
+  mutable std::vector<flatbuffers::Offset<fbs::FBRule>> children_;
+
+  bool build(const runtime::Rule* root) const {
+    builder_.Clear();
+    children_.clear();
+    flatbuffers::uoffset_t nodes = 0;
+    auto fbrule = buildFBRule(builder_, root, 1, nodes);
+    if (fbrule.IsNull()) {
+      return false;
+    }
+    builder_.Finish(fbrule);
+    return true;
+  }
+
   flatbuffers::Offset<fbs::FBRule> buildFBRule(flatbuffers::FlatBufferBuilder& builder, const runtime::Rule* rule,
                                                flatbuffers::uoffset_t depth, flatbuffers::uoffset_t& nodes) const {
     if (depth > max_depth || ++nodes > max_nodes) {
@@ -105,16 +115,16 @@ private:
     }
 
     const auto* parent_rule = static_cast<const runtime::ParentRule*>(rule);
-    std::vector<flatbuffers::Offset<fbs::FBRule>> children;
-    children.reserve(parent_rule->children.size());
+    size_t first_child = children_.size();
     for (const auto* child : parent_rule->children) {
       auto fbchild = buildFBRule(builder, child, depth + 1, nodes);
       if (fbchild.IsNull()) {
         return {};
       }
-      children.push_back(fbchild);
+      children_.push_back(fbchild);
     }
-    auto fbchildren = builder.CreateVector(children);
+    auto fbchildren = builder.CreateVector(children_.data() + first_child, children_.size() - first_child);
+    children_.resize(first_child);
     flatbuffers::Offset<flatbuffers::String> fbName;
     if (rule->type == runtime::Rule::UnparserRuleType)
       fbName = builder.CreateString(rule->name.c_str(), rule->name.size());
