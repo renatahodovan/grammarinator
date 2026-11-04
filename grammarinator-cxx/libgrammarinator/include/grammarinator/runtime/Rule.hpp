@@ -229,6 +229,7 @@ protected:
 
 public:
   ParentRule(const ParentRule& other) : Rule(other) {
+    children.reserve(other.children.size());
     for (const Rule* child : other.children) {
       add_child(child->clone());
     }
