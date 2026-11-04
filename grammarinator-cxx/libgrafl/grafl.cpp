@@ -60,6 +60,9 @@ struct grafl_state {
   // Trees
   Rule* current_tree;
   Rule* mutated_tree;
+  // Annotations of current_tree, reused by the annotations of its clones
+  // (created on demand, reset whenever current_tree changes).
+  std::unique_ptr<Annotations> current_annot;
 
   // Fuzz buffer
   std::vector<uint8_t> fuzz_buf;
@@ -268,6 +271,7 @@ unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
 
   delete st->current_tree;
   st->current_tree = root;
+  st->current_annot.reset();
 
   // Save seed corpus entries to the tree pool when they are first processed.
   if (st->afl->queue_cur && st->afl->queue_cur->depth == 1) {
@@ -310,7 +314,10 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   st->mutated_tree_emitted = false;
   delete st->mutated_tree;
   st->mutated_tree = st->current_tree->clone();
-  Individual individual(st->mutated_tree, false);
+  if (!st->current_annot) {
+    st->current_annot = std::make_unique<Annotations>(st->current_tree);
+  }
+  Individual individual(st->mutated_tree, false, st->current_annot.get());
   auto mutated_tree = st->tool->mutate(&individual);
   if (!mutated_tree) {
     return 0;
@@ -358,6 +365,7 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
   if (!st->current_tree) {
     // This happens if custom trim is used from afl-tmin.
     st->current_tree = st->tool->decode(buf, size);
+    st->current_annot.reset();
   }
   st->trim_step = 1;
 
@@ -486,6 +494,7 @@ int afl_custom_post_trim(void* data, unsigned char success) {
       removed_node->remove(); // first, detach all removed nodes from their parents
     for (auto removed_node : removed_config)
       delete removed_node; // only delete nodes once all of them are detached: this way the order of deletion does not matter
+    st->current_annot.reset();
     GRAMMARINATOR_LOG_INFO("POST TRIM [{}->{}]: {}", st->trim_init_config.size(), st->trim_succ_config.size(), st->tool->serializer(st->current_tree));
 
     // Save the trimmed tree to SubTreePopulation.
