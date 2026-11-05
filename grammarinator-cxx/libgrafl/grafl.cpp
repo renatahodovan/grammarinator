@@ -87,6 +87,8 @@ struct grafl_state {
   // The test case of the tree encoded in trim_buffer, so that
   // post-processing need not decode it.
   std::string trim_test;
+  // The test case of the configuration that the trimmer returns next.
+  std::string trim_next_test;
 };
 
 // ---- Helpers ------------------------------------------------------------
@@ -418,7 +420,7 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
     std::string s(reinterpret_cast<const char*>(out_vec.data()), out_vec.size());
     // The trimmer serializes the configuration that it returns next last, so
     // this test case belongs to the next trimmed buffer.
-    st->trim_test = st->tool->serializer(st->current_tree);
+    st->trim_next_test = st->tool->serializer(st->current_tree);
     for (auto removed_parent : removed_parents) {
       // DANGER: another black magic, we reset the children to a saved state
       removed_parent->children = st->trim_saved_children.at(removed_parent);
@@ -454,6 +456,9 @@ size_t afl_custom_trim(void* data, unsigned char** out_buf) {
     st->trim_buffer.resize(1);
   }
   *out_buf = st->trim_buffer.data();
+  // post_trim already serializes the next configuration, while AFL++ may still
+  // post-process this buffer after it (when it saves it as a new queue entry).
+  st->trim_test = st->trim_next_test;
   return len;
 }
 
