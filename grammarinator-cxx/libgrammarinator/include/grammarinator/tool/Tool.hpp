@@ -589,11 +589,6 @@ public:
             continue;
           }
 
-          // Avoid swapping two identical nodes with each other.
-          if (first_node->equalTokens(*second_node)) {
-            continue;
-          }
-
           // Ensure the subtrees rooted at recipient and donor nodes are disjunct.
           bool disjunct = true;
           for (auto p = first_node->parent; p && disjunct; p = p->parent) {
@@ -603,6 +598,11 @@ public:
             disjunct = p != first_node;
           }
           if (!disjunct) {
+            continue;
+          }
+
+          // Avoid swapping two identical nodes with each other.
+          if (first_node->equalTokens(*second_node)) {
             continue;
           }
 
