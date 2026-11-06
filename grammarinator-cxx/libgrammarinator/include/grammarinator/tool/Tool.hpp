@@ -589,20 +589,25 @@ public:
             continue;
           }
 
-          // Avoid swapping two identical nodes with each other.
-          if (first_node->equalTokens(*second_node)) {
+          // Ensure the subtrees rooted at recipient and donor nodes are disjunct
+          // (only a parent rule node can contain the other node).
+          bool disjunct = true;
+          if (second_node->type != runtime::Rule::UnlexerRuleType) {
+            for (auto p = first_node->parent; p && disjunct; p = p->parent) {
+              disjunct = p != second_node;
+            }
+          }
+          if (first_node->type != runtime::Rule::UnlexerRuleType) {
+            for (auto p = second_node->parent; p && disjunct; p = p->parent) {
+              disjunct = p != first_node;
+            }
+          }
+          if (!disjunct) {
             continue;
           }
 
-          // Ensure the subtrees rooted at recipient and donor nodes are disjunct.
-          bool disjunct = true;
-          for (auto p = first_node->parent; p && disjunct; p = p->parent) {
-            disjunct = p != second_node;
-          }
-          for (auto p = second_node->parent; p && disjunct; p = p->parent) {
-            disjunct = p != first_node;
-          }
-          if (!disjunct) {
+          // Avoid swapping two identical nodes with each other.
+          if (first_node->equalTokens(*second_node)) {
             continue;
           }
 

@@ -760,19 +760,21 @@ class GeneratorTool:
                             or second_node_level + first_node_depth > self._limit.depth):
                         continue
 
-                    # Avoid swapping two identical nodes with each other.
-                    if first_node.equalTokens(second_node):
-                        continue
-
-                    # Ensure the subtrees rooted at recipient and donor nodes are disjunct.
+                    # Ensure the subtrees rooted at recipient and donor nodes are disjunct
+                    # (only a parent rule node can contain the other node).
                     upper_node, lower_node = (first_node, second_node) if first_node_level < second_node_level else (second_node, first_node)
                     disjunct = True
-                    parent = lower_node.parent
-                    while parent and disjunct:
-                        disjunct = parent != upper_node
-                        parent = parent.parent
+                    if not isinstance(upper_node, UnlexerRule):
+                        parent = lower_node.parent
+                        while parent and disjunct:
+                            disjunct = parent != upper_node
+                            parent = parent.parent
 
                     if not disjunct:
+                        continue
+
+                    # Avoid swapping two identical nodes with each other.
+                    if first_node.equalTokens(second_node):
                         continue
 
                     first_parent = first_node.parent
