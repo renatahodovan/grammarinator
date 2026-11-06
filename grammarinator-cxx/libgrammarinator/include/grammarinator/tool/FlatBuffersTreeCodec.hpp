@@ -175,6 +175,7 @@ private:
         return nullptr;
       }
 
+      parent_rule->children.reserve(fbrule->children()->size());
       for (const auto* fbchild : *fbrule->children()) {
         parent_rule->add_child(readFBRule(fbchild));
       }
