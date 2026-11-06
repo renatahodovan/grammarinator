@@ -284,8 +284,9 @@ public:
     auto donor_annot = ensured_donor->annotations();
     const auto& donor_node_info = donor_annot->node_info();
 
-    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> recipient_lookup = recipient_annot->nodes_by_name();
-    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> donor_lookup = donor_annot->nodes_by_name();
+    const auto& recipient_lookup = recipient_annot->nodes_by_name();
+    const auto& donor_lookup = donor_annot->nodes_by_name();
+    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> shuffled_donors;
 
     std::vector<runtime::Annotations::NodeKey> common_types;
     for (const auto& [recipient_key, value] : recipient_lookup) {
@@ -297,7 +298,7 @@ public:
 
     std::vector<std::tuple<runtime::Annotations::NodeKey, runtime::Rule*>> recipient_options;
     for (const auto& rule_name : common_types) {
-      for (auto recipient_node : recipient_lookup[rule_name]) {
+      for (auto recipient_node : recipient_lookup.at(rule_name)) {
         if (recipient_node->parent) {
           recipient_options.emplace_back(rule_name, recipient_node);
         }
@@ -307,7 +308,11 @@ public:
     int recipient_root_tokens = recipient_node_info.at(recipient_root).tokens;
     for (size_t i = 0; i < recipient_options.size(); ++i) {
       auto& [rule_name, recipient_node] = util::random_shuffle_next(recipient_options, i);
-      auto& donor_options = donor_lookup[rule_name];
+      auto [donor_it, inserted] = shuffled_donors.try_emplace(rule_name);
+      if (inserted) {
+        donor_it->second = donor_lookup.at(rule_name);
+      }
+      auto& donor_options = donor_it->second;
       int recipient_node_level = recipient_node_info.at(recipient_node).level;
       int recipient_node_tokens = recipient_node_info.at(recipient_node).tokens;
       for (size_t j = 0; j < donor_options.size(); ++j) {
