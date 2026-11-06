@@ -33,6 +33,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "grammarinator/config.hpp"
@@ -71,7 +72,7 @@ struct grafl_state {
   bool mutated_tree_emitted;
 
   // Post-process buffer
-  std::vector<uint8_t> post_process_buf;
+  std::string post_process_buf;
 
   // Fuzz loop planning
   unsigned int fuzz_cnt;
@@ -340,7 +341,7 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
   }
 
   st->fuzz_cnt++;
-  assign_and_shrink_buffer_if_needed(st->fuzz_buf, out.begin(), out.end());
+  st->fuzz_buf = std::move(out);
   *out_buf = st->fuzz_buf.data();
   st->mutated_tree_emitted = true;
   return n;
@@ -446,7 +447,7 @@ extern "C"
 size_t afl_custom_trim(void* data, unsigned char** out_buf) {
   auto st = static_cast<grafl_state*>(data);
 
-  auto s = st->trimmer.trim();
+  const auto& s = st->trimmer.trim();
   size_t len = s.length();
   GRAMMARINATOR_LOG_TRACE("TRIM #{} [{}]", st->trim_step, st->trimmer.recall().size());
 
@@ -535,9 +536,9 @@ size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, 
       return 0;
     }
 
-    assign_and_shrink_buffer_if_needed(st->post_process_buf, out.begin(), out.end());
-    *out_buf = st->post_process_buf.data();
-    return out.size();
+    st->post_process_buf = std::move(out);
+    *out_buf = reinterpret_cast<unsigned char*>(st->post_process_buf.data());
+    return st->post_process_buf.size();
   }
 
   *out_buf = buf;
