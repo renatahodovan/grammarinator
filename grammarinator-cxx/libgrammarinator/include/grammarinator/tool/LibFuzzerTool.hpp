@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
@@ -206,13 +207,13 @@ public:
     }
     if (!options.empty()) {
       auto node_to_mutate = options[util::random_int<size_t>(0, options.size() - 1)];
-      std::string value = node_to_mutate->src;
-      std::string result = value;
-      int new_size = value.size() + 50;
-      result.resize(std::max(1, new_size));
-      result.resize(LLVMFuzzerMutate(reinterpret_cast<uint8_t*>(&result[0]), value.size(), result.size()));
+      std::string result = node_to_mutate->src;
+      size_t size = result.size();
+      size_t max_size = size + 50;
+      result.resize(max_size);
+      result.resize(LLVMFuzzerMutate(reinterpret_cast<uint8_t*>(result.data()), size, max_size));
       this->print_mutator("{}: {}", __func__, node_to_mutate->name);
-      node_to_mutate->src = result;
+      node_to_mutate->src = std::move(result);
       return root;
     }
     GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
