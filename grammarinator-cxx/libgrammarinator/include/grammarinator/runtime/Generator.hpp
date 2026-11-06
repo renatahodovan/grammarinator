@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Renata Hodovan, Akos Kiss.
+// Copyright (c) 2025-2026 Renata Hodovan, Akos Kiss.
 //
 // Licensed under the BSD 3-Clause License
 // <LICENSE.rst or https://opensource.org/licenses/BSD-3-Clause>.
@@ -225,9 +225,7 @@ protected:
 class AlternationContext : public SubRuleContext {
 private:
   int idx;
-  std::vector<RuleSize> min_sizes;
   int reserve;
-  std::vector<double> conditions;
   int orig_depth_limit;
   std::vector<double> weights{};
   int choice{};
@@ -236,7 +234,7 @@ public:
   AlternationContext(RuleContext& rule, int idx, const std::vector<RuleSize>& min_sizes, int reserve,
                      const std::vector<double>& conditions)
       : SubRuleContext(rule),
-        idx(idx), min_sizes(min_sizes), reserve(reserve), conditions(conditions), orig_depth_limit(rule.gen->_limit.depth) {
+        idx(idx), reserve(reserve), orig_depth_limit(rule.gen->_limit.depth) {
     Generator* gen = rule.gen;
     gen->_size.tokens += reserve;
 
