@@ -128,7 +128,10 @@ public:
     // `data`. This avoids a transient mismatch between `data` contents and the
     // reported size when the mutator is invoked repeatedly; the encoded bytes
     // are commited into `data` only after memoization accepts the candidate.
-    tmp_buf_.resize(std::max<size_t>(1, maxsize));
+    auto newsize = std::max<size_t>(1, maxsize);
+    if (tmp_buf_.size() < newsize) {
+      tmp_buf_.resize(newsize);
+    }
     size_t outsize = this->codec.encode(mutated_root, tmp_buf_.data(), maxsize);
     if (outsize == 0) {
       GRAMMARINATOR_LOG_WARN("Mutation failed, result could not be encoded");
@@ -166,7 +169,10 @@ public:
       return 0;
     }
     // Use temporal buffer similar to custom_mutator.
-    tmp_buf_.resize(std::max<size_t>(1, maxoutsize));
+    auto newsize = std::max<size_t>(1, maxoutsize);
+    if (tmp_buf_.size() < newsize) {
+      tmp_buf_.resize(newsize);
+    }
     size_t outsize = this->codec.encode(cross_over_root, tmp_buf_.data(), maxoutsize);
     if (outsize == 0) {
       GRAMMARINATOR_LOG_WARN("Crossover failed, result could not be encoded");
