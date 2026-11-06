@@ -305,13 +305,13 @@ public:
     }
 
     int recipient_root_tokens = recipient_node_info.at(recipient_root).tokens;
-    std::shuffle(recipient_options.begin(), recipient_options.end(), util::random_engine);
-    for (auto& [rule_name, recipient_node] : recipient_options) {
+    for (size_t i = 0; i < recipient_options.size(); ++i) {
+      auto& [rule_name, recipient_node] = util::random_shuffle_next(recipient_options, i);
       auto& donor_options = donor_lookup[rule_name];
       int recipient_node_level = recipient_node_info.at(recipient_node).level;
       int recipient_node_tokens = recipient_node_info.at(recipient_node).tokens;
-      std::shuffle(donor_options.begin(), donor_options.end(), util::random_engine);
-      for (auto donor_node : donor_options) {
+      for (size_t j = 0; j < donor_options.size(); ++j) {
+        auto donor_node = util::random_shuffle_next(donor_options, j);
         // Make sure that the output tree won't exceed the depth limit.
         if (recipient_node_level + donor_node_info.at(donor_node).depth <= limit.depth
             && recipient_root_tokens - recipient_node_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
@@ -357,8 +357,8 @@ public:
       }
     }
     int recipient_root_tokens = recipient_node_info.at(recipient_root).tokens;
-    std::shuffle(recipient_options.begin(), recipient_options.end(), util::random_engine);
-    for (auto& [rule_name, recipient_node] : recipient_options) {
+    for (size_t i = 0; i < recipient_options.size(); ++i) {
+      auto& [rule_name, recipient_node] = util::random_shuffle_next(recipient_options, i);
       int recipient_node_level = recipient_node_info.at(recipient_node).level;
       std::vector<runtime::Rule*> donor_options;
       for (auto quantifier : donor_quants_by_name[rule_name]) {
@@ -366,8 +366,8 @@ public:
           donor_options.push_back(node);
         }
       }
-      std::shuffle(donor_options.begin(), donor_options.end(), util::random_engine);
-      for (auto donor_node : donor_options) {
+      for (size_t j = 0; j < donor_options.size(); ++j) {
+        auto donor_node = util::random_shuffle_next(donor_options, j);
         // Make sure that the output tree won't exceed the depth limit.
         if (recipient_node_level + donor_node_info.at(donor_node).depth <= limit.depth
             && recipient_root_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
@@ -498,8 +498,8 @@ public:
     std::vector<runtime::Rule*> rules = annot->rules();
 
     if (!rules.empty()) {
-      std::shuffle(rules.begin(), rules.end(), util::random_engine);
-      for (auto rule_node : rules) {
+      for (size_t i = 0; i < rules.size(); ++i) {
+        auto rule_node = util::random_shuffle_next(rules, i);
         auto parent = rule_node->parent;
         while (parent) {
           if (parent->name == rule_node->name && parent != root) {
@@ -524,8 +524,8 @@ public:
     std::vector<runtime::Rule*> rules = annot->rules();
 
     if (!rules.empty()) {
-      std::shuffle(rules.begin(), rules.end(), util::random_engine);
-      for (auto rule_node : rules) {
+      for (size_t i = 0; i < rules.size(); ++i) {
+        auto rule_node = util::random_shuffle_next(rules, i);
         std::vector<runtime::Rule*> options;
         auto parent = rule_node->parent;
         while (parent && parent != root) {
@@ -565,8 +565,8 @@ public:
     }
 
     const auto& node_info = annot->node_info();
-    std::shuffle(options.begin(), options.end(), util::random_engine);
-    for (auto nodes : options) {
+    for (size_t k = 0; k < options.size(); ++k) {
+      auto nodes = util::random_shuffle_next(options, k);
       std::vector<runtime::Rule*> shuffled(nodes->begin(), nodes->end());
       std::shuffle(shuffled.begin(), shuffled.end(), util::random_engine);
 
@@ -633,8 +633,8 @@ public:
 
     const auto& node_info = annot->node_info();
     int root_tokens = node_info.at(root).tokens;
-    std::shuffle(options.begin(), options.end(), util::random_engine);
-    for (auto quantifiers : options) {
+    for (size_t k = 0; k < options.size(); ++k) {
+      auto quantifiers = util::random_shuffle_next(options, k);
       std::vector<runtime::Rule*> shuffled(quantifiers->begin(), quantifiers->end());
       std::shuffle(shuffled.begin(), shuffled.end(), util::random_engine);
 

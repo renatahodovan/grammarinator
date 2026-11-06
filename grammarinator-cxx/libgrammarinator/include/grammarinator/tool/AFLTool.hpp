@@ -69,8 +69,8 @@ public:
 
     const auto& node_info = annot->node_info();
     int root_tokens = node_info.at(root).tokens;
-    std::shuffle(options.begin(), options.end(), util::random_engine);
-    for (auto& [rule_name, node] : options) {
+    for (size_t i = 0; i < options.size(); ++i) {
+      auto& [rule_name, node] = util::random_shuffle_next(options, i);
       int node_level = node_info.at(node).level;
       int node_tokens = node_info.at(node).tokens;
       auto indiv = static_cast<SubTreePopulation*>(this->population)->select_by_type(rule_name,
@@ -107,8 +107,8 @@ public:
 
     const auto& node_info = annot->node_info();
     int root_tokens = node_info.at(root).tokens;
-    std::shuffle(options.begin(), options.end(), util::random_engine);
-    for (auto& [rule_name, node] : options) {
+    for (size_t i = 0; i < options.size(); ++i) {
+      auto& [rule_name, node] = util::random_shuffle_next(options, i);
       int node_level = node_info.at(node).level;
       // Insert a quantified node (i.e., a child of a compatible quantifier) from the pool.
       runtime::Annotations::NodeKey quantified_key(rule_name.name, runtime::Annotations::NodeKey::QuantifiedKey, rule_name.idx);
