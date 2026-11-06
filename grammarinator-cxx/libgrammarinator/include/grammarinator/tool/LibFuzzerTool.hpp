@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
@@ -128,7 +129,9 @@ public:
     // `data`. This avoids a transient mismatch between `data` contents and the
     // reported size when the mutator is invoked repeatedly; the encoded bytes
     // are commited into `data` only after memoization accepts the candidate.
-    tmp_buf_.resize(std::max<size_t>(1, maxsize));
+    if (tmp_buf_.size() < std::max<size_t>(1, maxsize)) {
+      tmp_buf_.resize(std::max<size_t>(1, maxsize));
+    }
     size_t outsize = this->codec.encode(mutated_root, tmp_buf_.data(), maxsize);
     if (outsize == 0) {
       GRAMMARINATOR_LOG_WARN("Mutation failed, result could not be encoded");
@@ -166,7 +169,9 @@ public:
       return 0;
     }
     // Use temporal buffer similar to custom_mutator.
-    tmp_buf_.resize(std::max<size_t>(1, maxoutsize));
+    if (tmp_buf_.size() < std::max<size_t>(1, maxoutsize)) {
+      tmp_buf_.resize(std::max<size_t>(1, maxoutsize));
+    }
     size_t outsize = this->codec.encode(cross_over_root, tmp_buf_.data(), maxoutsize);
     if (outsize == 0) {
       GRAMMARINATOR_LOG_WARN("Crossover failed, result could not be encoded");
@@ -200,13 +205,13 @@ public:
     }
     if (!options.empty()) {
       auto node_to_mutate = options[util::random_int<size_t>(0, options.size() - 1)];
-      std::string value = node_to_mutate->src;
-      std::string result = value;
-      int new_size = value.size() + 50;
+      std::string result = node_to_mutate->src;
+      size_t size = result.size();
+      int new_size = size + 50;
       result.resize(std::max(1, new_size));
-      result.resize(LLVMFuzzerMutate(reinterpret_cast<uint8_t*>(&result[0]), value.size(), result.size()));
+      result.resize(LLVMFuzzerMutate(reinterpret_cast<uint8_t*>(result.data()), size, result.size()));
       this->print_mutator("{}: {}", __func__, node_to_mutate->name);
-      node_to_mutate->src = result;
+      node_to_mutate->src = std::move(result);
       return root;
     }
     GRAMMARINATOR_LOG_TRACE("{} failed.", __func__);
