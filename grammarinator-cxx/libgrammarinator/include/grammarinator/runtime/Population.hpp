@@ -91,19 +91,25 @@ private:
   std::map<NodeKey, std::vector<Rule*>> rules_by_name_{};
   std::map<NodeKey, std::vector<Rule*>> quants_by_name_{};
   std::unordered_map<Rule*, NodeInfo> node_info_{};
+  bool nodes_collected_{};
+  bool rules_collected_{};
+  bool quants_collected_{};
   // The annotations of the tree that the tree of root_ is an unchanged clone
   // of, to take the keyed nodes from (until they are taken).
   Annotations* source_{};
+  Annotations* info_source_{};
   // The keys of the nodes of the tree in pre-order, as indices into
   // nodes_by_name_, rules_by_name_, and quants_by_name_ (-1: not keyed).
   std::vector<std::array<int, 3>> key_indices_{};
+  std::vector<NodeInfo> preorder_info_{};
+  std::vector<Rule*> preorder_nodes_{};
 
 public:
   explicit Annotations(Rule* root) : root_(root) { }
   // If root is a clone of the tree of source (and the tree of source has not
   // changed since), the keyed nodes are taken from source instead of being
   // collected again, which is cheaper if source is cloned repeatedly.
-  Annotations(Rule* root, Annotations& source) : root_(root), source_(&source) { }
+  Annotations(Rule* root, Annotations& source) : root_(root), source_(&source), info_source_(&source) { }
   Annotations(const Annotations& other) = delete;
   Annotations& operator=(const Annotations& other) = delete;
   Annotations(Annotations&& other) = delete;
@@ -114,8 +120,9 @@ public:
     if (source_) {
       take_keys();
     }
-    if (nodes_by_name_.empty()) {
+    if (!nodes_collected_) {
       collect_nodes(root_, nullptr);
+      nodes_collected_ = true;
     }
     return nodes_by_name_;
   }
@@ -124,8 +131,9 @@ public:
     if (source_) {
       take_keys();
     }
-    if (rules_by_name_.empty()) {
+    if (!rules_collected_) {
       collect_rules(root_);
+      rules_collected_ = true;
     }
     return rules_by_name_;
   }
@@ -134,13 +142,32 @@ public:
     if (source_) {
       take_keys();
     }
-    if (quants_by_name_.empty()) {
+    if (!quants_collected_) {
       collect_quants(root_, nullptr);
+      quants_collected_ = true;
     }
     return quants_by_name_;
   }
 
-  auto& node_info() {
+  std::unordered_map<Rule*, NodeInfo>& node_info() {
+    if (info_source_) {
+      auto* source = info_source_;
+      info_source_ = nullptr;
+      if (source->preorder_info_.empty()) {
+        const auto& info = source->node_info();
+        const auto& nodes = source->preorder();
+        source->preorder_info_.reserve(nodes.size());
+        for (auto node : nodes) {
+          source->preorder_info_.push_back(info.at(node));
+        }
+      }
+      const auto& nodes = preorder();
+      assert(nodes.size() == source->preorder_info_.size());
+      node_info_.reserve(nodes.size());
+      for (size_t i = 0; i < nodes.size(); ++i) {
+        node_info_.emplace(nodes[i], source->preorder_info_[i]);
+      }
+    }
     if (node_info_.empty()) {
       collect_info(root_, 0);
     }
@@ -180,12 +207,21 @@ public:
     rules_by_name_.clear();
     quants_by_name_.clear();
     node_info_.clear();
+    nodes_collected_ = rules_collected_ = quants_collected_ = false;
+    source_ = info_source_ = nullptr;
+    key_indices_.clear();
+    preorder_info_.clear();
+    preorder_nodes_.clear();
   }
 
 private:
-  static std::vector<Rule*> preorder(Rule* root) {
-    std::vector<Rule*> nodes;
-    std::vector<Rule*> worklist{root};
+  // Reuse the node order when transferring both keys and size annotations.
+  const std::vector<Rule*>& preorder() {
+    if (!preorder_nodes_.empty()) {
+      return preorder_nodes_;
+    }
+    auto& nodes = preorder_nodes_;
+    std::vector<Rule*> worklist{root_};
     while (!worklist.empty()) {
       Rule* node = worklist.back();
       worklist.pop_back();
@@ -200,7 +236,7 @@ private:
 
   const std::vector<std::array<int, 3>>& key_indices() {
     if (key_indices_.empty()) {
-      std::vector<Rule*> nodes = preorder(root_);
+      const auto& nodes = preorder();
       std::unordered_map<Rule*, size_t> positions;
       positions.reserve(nodes.size());
       for (size_t i = 0; i < nodes.size(); ++i) {
@@ -237,7 +273,7 @@ private:
         keyed_nodes[m].push_back(&it->second);
       }
     }
-    std::vector<Rule*> nodes = preorder(root_);
+    const auto& nodes = preorder();
     assert(nodes.size() == indices.size());
     for (size_t i = 0; i < nodes.size(); ++i) {
       for (int m = 0; m < 3; ++m) {
@@ -246,6 +282,7 @@ private:
         }
       }
     }
+    nodes_collected_ = rules_collected_ = quants_collected_ = true;
   }
 
   void collect_nodes(Rule* current, std::string* current_rule_name) {
