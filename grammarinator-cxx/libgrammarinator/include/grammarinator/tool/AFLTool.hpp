@@ -57,7 +57,7 @@ public:
     auto root = individual->root();
     auto annot = individual->annotations();
 
-    std::map<runtime::Annotations::NodeKey, std::vector<runtime::Rule*>> lookup = annot->nodes_by_name();
+    const auto& lookup = annot->nodes_by_name();
     std::vector<std::tuple<runtime::Annotations::NodeKey, runtime::Rule*>> options;
     for (const auto& [key, nodes] : lookup) {
       for (auto node : nodes) {
