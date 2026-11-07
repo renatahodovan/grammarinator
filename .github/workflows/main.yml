@@ -104,4 +104,4 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && github.repository == 'renatahodovan/grammarinator'
         with:
           password: ${{ secrets.pypi_token }}
-          packages_dir: .tox/build/tmp/
+          packages-dir: .tox/build/tmp/
