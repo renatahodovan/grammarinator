@@ -74,7 +74,7 @@ struct grafl_state {
   unsigned int fuzz_cnt;
 
   // Trimming
-  ContentTrimmer<Rule*, std::string, XXH64_hash_t> trimmer;
+  ContentTrimmer<Rule*, std::vector<uint8_t>, XXH64_hash_t> trimmer;
   size_t trim_step, trim_max_steps;
   std::set<Rule*> trim_init_config;
   std::map<Rule*, std::set<Rule*>> trim_links;
@@ -408,8 +408,6 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
       removed_parents.insert(removed_node->parent);
     }
     auto out_vec = st->tool->encode(st->current_tree);
-    // TODO: is this string conversion correct/appropriate?
-    std::string s(reinterpret_cast<const char*>(out_vec.data()), out_vec.size());
     // The trimmer calls this serializer in advance, while preparing its next
     // step (in init and post), possibly for several configurations, skipping
     // those whose buffer has already been tried. The last call is always for
@@ -420,13 +418,13 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
       // DANGER: another black magic, we reset the children to a saved state
       removed_parent->children = st->trim_saved_children.at(removed_parent);
     }
-    return s;
+    return out_vec;
   };
 
   GRAMMARINATOR_LOG_TRACE("INIT TRIM [{}]: {}...", st->trim_init_config.size(), st->tool->serializer(st->current_tree));
 
   // define the hasher
-  auto hasher = [](const std::string& s) { return XXH3_64bits(s.data(), s.length()); };
+  auto hasher = [](const std::vector<uint8_t>& s) { return XXH3_64bits(s.data(), s.size()); };
   return st->trimmer.init(st->trim_init_config, serializer, hasher, st->trim_links);
 }
 
@@ -442,7 +440,7 @@ size_t afl_custom_trim(void* data, unsigned char** out_buf) {
   auto st = static_cast<grafl_state*>(data);
 
   auto s = st->trimmer.trim();
-  size_t len = s.length();
+  size_t len = s.size();
   GRAMMARINATOR_LOG_TRACE("TRIM #{} [{}]", st->trim_step, st->trimmer.recall().size());
 
   // return trim_buffer via out_buffer, and the length of the data in trim_buffer
