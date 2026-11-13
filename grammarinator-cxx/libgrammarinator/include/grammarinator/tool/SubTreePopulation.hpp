@@ -130,6 +130,12 @@ private:
     dfs(root);
   }
 
+  // Selection weight of a node, preferring the nodes that are shared by fewer
+  // trees.
+  double weight(const RuleData& data) const {
+    return 1.0 / double(data.refcount);
+  }
+
   runtime::Rule* intern_node(runtime::Rule* node) {
     const XXH64_hash_t hash = rule_data_.at(node).hash;
 
@@ -208,26 +214,30 @@ public:
       return nullptr;
     const auto& candidate_nodes = it->second;
 
+    auto fits = [&](runtime::Rule* node) {
+      const auto& data = rule_data_.at(node);
+      return data.size.depth <= max_depth && data.size.tokens <= max_tokens;
+    };
+
     double total_w = 0.0;
     for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.depth <= max_depth && rule_data_.at(node).size.tokens <= max_tokens)
-        total_w += 1.0 / double(rule_data_.at(node).refcount);
+      if (fits(node))
+        total_w += weight(rule_data_.at(node));
     if (total_w <= 0.0)
       return nullptr;
 
     double r = util::random_real(0.0, total_w);
     double acc = 0.0;
     for (auto* node : candidate_nodes) {
-      if (rule_data_.at(node).size.depth > max_depth || rule_data_.at(node).size.tokens > max_tokens)
+      if (!fits(node))
         continue;
-      acc += 1.0 / double(rule_data_.at(node).refcount);
+      acc += weight(rule_data_.at(node));
       if (acc >= r)
         return new runtime::Individual(node->clone());
     }
 
     for (auto* node : candidate_nodes) {
-      const auto& size = rule_data_.at(node).size;
-      if (size.depth <= max_depth && size.tokens <= max_tokens)
+      if (fits(node))
         return new runtime::Individual(node->clone());
     }
 
