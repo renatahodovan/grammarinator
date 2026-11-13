@@ -208,26 +208,36 @@ public:
       return nullptr;
     const auto& candidate_nodes = it->second;
 
+    // Check whether a candidate stays within the recipient's size limits.
+    auto fits = [max_depth, max_tokens](const RuleData& data) {
+      return data.size.depth <= max_depth && data.size.tokens <= max_tokens;
+    };
+    // Prefer nodes shared by fewer trees.
+    auto weight = [](const RuleData& data) { return 1.0 / double(data.refcount); };
+
     double total_w = 0.0;
-    for (auto* node : candidate_nodes)
-      if (rule_data_.at(node).size.depth <= max_depth && rule_data_.at(node).size.tokens <= max_tokens)
-        total_w += 1.0 / double(rule_data_.at(node).refcount);
+    for (auto* node : candidate_nodes) {
+      const auto& data = rule_data_.at(node);
+      if (fits(data))
+        total_w += weight(data);
+    }
     if (total_w <= 0.0)
       return nullptr;
 
     double r = util::random_real(0.0, total_w);
     double acc = 0.0;
     for (auto* node : candidate_nodes) {
-      if (rule_data_.at(node).size.depth > max_depth || rule_data_.at(node).size.tokens > max_tokens)
+      const auto& data = rule_data_.at(node);
+      if (!fits(data))
         continue;
-      acc += 1.0 / double(rule_data_.at(node).refcount);
+      acc += weight(data);
       if (acc >= r)
         return new runtime::Individual(node->clone());
     }
 
     for (auto* node : candidate_nodes) {
-      const auto& size = rule_data_.at(node).size;
-      if (size.depth <= max_depth && size.tokens <= max_tokens)
+      const auto& data = rule_data_.at(node);
+      if (fits(data))
         return new runtime::Individual(node->clone());
     }
 
