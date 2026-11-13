@@ -90,6 +90,10 @@ private:
   std::map<NodeKey, std::vector<Rule*>> rules_by_name_{};
   std::map<NodeKey, std::vector<Rule*>> quants_by_name_{};
   std::unordered_map<Rule*, NodeInfo> node_info_{};
+  bool nodes_collected_{};
+  bool rules_collected_{};
+  bool quants_collected_{};
+  bool info_collected_{};
 
 public:
   explicit Annotations(Rule* root) : root_(root) { }
@@ -100,29 +104,33 @@ public:
   ~Annotations() = default;
 
   auto& nodes_by_name() {
-    if (nodes_by_name_.empty()) {
+    if (!nodes_collected_) {
       collect_nodes(root_, nullptr);
+      nodes_collected_ = true;
     }
     return nodes_by_name_;
   }
 
   auto& rules_by_name() {
-    if (rules_by_name_.empty()) {
+    if (!rules_collected_) {
       collect_rules(root_);
+      rules_collected_ = true;
     }
     return rules_by_name_;
   }
 
   auto& quants_by_name() {
-    if (quants_by_name_.empty()) {
+    if (!quants_collected_) {
       collect_quants(root_, nullptr);
+      quants_collected_ = true;
     }
     return quants_by_name_;
   }
 
   auto& node_info() {
-    if (node_info_.empty()) {
+    if (!info_collected_) {
       collect_info(root_, 0);
+      info_collected_ = true;
     }
     return node_info_;
   }
@@ -160,6 +168,7 @@ public:
     rules_by_name_.clear();
     quants_by_name_.clear();
     node_info_.clear();
+    nodes_collected_ = rules_collected_ = quants_collected_ = info_collected_ = false;
   }
 
 private:
