@@ -14,9 +14,11 @@
 #include <cassert>
 #include <format>
 #include <map>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace grammarinator {
@@ -94,8 +96,33 @@ private:
   bool rules_collected_{};
   bool quants_collected_{};
 
+  // The keyed nodes of a tree, by the pre-order positions of the nodes.
+  using KeyPositions = std::vector<std::pair<NodeKey, std::vector<size_t>>>;
+  struct PreorderKeys {
+    KeyPositions nodes;
+    KeyPositions rules;
+    KeyPositions quants;
+  };
+
+  // The annotations of the tree of root_ by the pre-order positions of its
+  // nodes, which apply to all the unchanged clones of the tree as well (built
+  // on demand, when a clone needs them).
+  std::unique_ptr<PreorderKeys> preorder_keys_{};
+  std::vector<NodeInfo> preorder_info_{};
+
+  // The annotations of the tree that the tree of root_ is an unchanged clone
+  // of (if any).
+  Annotations* source_{};
+  // The nodes of the tree of root_ in pre-order (built on demand).
+  std::vector<Rule*> preorder_{};
+
 public:
   explicit Annotations(Rule* root) : root_(root) { }
+  // If root is a clone of the tree of source (and the tree of source has not
+  // changed since), the annotations are taken from source by the pre-order
+  // positions of the nodes instead of being collected again, which is cheaper
+  // if source is cloned repeatedly.
+  Annotations(Rule* root, Annotations& source) : root_(root), source_(&source) { }
   Annotations(const Annotations& other) = delete;
   Annotations& operator=(const Annotations& other) = delete;
   Annotations(Annotations&& other) = delete;
@@ -104,7 +131,11 @@ public:
 
   auto& nodes_by_name() {
     if (!nodes_collected_) {
-      collect_nodes(root_, nullptr);
+      if (source_) {
+        take_keys(nodes_by_name_, source_->preorder_keys().nodes);
+      } else {
+        collect_nodes(root_, nullptr);
+      }
       nodes_collected_ = true;
     }
     return nodes_by_name_;
@@ -112,7 +143,11 @@ public:
 
   auto& rules_by_name() {
     if (!rules_collected_) {
-      collect_rules(root_);
+      if (source_) {
+        take_keys(rules_by_name_, source_->preorder_keys().rules);
+      } else {
+        collect_rules(root_);
+      }
       rules_collected_ = true;
     }
     return rules_by_name_;
@@ -120,7 +155,11 @@ public:
 
   auto& quants_by_name() {
     if (!quants_collected_) {
-      collect_quants(root_, nullptr);
+      if (source_) {
+        take_keys(quants_by_name_, source_->preorder_keys().quants);
+      } else {
+        collect_quants(root_, nullptr);
+      }
       quants_collected_ = true;
     }
     return quants_by_name_;
@@ -128,7 +167,11 @@ public:
 
   auto& node_info() {
     if (node_info_.empty()) {
-      collect_info(root_, 0);
+      if (source_) {
+        take_info(source_->preorder_info());
+      } else {
+        collect_info(root_, 0);
+      }
     }
     return node_info_;
   }
@@ -167,9 +210,91 @@ public:
     quants_by_name_.clear();
     node_info_.clear();
     nodes_collected_ = rules_collected_ = quants_collected_ = false;
+    preorder_keys_.reset();
+    preorder_info_.clear();
+    source_ = nullptr;
+    preorder_.clear();
   }
 
 private:
+  const std::vector<Rule*>& preorder() {
+    if (preorder_.empty()) {
+      std::vector<Rule*> worklist{root_};
+      while (!worklist.empty()) {
+        Rule* node = worklist.back();
+        worklist.pop_back();
+        preorder_.push_back(node);
+        if (node->type != Rule::UnlexerRuleType) {
+          const auto& children = static_cast<ParentRule*>(node)->children;
+          worklist.insert(worklist.end(), children.rbegin(), children.rend());
+        }
+      }
+    }
+    return preorder_;
+  }
+
+  const PreorderKeys& preorder_keys() {
+    if (!preorder_keys_) {
+      const auto& nodes = preorder();
+      std::unordered_map<Rule*, size_t> positions;
+      positions.reserve(nodes.size());
+      for (size_t i = 0; i < nodes.size(); ++i) {
+        positions.emplace(nodes[i], i);
+      }
+
+      auto key_positions = [&](const std::map<NodeKey, std::vector<Rule*>>& keyed_nodes) {
+        KeyPositions result;
+        result.reserve(keyed_nodes.size());
+        for (const auto& [key, key_nodes] : keyed_nodes) {
+          auto& key_node_positions = result.emplace_back(key, std::vector<size_t>()).second;
+          key_node_positions.reserve(key_nodes.size());
+          for (auto node : key_nodes) {
+            key_node_positions.push_back(positions.at(node));
+          }
+        }
+        return result;
+      };
+
+      preorder_keys_ = std::make_unique<PreorderKeys>();
+      preorder_keys_->nodes = key_positions(nodes_by_name());
+      preorder_keys_->rules = key_positions(rules_by_name());
+      preorder_keys_->quants = key_positions(quants_by_name());
+    }
+    return *preorder_keys_;
+  }
+
+  const std::vector<NodeInfo>& preorder_info() {
+    if (preorder_info_.empty()) {
+      const auto& info = node_info();
+      const auto& nodes = preorder();
+      preorder_info_.reserve(nodes.size());
+      for (auto node : nodes) {
+        preorder_info_.push_back(info.at(node));
+      }
+    }
+    return preorder_info_;
+  }
+
+  void take_keys(std::map<NodeKey, std::vector<Rule*>>& keyed_nodes, const KeyPositions& source_positions) {
+    const auto& nodes = preorder();
+    for (const auto& [key, key_node_positions] : source_positions) {
+      auto& key_nodes = keyed_nodes.emplace_hint(keyed_nodes.end(), key, std::vector<Rule*>())->second;
+      key_nodes.reserve(key_node_positions.size());
+      for (auto pos : key_node_positions) {
+        key_nodes.push_back(nodes[pos]);
+      }
+    }
+  }
+
+  void take_info(const std::vector<NodeInfo>& source_info) {
+    const auto& nodes = preorder();
+    assert(nodes.size() == source_info.size());
+    node_info_.reserve(nodes.size());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+      node_info_.emplace(nodes[i], source_info[i]);
+    }
+  }
+
   void collect_nodes(Rule* current, std::string* current_rule_name) {
     if (current->type == Rule::UnparserRuleType) {
       current_rule_name = &current->name;
@@ -253,13 +378,16 @@ class Individual {
 private:
   Annotations* annot_{};
   bool delete_root_;
+  Annotations* source_;
 
 protected:
   UnparserRule* root_;
 
 public:
-  explicit Individual(Rule* root = nullptr, bool delete_root = true)
-      : root_(new UnparserRule("<ROOT>")), delete_root_(delete_root) {
+  // If the individual is a clone of the tree of source (and the tree of
+  // source has not changed since), its annotations reuse those of source.
+  explicit Individual(Rule* root = nullptr, bool delete_root = true, Annotations* source = nullptr)
+      : root_(new UnparserRule("<ROOT>")), delete_root_(delete_root), source_(source) {
     if (root) {
       root_->add_child(root);
     }
@@ -286,7 +414,7 @@ public:
 
   Annotations* annotations() {
     if (!annot_) {
-      annot_ = new Annotations(root());
+      annot_ = source_ ? new Annotations(root(), *source_) : new Annotations(root());
     }
     return annot_;
   }
