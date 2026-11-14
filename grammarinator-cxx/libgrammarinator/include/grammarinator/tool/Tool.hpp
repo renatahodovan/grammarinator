@@ -590,16 +590,16 @@ public:
           }
 
           // Ensure the subtrees rooted at recipient and donor nodes are disjunct
-          // (only a parent rule node can contain the other node).
+          // (only a parent rule node can contain the other node, and an ancestor
+          // always has a strictly lower level than its descendants, so nodes on
+          // the same level are always disjunct).
           bool disjunct = true;
-          if (second_node->type != runtime::Rule::UnlexerRuleType) {
-            for (auto p = first_node->parent; p && disjunct; p = p->parent) {
-              disjunct = p != second_node;
-            }
-          }
-          if (first_node->type != runtime::Rule::UnlexerRuleType) {
-            for (auto p = second_node->parent; p && disjunct; p = p->parent) {
-              disjunct = p != first_node;
+          if (first_node_level != second_node_level) {
+            auto [upper_node, lower_node] = first_node_level < second_node_level ? std::pair{first_node, second_node} : std::pair{second_node, first_node};
+            if (upper_node->type != runtime::Rule::UnlexerRuleType) {
+              for (auto p = lower_node->parent; p && disjunct; p = p->parent) {
+                disjunct = p != upper_node;
+              }
             }
           }
           if (!disjunct) {
@@ -613,8 +613,10 @@ public:
 
           auto first_parent = first_node->parent;
           auto second_parent = second_node->parent;
-          *std::find(first_parent->children.begin(), first_parent->children.end(), first_node) = second_node;
-          *std::find(second_parent->children.begin(), second_parent->children.end(), second_node) = first_node;
+          auto first_it = std::find(first_parent->children.begin(), first_parent->children.end(), first_node);
+          auto second_it = std::find(second_parent->children.begin(), second_parent->children.end(), second_node);
+          *first_it = second_node;
+          *second_it = first_node;
           first_node->parent = second_parent;
           second_node->parent = first_parent;
           print_mutator("{}: {}", __func__, first_node->rule_name());

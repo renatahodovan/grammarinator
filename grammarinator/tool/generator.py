@@ -761,14 +761,17 @@ class GeneratorTool:
                         continue
 
                     # Ensure the subtrees rooted at recipient and donor nodes are disjunct
-                    # (only a parent rule node can contain the other node).
-                    upper_node, lower_node = (first_node, second_node) if first_node_level < second_node_level else (second_node, first_node)
+                    # (only a parent rule node can contain the other node, and an ancestor
+                    # always has a strictly lower level than its descendants, so nodes on
+                    # the same level are always disjunct).
                     disjunct = True
-                    if isinstance(upper_node, ParentRule):
-                        parent = lower_node.parent
-                        while parent and disjunct:
-                            disjunct = parent != upper_node
-                            parent = parent.parent
+                    if first_node_level != second_node_level:
+                        upper_node, lower_node = (first_node, second_node) if first_node_level < second_node_level else (second_node, first_node)
+                        if isinstance(upper_node, ParentRule):
+                            parent = lower_node.parent
+                            while parent and disjunct:
+                                disjunct = parent != upper_node
+                                parent = parent.parent
 
                     if not disjunct:
                         continue
@@ -780,8 +783,10 @@ class GeneratorTool:
                     first_parent = first_node.parent
                     second_parent = second_node.parent
                     assert first_parent is not None and second_parent is not None, 'Both nodes must have a parent.'
-                    first_parent.children[first_parent.children.index(first_node)] = second_node
-                    second_parent.children[second_parent.children.index(second_node)] = first_node
+                    first_idx = first_parent.children.index(first_node)
+                    second_idx = second_parent.children.index(second_node)
+                    first_parent.children[first_idx] = second_node
+                    second_parent.children[second_idx] = first_node
                     first_node.parent = second_parent
                     second_node.parent = first_parent
                     self.print_mutator('{}: {}', self.swap_local_nodes.__name__, first_node.rule_name)
