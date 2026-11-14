@@ -376,7 +376,7 @@ public:
         // Make sure that the output tree won't exceed the depth limit.
         if (recipient_node_level + donor_node_info.at(donor_node).depth <= limit.depth
             && recipient_root_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
-          recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size() - 1) : 0,
+          recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size()) : 0,
                                        donor_node->clone());
           print_mutator("{}: {}, {}", __func__, recipient_node->rule_name(), recipient_node->idx);
           return recipient_root;
@@ -460,7 +460,7 @@ public:
       // Draw the number of copies log-uniformly: small numbers are likely, but large ones remain possible.
       int repeat = max_repeat > 1 ? std::min(max_repeat, static_cast<int>(std::exp(util::random_real(0.0, std::log(max_repeat + 1.0))))) : 1;
       for (int i = 0; i < repeat; ++i) {
-        node_to_repeat->parent->insert_child(util::random_int<size_t>(0, node_to_repeat->parent->children.size() - 1),
+        node_to_repeat->parent->insert_child(util::random_int<size_t>(0, node_to_repeat->parent->children.size()),
                                              node_to_repeat->clone());
       }
       print_mutator("{}: {}, {}", __func__, node_to_repeat->rule_name(), static_cast<runtime::UnparserRuleQuantifier*>(node_to_repeat->parent)->idx);
@@ -660,7 +660,7 @@ public:
           for (auto donor_quantified_node : donor_quantifier->children) {
             if (recipient_node_level + node_info.at(donor_quantified_node).depth <= limit.depth
                 && root_tokens + node_info.at(donor_quantified_node).tokens <= limit.tokens) {
-              recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size() - 1) : 0,
+              recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size()) : 0,
                                            donor_quantified_node->clone());
               print_mutator("{}: {}, {}", __func__, recipient_node->rule_name(), recipient_node->idx);
               return root;
