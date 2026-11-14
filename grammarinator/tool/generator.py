@@ -594,7 +594,7 @@ class GeneratorTool:
                 if (recipient_node_level + donor_annot.node_depths[donor_node] <= self._limit.depth
                         and recipient_root_tokens + donor_annot.node_tokens[donor_node] < self._limit.tokens):
                     self.print_mutator('{}: {}, {}', self.insert_quantified.__name__, recipient_node.rule_name, recipient_node.idx)
-                    recipient_node.insert_child(random.randint(0, len(recipient_node.children)), donor_node)
+                    recipient_node.insert_child(random.randint(0, len(recipient_node.children)) if recipient_node.children else 0, donor_node)
                     return recipient_root
         logger.trace('%s failed.', self.insert_quantified.__name__)
         return None
