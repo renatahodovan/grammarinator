@@ -506,8 +506,8 @@ public:
       for (size_t i = 0; i < rules.size(); ++i) {
         auto rule_node = util::random_shuffle_next(rules, i);
         auto parent = rule_node->parent;
-        while (parent) {
-          if (parent->name == rule_node->name && parent != root) {
+        while (parent && parent != root) {
+          if (parent->name == rule_node->name) {
             print_mutator("{}: {}", __func__, parent->name);
             parent->replace(rule_node);
             delete parent;

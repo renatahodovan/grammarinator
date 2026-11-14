@@ -695,7 +695,7 @@ class GeneratorTool:
         root, annot = individual.root, individual.annotations
         for rule in random.sample(annot.rules, k=len(annot.rules)):
             parent = rule.parent
-            while parent:
+            while parent and parent != root:
                 if parent.name == rule.name:
                     self.print_mutator('{}: {}', self.hoist_rule.__name__, parent.name)
                     parent.replace(rule)
