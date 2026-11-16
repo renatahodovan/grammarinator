@@ -18,11 +18,16 @@
 #include <unordered_set>
 #include <vector>
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#endif
+
 #include "grammarinator/config.hpp"
 
 #ifndef GRAMMARINATOR_GENERATOR
 #error "GRAMMARINATOR_GENERATOR must be defined"
 #endif
+
 
 namespace {
 
@@ -198,9 +203,54 @@ size_t GrammarinatorCrossOver(uint8_t* Data1, size_t Size1, const uint8_t* Data2
   return libfuzzer_tool()->custom_cross_over(Data1, Size1, Data2, Size2, Out, MaxOutSize, Seed);
 }
 
+#ifdef __APPLE__
+namespace {
+// Mach-O cannot link an absent data symbol, so look it up in the process instead.
+bool* running_user_callback = static_cast<bool*>(dlsym(RTLD_DEFAULT, "_ZN6fuzzer19RunningUserCallbackE"));
+} // namespace
+#elif defined(__GNUC__)
+namespace fuzzer {
+// libFuzzer's internal flag may be absent in compatible drivers.
+extern bool RunningUserCallback __attribute__((weak));
+} // namespace fuzzer
+#endif
+
+namespace {
+
+// Temporarily disable libFuzzer's memory hooks while Grammarinator processes an input.
+class DisableLibFuzzerHooks {
+private:
+#ifdef __APPLE__
+  bool* flag_ = running_user_callback;
+#elif defined(__GNUC__)
+  bool* flag_ = &fuzzer::RunningUserCallback;
+#else
+  bool* flag_ = nullptr;
+#endif
+  bool previous_;
+
+public:
+  // Save the current hook state before disabling it, if libFuzzer provides one.
+  DisableLibFuzzerHooks() {
+    if (flag_) {
+      previous_ = *flag_;
+      *flag_ = false;
+    }
+  }
+  DisableLibFuzzerHooks(const DisableLibFuzzerHooks& other) = delete;
+  DisableLibFuzzerHooks& operator=(const DisableLibFuzzerHooks& other) = delete;
+  // Restore the hook state when Grammarinator returns to the fuzz target.
+  ~DisableLibFuzzerHooks() { if (flag_) *flag_ = previous_; }
+};
+
+}  // namespace
+
 extern "C"
 void GrammarinatorOneInput(const uint8_t** Data, size_t* Size) {
   static std::string input;
+
+  // LLVMFuzzerTestOneInput is active, but Grammarinator internals need no hooks.
+  DisableLibFuzzerHooks disable;
 
   input = libfuzzer_tool()->one_input(*Data, *Size);
   GRAMMARINATOR_LOG_TRACE("Test: {}", input);
