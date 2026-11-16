@@ -28,6 +28,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -59,8 +60,10 @@ struct grafl_state {
       GRAMMARINATOR_LISTENER>>> tool;
 
   // Trees
-  Rule* current_tree;
+  std::unique_ptr<Individual> current_individual;
   Rule* mutated_tree;
+
+  Rule* current_tree() const { return current_individual ? current_individual->root() : nullptr; }
 
   // Fuzz buffer
   std::vector<uint8_t> fuzz_buf;
@@ -162,7 +165,6 @@ void* afl_custom_init(afl_state_t* afl, unsigned int seed) {
   st->afl->afl_env.afl_post_process_keep_original = 1;
   st->fuzz_cnt = 0;
   st->trim_step = 0;
-  st->current_tree = nullptr;
   st->mutated_tree = nullptr;
   st->mutated_tree_emitted = false;
 
@@ -213,7 +215,6 @@ void afl_custom_deinit(void* data) {
   if (!st) {
     return;
   }
-  delete st->current_tree;
   delete st->mutated_tree;
   delete st;
 }
@@ -269,8 +270,7 @@ unsigned char afl_custom_queue_get(void* data, const unsigned char* filename) {
     return 0;
   }
 
-  delete st->current_tree;
-  st->current_tree = root;
+  st->current_individual = std::make_unique<Individual>(root);
 
   // Save seed corpus entries to the tree pool when they are first processed.
   if (st->afl->queue_cur && st->afl->queue_cur->depth == 1) {
@@ -305,16 +305,17 @@ size_t afl_custom_fuzz(void* data, unsigned char*, size_t,
                        unsigned char** out_buf, unsigned char* add_buf,
                        size_t add_buf_size, size_t max_size) {
   auto* st = static_cast<grafl_state*>(data);
-  if (!st->current_tree) {
+  if (!st->current_tree()) {
     *out_buf = nullptr;
     return 0;
   }
 
   st->mutated_tree_emitted = false;
   delete st->mutated_tree;
-  st->mutated_tree = st->current_tree->clone();
-  Individual individual(st->mutated_tree, false);
-  auto mutated_tree = st->tool->mutate(&individual);
+  // The clone of the current individual shares its annotations.
+  std::unique_ptr<Individual> mutated_individual(st->current_individual->clone(false));
+  st->mutated_tree = mutated_individual->root();
+  auto mutated_tree = st->tool->mutate(mutated_individual.get());
   if (!mutated_tree) {
     return 0;
   }
@@ -358,9 +359,9 @@ extern "C"
 int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
   auto st = static_cast<grafl_state*>(data);
 
-  if (!st->current_tree) {
+  if (!st->current_tree()) {
     // This happens if custom trim is used from afl-tmin.
-    st->current_tree = st->tool->decode(buf, size);
+    st->current_individual = std::make_unique<Individual>(st->tool->decode(buf, size));
   }
   st->trim_step = 1;
 
@@ -387,7 +388,7 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
         self(self, child, quantified_ancestor);
     }
   };
-  collector(collector, st->current_tree);
+  collector(collector, st->current_tree());
 
   st->trim_succ_config = st->trim_init_config;
 
@@ -408,13 +409,13 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
                                                      removed_node->parent->children.end(), removed_node));
       removed_parents.insert(removed_node->parent);
     }
-    auto out_vec = st->tool->encode(st->current_tree);
+    auto out_vec = st->tool->encode(st->current_tree());
     // The trimmer calls this serializer in advance, while preparing its next
     // step (in init and post), possibly for several configurations, skipping
     // those whose buffer has already been tried. The last call is always for
     // the configuration whose buffer trim() returns next, so the test case of
     // that buffer is the one that remains.
-    st->trim_next_test = st->tool->serializer(st->current_tree);
+    st->trim_next_test = st->tool->serializer(st->current_tree());
     for (auto removed_parent : removed_parents) {
       // DANGER: another black magic, we reset the children to a saved state
       removed_parent->children = st->trim_saved_children.at(removed_parent);
@@ -422,7 +423,7 @@ int afl_custom_init_trim(void* data, unsigned char* buf, size_t size) {
     return out_vec;
   };
 
-  GRAMMARINATOR_LOG_TRACE("INIT TRIM [{}]: {}...", st->trim_init_config.size(), st->tool->serializer(st->current_tree));
+  GRAMMARINATOR_LOG_TRACE("INIT TRIM [{}]: {}...", st->trim_init_config.size(), st->tool->serializer(st->current_tree()));
 
   // define the hasher
   auto hasher = [](const std::vector<uint8_t>& s) { return XXH3_64bits(s.data(), s.size()); };
@@ -493,10 +494,11 @@ int afl_custom_post_trim(void* data, unsigned char success) {
       removed_node->remove(); // first, detach all removed nodes from their parents
     for (auto removed_node : removed_config)
       delete removed_node; // only delete nodes once all of them are detached: this way the order of deletion does not matter
-    GRAMMARINATOR_LOG_INFO("POST TRIM [{}->{}]: {}", st->trim_init_config.size(), st->trim_succ_config.size(), st->tool->serializer(st->current_tree));
+    st->current_individual->reset_annotations();
+    GRAMMARINATOR_LOG_INFO("POST TRIM [{}->{}]: {}", st->trim_init_config.size(), st->trim_succ_config.size(), st->tool->serializer(st->current_tree()));
 
     // Save the trimmed tree to SubTreePopulation.
-    st->tool->save_tree(st->current_tree);
+    st->tool->save_tree(st->current_tree());
   }
   return post_result;
 }
