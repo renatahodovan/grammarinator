@@ -254,10 +254,10 @@ public:
       }
       auto rule_size = generator_factory._rule_sizes.at(node_id.name);
       for (auto node : nodes) {
-        if (node_info.at(node).level + rule_size.depth < limit.depth
+        if (node_info.at(node).level + rule_size.depth <= limit.depth
             // Heuristic: regenerate rules with fewer tokens than the half of the whole tree
             // && root_tokens / 2 > node_info.at(node).tokens
-            && root_tokens - node_info.at(node).tokens + rule_size.tokens < limit.tokens)
+            && root_tokens - node_info.at(node).tokens + rule_size.tokens <= limit.tokens)
           options.push_back(node);
       }
     }
@@ -319,7 +319,7 @@ public:
         auto donor_node = util::random_shuffle_next(donor_options, j);
         // Make sure that the output tree won't exceed the depth limit.
         if (recipient_node_level + donor_node_info.at(donor_node).depth <= limit.depth
-            && recipient_root_tokens - recipient_node_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
+            && recipient_root_tokens - recipient_node_tokens + donor_node_info.at(donor_node).tokens <= limit.tokens) {
           // Cloning is needed since donor_root will be deleted by the caller.
           print_mutator("{}: {}", __func__, recipient_node->rule_name());
           recipient_node->replace(donor_node->clone());
@@ -375,7 +375,7 @@ public:
         auto donor_node = util::random_shuffle_next(donor_options, j);
         // Make sure that the output tree won't exceed the depth limit.
         if (recipient_node_level + donor_node_info.at(donor_node).depth <= limit.depth
-            && recipient_root_tokens + donor_node_info.at(donor_node).tokens < limit.tokens) {
+            && recipient_root_tokens + donor_node_info.at(donor_node).tokens <= limit.tokens) {
           recipient_node->insert_child(recipient_node->children.size() > 0 ? util::random_int<size_t>(0, recipient_node->children.size()) : 0,
                                        donor_node->clone());
           print_mutator("{}: {}, {}", __func__, recipient_node->rule_name(), recipient_node->idx);

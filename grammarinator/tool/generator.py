@@ -510,8 +510,8 @@ class GeneratorTool:
                 continue
             for node in nodes:
                 if (node.parent is not None
-                        and annot.node_levels[node] + rule_size.depth < self._limit.depth
-                        and root_tokens - annot.node_tokens[node] + rule_size.tokens < self._limit.tokens):
+                        and annot.node_levels[node] + rule_size.depth <= self._limit.depth
+                        and root_tokens - annot.node_tokens[node] + rule_size.tokens <= self._limit.tokens):
                     options.append(node)
         if options:
             mutated_node = random.choice(options)
@@ -557,7 +557,7 @@ class GeneratorTool:
             for donor_node in random.sample(donor_options, k=len(donor_options)):
                 # Make sure that the output tree won't exceed the depth limit.
                 if (recipient_node_level + donor_annot.node_depths[donor_node] <= self._limit.depth
-                        and recipient_root_tokens - recipient_node_tokens + donor_annot.node_tokens[donor_node] < self._limit.tokens):
+                        and recipient_root_tokens - recipient_node_tokens + donor_annot.node_tokens[donor_node] <= self._limit.tokens):
                     self.print_mutator('{}: {}', self.replace_node.__name__, recipient_node.rule_name)
                     recipient_node.replace(donor_node)
                     return recipient_root
@@ -592,7 +592,7 @@ class GeneratorTool:
             for donor_node in random.sample(donor_options, k=len(donor_options)):
                 # Make sure that the output tree won't exceed the depth and token limits.
                 if (recipient_node_level + donor_annot.node_depths[donor_node] <= self._limit.depth
-                        and recipient_root_tokens + donor_annot.node_tokens[donor_node] < self._limit.tokens):
+                        and recipient_root_tokens + donor_annot.node_tokens[donor_node] <= self._limit.tokens):
                     self.print_mutator('{}: {}, {}', self.insert_quantified.__name__, recipient_node.rule_name, recipient_node.idx)
                     recipient_node.insert_child(random.randint(0, len(recipient_node.children)) if recipient_node.children else 0, donor_node)
                     return recipient_root
