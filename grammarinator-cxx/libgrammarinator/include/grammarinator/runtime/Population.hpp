@@ -14,6 +14,7 @@
 #include <cassert>
 #include <format>
 #include <map>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -95,131 +96,33 @@ private:
   bool quants_collected_{};
   bool info_collected_{};
 
-public:
-  explicit Annotations(Rule* root) : root_(root) { }
-  Annotations(const Annotations& other) = delete;
-  Annotations& operator=(const Annotations& other) = delete;
-  Annotations(Annotations&& other) = delete;
-  Annotations& operator=(Annotations&& other) = delete;
-  ~Annotations() = default;
-
-  auto& nodes_by_name() {
-    if (!nodes_collected_) {
-      collect_nodes(root_, nullptr);
-      nodes_collected_ = true;
-    }
-    return nodes_by_name_;
-  }
-
-  auto& rules_by_name() {
-    if (!rules_collected_) {
-      collect_rules(root_);
-      rules_collected_ = true;
-    }
-    return rules_by_name_;
-  }
-
-  auto& quants_by_name() {
-    if (!quants_collected_) {
-      collect_quants(root_, nullptr);
-      quants_collected_ = true;
-    }
-    return quants_by_name_;
-  }
-
-  auto& node_info() {
-    if (!info_collected_) {
-      collect_info(root_, 0);
-      info_collected_ = true;
-    }
-    return node_info_;
-  }
-
-  std::vector<Rule*> nodes() {
-    std::vector<Rule*> result;
-    for (auto& [rule_name, nodes] : nodes_by_name()) {
-      for (auto node : nodes)
-        result.push_back(node);
-    }
-    return result;
-  }
-
-  std::vector<Rule*> rules() {
-    std::vector<Rule*> result;
-    for (auto& [rule_name, nodes] : rules_by_name()) {
-      for (auto node : nodes)
-        result.push_back(node);
-    }
-    return result;
-  }
-
-  std::vector<Rule*> quants() {
-    std::vector<Rule*> result;
-    for (auto& [rule_name, nodes] : quants_by_name()) {
-      for (auto node : nodes)
-        result.push_back(node);
-    }
-    return result;
-  }
-
-
-  void reset() {
-    nodes_by_name_.clear();
-    rules_by_name_.clear();
-    quants_by_name_.clear();
-    node_info_.clear();
-    nodes_collected_ = rules_collected_ = quants_collected_ = info_collected_ = false;
-  }
-
-private:
-  void collect_nodes(Rule* current, std::string* current_rule_name) {
+  void collect_nodes(Rule* current, const std::string* current_rule_name,
+                     std::optional<NodeKey::NodeKeyType> filter, std::map<NodeKey, std::vector<Rule*>>& result) {
     if (current->type == Rule::UnparserRuleType) {
       current_rule_name = &current->name;
     }
-    if ((current->type == Rule::UnlexerRuleType || current->type == Rule::UnparserRuleType) &&
-        current != root_ &&
-        current->name != "<INVALID>" && current->name != "<ROOT>" &&
-        (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
-      nodes_by_name_[NodeKey(current->name)].push_back(current);
-    } else if ((current->type == Rule::UnparserRuleAlternativeType ||
-                current->type == Rule::UnparserRuleQuantifierType ||
-                current->type == Rule::UnparserRuleQuantifiedType) &&
-               current_rule_name) {
-      nodes_by_name_[NodeKey(current, *current_rule_name)].push_back(current);
-    }
-
-    if (current->type != Rule::UnlexerRuleType) {
-      for (auto child : static_cast<ParentRule*>(current)->children) {
-        collect_nodes(child, current_rule_name);
+    if (current->type == Rule::UnlexerRuleType || current->type == Rule::UnparserRuleType) {
+      if ((!filter || *filter == NodeKey::RuleKey) &&
+          current != root_ &&
+          current->name != "<INVALID>" && current->name != "<ROOT>" &&
+          (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
+        result[NodeKey(current->name)].push_back(current);
+      }
+    } else if (current->type == Rule::UnparserRuleQuantifierType) {
+      if ((!filter || *filter == NodeKey::QuantifierKey) &&
+          current_rule_name) {
+        result[NodeKey(current, *current_rule_name)].push_back(current);
+      }
+    } else if (current->type == Rule::UnparserRuleAlternativeType ||
+               current->type == Rule::UnparserRuleQuantifiedType) {
+      if (!filter && current_rule_name) {
+        result[NodeKey(current, *current_rule_name)].push_back(current);
       }
     }
-  }
-
-  void collect_rules(Rule* current) {
-    if ((current->type == Rule::UnlexerRuleType || current->type == Rule::UnparserRuleType) &&
-        current != root_ &&
-        current->name != "<INVALID>" && current->name != "<ROOT>" &&
-        (current->type != Rule::UnlexerRuleType || !static_cast<UnlexerRule*>(current)->immutable)) {
-      rules_by_name_[NodeKey(current->name)].push_back(current);
-    }
 
     if (current->type != Rule::UnlexerRuleType) {
       for (auto child : static_cast<ParentRule*>(current)->children) {
-        collect_rules(child);
-      }
-    }
-  }
-
-  void collect_quants(Rule* current, std::string* current_rule_name) {
-    if (current->type == Rule::UnparserRuleType) {
-      current_rule_name = &current->name;
-    } else if (current->type == Rule::UnparserRuleQuantifierType && current_rule_name) {
-      quants_by_name_[NodeKey(current, *current_rule_name)].push_back(current);
-    }
-
-    if (current->type != Rule::UnlexerRuleType) {
-      for (auto child : static_cast<ParentRule*>(current)->children) {
-        collect_quants(child, current_rule_name);
+        collect_nodes(child, current_rule_name, filter, result);
       }
     }
   }
@@ -229,10 +132,7 @@ private:
     int tokens = 0;
     if (current->type != Rule::UnlexerRuleType) {
       bool current_is_unparser_rule = current->type == Rule::UnparserRuleType;
-      int child_level = level;
-      if (current_is_unparser_rule) {
-        child_level++;
-      }
+      int child_level = current_is_unparser_rule ? level + 1 : level;
       for (auto child : static_cast<ParentRule*>(current)->children) {
         auto [child_depth, child_tokens] = collect_info(child, child_level);
         depth = std::max(depth, child_depth);
@@ -249,15 +149,75 @@ private:
     node_info_[current] = {level, depth, tokens};
     return {depth, tokens};
   }
+
+  static auto flatten(const std::map<NodeKey, std::vector<Rule*>>& named_nodes) {
+    std::vector<Rule*> result;
+    for (const auto& [name, nodes] : named_nodes) {
+      result.insert(result.end(), nodes.begin(), nodes.end());
+    }
+    return result;
+  }
+
+public:
+  explicit Annotations(Rule* root) : root_(root) { }
+  Annotations(const Annotations& other) = delete;
+  Annotations& operator=(const Annotations& other) = delete;
+  Annotations(Annotations&& other) = delete;
+  Annotations& operator=(Annotations&& other) = delete;
+  ~Annotations() = default;
+
+  auto& nodes_by_name() {
+    if (!nodes_collected_) {
+      collect_nodes(root_, nullptr, std::nullopt, nodes_by_name_);
+      nodes_collected_ = true;
+    }
+    return nodes_by_name_;
+  }
+
+  auto& rules_by_name() {
+    if (!rules_collected_) {
+      collect_nodes(root_, nullptr, NodeKey::RuleKey, rules_by_name_);
+      rules_collected_ = true;
+    }
+    return rules_by_name_;
+  }
+
+  auto& quants_by_name() {
+    if (!quants_collected_) {
+      collect_nodes(root_, nullptr, NodeKey::QuantifierKey, quants_by_name_);
+      quants_collected_ = true;
+    }
+    return quants_by_name_;
+  }
+
+  auto& node_info() {
+    if (!info_collected_) {
+      collect_info(root_, 0);
+      info_collected_ = true;
+    }
+    return node_info_;
+  }
+
+  auto nodes() { return flatten(nodes_by_name()); }
+  auto rules() { return flatten(rules_by_name()); }
+  auto quants() { return flatten(quants_by_name()); }
+
+  void reset() {
+    nodes_by_name_.clear();
+    rules_by_name_.clear();
+    quants_by_name_.clear();
+    node_info_.clear();
+    nodes_collected_ = rules_collected_ = quants_collected_ = info_collected_ = false;
+  }
 };
 
 class Individual {
-private:
-  Annotations* annot_{};
-  bool delete_root_;
-
 protected:
   UnparserRule* root_;
+
+private:
+  bool delete_root_;
+  Annotations* annot_{};
 
 public:
   explicit Individual(Rule* root = nullptr, bool delete_root = true)
